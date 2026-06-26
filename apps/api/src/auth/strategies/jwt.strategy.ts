@@ -50,6 +50,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         phone: true,
         avatarUrl: true,
         isActive: true,
+        vendor: { select: { id: true } },
+        deliveryPartner: { select: { id: true } },
       },
     });
 
@@ -61,6 +63,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phone: user.phone,
+      avatarUrl: user.avatarUrl,
+      isActive: user.isActive,
+      vendorId: user.vendor?.id || null,
+      deliveryPartnerId: user.deliveryPartner?.id || null,
+    };
   }
 }
