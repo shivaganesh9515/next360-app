@@ -1,11 +1,11 @@
 # Project State
 
-**Status:** Execution in Progress — Phases 1–4 Complete, 5–11 Remaining
+**Status:** Execution in Progress — Phases 1–4, 8 Complete; 5–7, 9–11 Remaining
 
 ## Current Phase
-- **Active:** Phase 8 — Orders & Payments (next)
-- **Completed:** Phases 1, 2, 3, 4
-- **Remaining:** Phases 5, 6, 7, 8, 9, 10, 11
+- **Active:** Phase 5 — Customer App A (Storefront) (next)
+- **Completed:** Phases 1, 2, 3, 4, 8
+- **Remaining:** Phases 5, 6, 7, 9, 10, 11
 
 ## Phase Status
 
@@ -15,10 +15,10 @@
 | 2 — Auth & RBAC | ✅ Complete | 02-PLAN.md |
 | 3 — Core API (Products, Cart, Orders prep) | ✅ Complete | 03/04-PLAN.md |
 | 4 — Vendor Dashboard (Web) | ✅ Complete | 05-PLAN.md |
-| 5 — Customer App A (Storefront) | 🔲 Not Started | 06-PLAN.md |
+| 5 — Customer App A (Storefront) | 🎯 Next | 06-PLAN.md |
 | 6 — Customer App B (Cart/Profile) | 🔲 Not Started | 07-PLAN.md |
 | 7 — AI Features | 🔲 Not Started | 11-PLAN.md |
-| 8 — Orders & Payments | 🎯 Next | 08-PLAN.md |
+| 8 — Orders & Payments | ✅ Complete | 08-PLAN.md |
 | 9 — Admin Panel (Web) | 🔲 Not Started | 09-PLAN.md |
 | 10 — Delivery App (Mobile) | 🔲 Not Started | 10-PLAN.md |
 | 11 — Polish & Launch | 🔲 Not Started | — |
@@ -46,7 +46,6 @@
 - Store profile editing, Notifications, Settings, Support
 
 ## What's Missing (Next Phases)
-- **Orders & Payments (Phase 8):** Full order lifecycle (9-state machine), Razorpay integration with Route auto-split, admin commission, vendor payouts, invoice generation
 - **Customer Mobile App (Phases 5+6):** Expo React Native storefront with 3 store-type tabs, checkout, profile
 - **Admin Panel (Phase 9):** Next.js admin dashboard
 - **Delivery App (Phase 10):** Expo delivery partner app
