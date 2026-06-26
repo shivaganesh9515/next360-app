@@ -1,0 +1,189 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CommissionQueryDto } from './dto/commission.dto';
+
+@Injectable()
+export class CommissionService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Calculate and create commission records for an order.
+   * Called automatically when an order is created/completed.
+   */
+  async calculateCommissions(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        vendorGroups: {
+          include: { vendor: true },
+        },
+      },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.paymentStatus !== 'PAID') {
+      throw new BadRequestException('Order is not yet paid');
+    }
+
+    // Create commission records for each vendor group
+    const commissions = [];
+    for (const group of order.vendorGroups) {
+      const commissionPct = group.vendor.commissionPct;
+      const commissionAmount =
+        (Number(group.subtotal) * commissionPct) / 100;
+
+      // Check if commission already exists for this (order, vendor)
+      const existing = await this.prisma.commission.findFirst({
+        where: { orderId, vendorId: group.vendorId },
+      });
+      if (existing) continue;
+
+      const commission = await this.prisma.commission.create({
+        data: {
+          orderId,
+          vendorId: group.vendorId,
+          orderAmount: group.subtotal,
+          commissionPct,
+          commissionAmount,
+        },
+        include: {
+          vendor: { select: { id: true, storeName: true } },
+        },
+      });
+      commissions.push(commission);
+    }
+
+    return commissions;
+  }
+
+  /**
+   * Get all commissions with pagination.
+   * ADMIN views all; VENDOR views their own.
+   */
+  async findAll(userId: string, role: string, query: CommissionQueryDto) {
+    const where: any = {};
+
+    if (role === 'VENDOR') {
+      const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+      if (!vendor) throw new NotFoundException('Vendor profile not found');
+      where.vendorId = vendor.id;
+    } else if (query.vendorId) {
+      where.vendorId = query.vendorId;
+    }
+
+    if (query.isPaid !== undefined) {
+      where.isPaid = query.isPaid;
+    }
+
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.commission.findMany({
+        where,
+        include: {
+          vendor: { select: { id: true, storeName: true } },
+          order: {
+            select: { id: true, orderNo: true, createdAt: true, totalAmount: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.commission.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get commission summary for a vendor.
+   */
+  async getSummary(userId: string, role: string) {
+    let vendorId: string | undefined;
+
+    if (role === 'VENDOR') {
+      const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+      if (!vendor) throw new NotFoundException('Vendor profile not found');
+      vendorId = vendor.id;
+    }
+
+    const where = vendorId ? { vendorId } : {};
+
+    const [totalCommission, paidCommission, unpaidCommission, recentCommissions] =
+      await this.prisma.$transaction([
+        this.prisma.commission.aggregate({
+          where,
+          _sum: { commissionAmount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: { ...where, isPaid: true },
+          _sum: { commissionAmount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: { ...where, isPaid: false },
+          _sum: { commissionAmount: true },
+        }),
+        this.prisma.commission.findMany({
+          where,
+          include: {
+            order: { select: { orderNo: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+      ]);
+
+    return {
+      totalCommission: totalCommission._sum.commissionAmount || 0,
+      paidCommission: paidCommission._sum.commissionAmount || 0,
+      unpaidCommission: unpaidCommission._sum.commissionAmount || 0,
+      recentCommissions,
+    };
+  }
+
+  /**
+   * Mark a commission as paid (admin action).
+   */
+  async markAsPaid(commissionId: string) {
+    const commission = await this.prisma.commission.findUnique({
+      where: { id: commissionId },
+    });
+    if (!commission) throw new NotFoundException('Commission not found');
+    if (commission.isPaid) throw new BadRequestException('Commission already paid');
+
+    return this.prisma.commission.update({
+      where: { id: commissionId },
+      data: { isPaid: true, paidAt: new Date() },
+    });
+  }
+
+  /**
+   * Mark multiple commissions as paid (bulk payout).
+   */
+  async markBulkAsPaid(commissionIds: string[]) {
+    const result = await this.prisma.commission.updateMany({
+      where: {
+        id: { in: commissionIds },
+        isPaid: false,
+      },
+      data: { isPaid: true, paidAt: new Date() },
+    });
+
+    return { updated: result.count };
+  }
+}

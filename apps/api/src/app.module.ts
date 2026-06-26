@@ -15,6 +15,9 @@ import { CouponsModule } from './coupons/coupons.module';
 import { OffersModule } from './offers/offers.module';
 import { ReturnsModule } from './returns/returns.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
+import { CommissionModule } from './commission/commission.module';
 
 @Module({
   imports: [
@@ -34,6 +37,9 @@ import { NotificationsModule } from './notifications/notifications.module';
     OffersModule,
     ReturnsModule,
     NotificationsModule,
+    OrdersModule,
+    PaymentsModule,
+    CommissionModule,
   ],
 })
 export class AppModule {}
