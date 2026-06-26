@@ -2,7 +2,7 @@
 
 ---
 
-## Phase 1: Foundation
+## Phase 1: Foundation ✅
 
 **Goal:** Turborepo monorepo initialized with NestJS backend, Prisma schema for full data model (including new entities), Supabase project connected.
 
@@ -17,7 +17,7 @@
 
 ---
 
-## Phase 2: Authentication & RBAC
+## Phase 2: Authentication & RBAC ✅
 
 **Goal:** User registration/login via Supabase Auth, NestJS validates JWT, full role-based access control (customer, vendor, delivery_partner, admin), OTP verification, forgot password, KYC flows.
 
@@ -36,7 +36,7 @@
 
 ---
 
-## Phase 3: Core API
+## Phase 3: Core API ✅
 
 **Goal:** Complete CRUD APIs for products, categories, brands, wishlist, reviews, cart, addresses, coupons, offers with store_type filtering.
 
@@ -59,7 +59,7 @@
 
 ---
 
-## Phase 4: Vendor Dashboard (Web)
+## Phase 4: Vendor Dashboard (Web) ✅
 
 **Goal:** Full Next.js web dashboard for vendors with KYC onboarding, product & inventory management, order management, earnings tracking, and analytics.
 
@@ -224,17 +224,17 @@
 
 ## Summary
 
-| Phase | Plans | Requirements |
-|-------|-------|-------------|
-| 1 — Foundation | 1 | 5 |
-| 2 — Auth & RBAC | 1 | 9 |
-| 3 — Core API | 2 | 13 |
-| 4 — Vendor App | 1 | 12 |
-| 5 — Customer App A | 1 | 8 |
-| 6 — Customer App B | 1 | 10 |
-| 7 — AI Features | 1 | 8 |
-| 8 — Orders & Payments | 1 | 8 |
-| 9 — Admin Panel | 1 | 17 |
-| 10 — Delivery App | 1 | 12 |
-| 11 — Polish & Launch | 1 | 6 |
-| **Total** | **12 plans** | **108 requirements** |
+| Phase | Plans | Requirements | Status |
+|-------|-------|-------------|--------|
+| 1 — Foundation | 1 | 5 | ✅ Complete |
+| 2 — Auth & RBAC | 1 | 9 | ✅ Complete |
+| 3 — Core API | 2 | 13 | ✅ Complete |
+| 4 — Vendor Dashboard (Web) | 1 | 12 | ✅ Complete |
+| 5 — Customer App A (Storefront) | 1 | 8 | 🔲 Pending |
+| 6 — Customer App B (Cart/Profile) | 1 | 10 | 🔲 Pending |
+| 7 — AI Features | 1 | 8 | 🔲 Pending |
+| 8 — Orders & Payments | 1 | 8 | 🎯 Next |
+| 9 — Admin Panel (Web) | 1 | 17 | 🔲 Pending |
+| 10 — Delivery App (Mobile) | 1 | 12 | 🔲 Pending |
+| 11 — Polish & Launch | 1 | 6 | 🔲 Pending |
+| **Total** | **12 plans** | **108 requirements** | **4/11 Complete** |
