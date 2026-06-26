@@ -1,63 +1,86 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '../lib/auth';
 import { useStore } from '../lib/store';
-import { Colors, Spacing, Typography, getStoreAccent } from '../constants/theme';
+import { Colors, Typography, getStoreAccent } from '../constants/theme';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
-import { ActivityIndicator } from 'react-native';
+import StorefrontScreen from '../screens/storefront/StorefrontScreen';
+import ProductListScreen from '../screens/storefront/ProductListScreen';
+import ProductDetailScreen from '../screens/storefront/ProductDetailScreen';
 
-const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const HomeStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Placeholder screens until Task 2
-function StorefrontScreen() {
-  const { storeType } = useStore();
+// Placeholder for tabs not yet built (Phase 6 will flesh these out)
+function PlaceholderScreen({ title }: { title: string }) {
   return (
     <View style={styles.placeholder}>
-      <Text style={styles.placeholderTitle}>Storefront</Text>
-      <Text style={styles.placeholderSub}>Store: {storeType}</Text>
-    </View>
-  );
-}
-
-function ProductsScreen() {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderTitle}>Products</Text>
+      <Text style={styles.placeholderTitle}>{title}</Text>
     </View>
   );
 }
 
 function FavoritesScreen() {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderTitle}>Favorites</Text>
-    </View>
-  );
+  return <PlaceholderScreen title="Favorites" />;
 }
 
 function OrdersScreen() {
+  return <PlaceholderScreen title="Orders" />;
+}
+
+function ProductsTabScreen() {
+  return <PlaceholderScreen title="All Products" />;
+}
+
+function HomeStackNavigator() {
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
+
   return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderTitle}>Orders</Text>
-    </View>
+    <HomeStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: Colors.background },
+        headerTintColor: Colors.text,
+        headerTitleStyle: Typography.h3,
+      }}
+    >
+      <HomeStack.Screen
+        name="Storefront"
+        component={StorefrontScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="ProductList"
+        component={ProductListScreen}
+        options={({ route }: any) => ({
+          title: route.params?.categoryName || 'Products',
+          headerTintColor: accent,
+        })}
+      />
+      <HomeStack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={{ title: '', headerTintColor: accent }}
+      />
+    </HomeStack.Navigator>
   );
 }
 
 function AuthStack() {
   return (
-    <Stack.Navigator
+    <RootStack.Navigator
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: Colors.background },
       }}
     >
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-    </Stack.Navigator>
+      <RootStack.Screen name="Login" component={LoginScreen} />
+      <RootStack.Screen name="Signup" component={SignupScreen} />
+    </RootStack.Navigator>
   );
 }
 
@@ -91,28 +114,25 @@ function MainTabs() {
           ...Typography.caption,
           marginTop: 2,
         },
-        headerStyle: {
-          backgroundColor: Colors.background,
-        },
+        headerStyle: { backgroundColor: Colors.background },
         headerTintColor: Colors.text,
-        headerTitleStyle: {
-          ...Typography.h3,
-        },
+        headerTitleStyle: Typography.h3,
       }}
     >
       <Tab.Screen
         name="Home"
-        component={StorefrontScreen}
+        component={HomeStackNavigator}
         options={{
           title: 'Home',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 20, color }}>🏠</Text>
           ),
         }}
       />
       <Tab.Screen
-        name="Products"
-        component={ProductsScreen}
+        name="ProductsTab"
+        component={ProductsTabScreen}
         options={{
           title: 'Products',
           tabBarIcon: ({ color }) => (
@@ -156,13 +176,13 @@ export default function AppNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
       {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainTabs} />
+        <RootStack.Screen name="Main" component={MainTabs} />
       ) : (
-        <Stack.Screen name="Auth" component={AuthStack} />
+        <RootStack.Screen name="Auth" component={AuthStack} />
       )}
-    </Stack.Navigator>
+    </RootStack.Navigator>
   );
 }
 
@@ -176,10 +196,5 @@ const styles = StyleSheet.create({
   placeholderTitle: {
     ...Typography.h1,
     color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  placeholderSub: {
-    ...Typography.body,
-    color: Colors.textSecondary,
   },
 });
