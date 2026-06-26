@@ -16,6 +16,8 @@ import {
   RazorpayWebhookDto,
 } from './dto/create-razorpay-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('payments')
@@ -48,6 +50,13 @@ export class PaymentsController {
   ) {
     // In production, verify webhook signature here using razorpay_webhook_secret
     return this.paymentsService.handleWebhook(dto);
+  }
+
+  @Post('refund/:orderId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  refund(@Param('orderId') orderId: string, @Body() dto: { reason?: string }) {
+    return this.paymentsService.initiateRefund(orderId, dto.reason);
   }
 
   @Get(':orderId')

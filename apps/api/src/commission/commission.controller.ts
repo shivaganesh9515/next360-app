@@ -52,4 +52,13 @@ export class CommissionController {
   bulkPay(@Body() dto: { commissionIds: string[] }) {
     return this.commissionService.markBulkAsPaid(dto.commissionIds);
   }
+
+  @Patch('rate/:vendorId')
+  @Roles('ADMIN')
+  updateRate(
+    @Param('vendorId') vendorId: string,
+    @Body() dto: { rate: number },
+  ) {
+    return this.commissionService.updateVendorCommissionRate(vendorId, dto.rate);
+  }
 }

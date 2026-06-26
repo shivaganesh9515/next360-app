@@ -206,4 +206,45 @@ export class PaymentsService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  /**
+   * Initiate a refund for a payment.
+   */
+  async initiateRefund(orderId: string, reason?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payments: true },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+
+    const payment = order.payments.find((p) => p.status === 'CAPTURED');
+    if (!payment) throw new BadRequestException('No captured payment found for refund');
+
+    // Call Razorpay refund API if configured
+    if (this.isConfigured() && payment.razorpayPaymentId) {
+      try {
+        await this.razorpay.payments.refund(payment.razorpayPaymentId, {
+          amount: Math.round(Number(order.totalAmount) * 100),
+          notes: { reason: reason || 'Customer requested refund' },
+        });
+      } catch (error: any) {
+        throw new BadRequestException(`Razorpay refund failed: ${error.message}`);
+      }
+    }
+
+    // Update payment and order status
+    await this.prisma.$transaction([
+      this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'REFUNDED' },
+      }),
+      this.prisma.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: 'REFUNDED', status: 'REFUNDED' },
+      }),
+    ]);
+
+    return { success: true, message: 'Refund processed successfully' };
+  }
 }

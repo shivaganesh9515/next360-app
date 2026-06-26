@@ -39,6 +39,13 @@ export class OrdersController {
     return this.ordersService.findAll(user.id, user.role, query);
   }
 
+  @Get('summary')
+  getSummary(
+    @CurrentUser() user: { id: string; role: string },
+  ) {
+    return this.ordersService.getSummary(user.id, user.role);
+  }
+
   @Get('vendor')
   @Roles('VENDOR')
   findVendorOrders(
@@ -46,6 +53,11 @@ export class OrdersController {
     @Query() query: OrderQueryDto,
   ) {
     return this.ordersService.findVendorOrders(user.id, query);
+  }
+
+  @Get(':id/timeline')
+  getTimeline(@Param('id') id: string) {
+    return this.ordersService.getOrderStatusTimeline(id);
   }
 
   @Get(':id')

@@ -186,4 +186,22 @@ export class CommissionService {
 
     return { updated: result.count };
   }
+
+  /**
+   * Update a vendor's commission rate (admin action).
+   */
+  async updateVendorCommissionRate(vendorId: string, rate: number) {
+    if (rate < 0 || rate > 100) {
+      throw new BadRequestException('Commission rate must be between 0 and 100');
+    }
+
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    return this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: { commissionPct: rate },
+      select: { id: true, storeName: true, commissionPct: true },
+    });
+  }
 }
