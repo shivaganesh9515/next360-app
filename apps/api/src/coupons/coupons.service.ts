@@ -83,20 +83,23 @@ export class CouponsService {
     if (dto.vendorId && coupon.vendorId && coupon.vendorId !== dto.vendorId) {
       throw new BadRequestException('Coupon not applicable for this vendor');
     }
-    if (coupon.minOrderAmount && dto.orderAmount < coupon.minOrderAmount) {
+    const minOrderAmount = Number(coupon.minOrderAmount || 0);
+    if (minOrderAmount > 0 && dto.orderAmount < minOrderAmount) {
       throw new BadRequestException(
-        `Minimum order amount of ${coupon.minOrderAmount} required`,
+        `Minimum order amount of ${minOrderAmount} required`,
       );
     }
 
     let discountAmount = 0;
+    const couponValue = Number(coupon.value);
     if (coupon.type === 'PERCENTAGE') {
-      discountAmount = (dto.orderAmount * Number(coupon.value)) / 100;
-      if (coupon.maxDiscount) {
-        discountAmount = Math.min(discountAmount, Number(coupon.maxDiscount));
+      discountAmount = (dto.orderAmount * couponValue) / 100;
+      const maxDiscount = Number(coupon.maxDiscount || 0);
+      if (maxDiscount > 0) {
+        discountAmount = Math.min(discountAmount, maxDiscount);
       }
     } else {
-      discountAmount = Number(coupon.value);
+      discountAmount = couponValue;
     }
 
     return {
