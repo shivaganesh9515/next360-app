@@ -1,0 +1,538 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────────
+
+enum StoreType {
+  ORGANIC
+  NATURAL
+  ECO_FRIENDLY
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  DELIVERY_PARTNER
+  ADMIN
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PACKED
+  ASSIGNED_TO_DELIVERY
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+enum DeliveryPartnerStatus {
+  OFFLINE
+  AVAILABLE
+  ON_DELIVERY
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
+// ─── Models ────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  phone     String?
+  name      String?
+  role      UserRole @default(CUSTOMER)
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses         Address[]
+  cartItems         CartItem[]
+  orders            Order[]
+  vendor            Vendor?
+  deliveries        DeliveryAssignment[]
+  kyc               KYC?
+  wishlistItems     WishlistItem[]
+  reviews           Review[]
+  notifications     Notification[]
+  aiLogs            AI_Log[]
+  pushTokens        PushToken[]
+}
+
+// Zone — city-based zone gating (MVP: Hyderabad + Vijayawada)
+model Zone {
+  id        String   @id @default(uuid())
+  name      String
+  city      String
+  isActive  Boolean  @default(true)
+
+  vendors          Vendor[]
+  deliveryPartners DeliveryPartner[]
+}
+
+model Vendor {
+  id               String       @id @default(uuid())
+  userId           String       @unique
+  user             User         @relation(fields: [userId], references: [id])
+  storeName        String
+  storeSlug        String       @unique
+  storeType        StoreType
+  description      String?
+  logoUrl          String?
+  bannerUrl        String?
+  status           VendorStatus @default(PENDING)
+  commissionPct    Float        @default(10.0)
+  razorpayAccountId String?
+  zoneId           String
+  zone             Zone         @relation(fields: [zoneId], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  products      Product[]
+  vendorGroups  OrderVendorGroup[]
+  coupons       Coupon[]
+  offers        Offer[]
+  commissions   Commission[]
+  payouts       Payout[]
+}
+
+// Separate DeliveryPartner model (not just a User role)
+model DeliveryPartner {
+  id          String                @id @default(uuid())
+  userId      String                @unique
+  user        User                  @relation(fields: [userId], references: [id])
+  vehicleType String
+  zoneId      String
+  zone        Zone                  @relation(fields: [zoneId], references: [id])
+  status      DeliveryPartnerStatus @default(OFFLINE)
+  currentLat  Float?
+  currentLng  Float?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  assignments DeliveryAssignment[]
+  payouts     Payout[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  imageUrl    String?
+  storeType   StoreType
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products      Product[]
+  subCategories SubCategory[]
+
+  @@unique([slug, storeType])
+}
+
+model SubCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  storeType   StoreType
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@unique([slug, storeType])
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  storeType   StoreType
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id             String   @id @default(uuid())
+  vendorId       String
+  vendor         Vendor   @relation(fields: [vendorId], references: [id])
+  categoryId     String
+  category       Category @relation(fields: [categoryId], references: [id])
+  subCategoryId  String?
+  subCategory    SubCategory? @relation(fields: [subCategoryId], references: [id])
+  brandId        String?
+  brand          Brand?   @relation(fields: [brandId], references: [id])
+  name           String
+  description    String?
+  price          Decimal  @db.Decimal(10, 2)
+  compareAtPrice Decimal? @db.Decimal(10, 2)
+  unit           String   // kg, g, piece, bunch, litre, etc.
+  stock          Int      @default(0)
+  images         String[] // URLs stored in Supabase Storage
+  isActive       Boolean  @default(true)
+  isApproved     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  variants        ProductVariant[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  wishlistItems   WishlistItem[]
+  reviews         Review[]
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  name      String
+  price     Decimal @db.Decimal(10, 2)
+  stock     Int     @default(0)
+  sku       String? @unique
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model Review {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id])
+  rating           Int      // 1-5
+  title            String?
+  body             String?
+  isVerifiedPurchase Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+model Address {
+  id          String  @id @default(uuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id])
+  label       String? // Home, Work, Other
+  fullAddress String
+  city        String
+  state       String
+  pincode     String
+  lat         Float?
+  lng         Float?
+  isDefault   Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// One customer order can span multiple vendors — each vendor's portion is tracked independently
+model Order {
+  id              String        @id @default(uuid())
+  orderNo         String        @unique
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  addressId       String
+  address         Address       @relation(fields: [addressId], references: [id])
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  paymentMethod   String        // RAZORPAY | COD
+  paymentStatus   PaymentStatus @default(PENDING)
+  razorpayOrderId String?
+  status          OrderStatus   @default(PLACED)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  vendorGroups OrderVendorGroup[]
+  payments     Payment[]
+  returnRequests ReturnRequest[]
+  commissions    Commission[]
+}
+
+// One record per vendor per order — tracked and fulfilled independently (Swiggy/Zomato model)
+model OrderVendorGroup {
+  id        String      @id @default(uuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  vendorId  String
+  vendor    Vendor      @relation(fields: [vendorId], references: [id])
+  subtotal  Decimal     @db.Decimal(10, 2)
+  status    OrderStatus @default(PLACED)
+
+  items     OrderItem[]
+  delivery  DeliveryAssignment?
+}
+
+model OrderItem {
+  id                 String           @id @default(uuid())
+  orderVendorGroupId String
+  group              OrderVendorGroup @relation(fields: [orderVendorGroupId], references: [id])
+  productId          String
+  product            Product          @relation(fields: [productId], references: [id])
+  name               String           // snapshot at order time
+  priceAtPurchase    Decimal          @db.Decimal(10, 2)
+  quantity           Int
+}
+
+// One delivery assignment per OrderVendorGroup (not per Order)
+model DeliveryAssignment {
+  id                 String           @id @default(uuid())
+  orderVendorGroupId String           @unique
+  orderVendorGroup   OrderVendorGroup @relation(fields: [orderVendorGroupId], references: [id])
+  deliveryPartnerId  String
+  deliveryPartner    DeliveryPartner  @relation(fields: [deliveryPartnerId], references: [id])
+  assignedAt         DateTime         @default(now())
+  otp                String           // verified on pickup
+  pickedUpAt         DateTime?
+  deliveredAt        DateTime?
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String
+  order             Order         @relation(fields: [orderId], references: [id])
+  razorpayPaymentId String?
+  razorpayOrderId   String?
+  amount            Decimal       @db.Decimal(10, 2)
+  status            String        @default("PENDING") // PENDING, CAPTURED, FAILED, REFUNDED
+  method            String?
+  createdAt         DateTime      @default(now())
+}
+
+model Commission {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  vendorId        String
+  vendor          Vendor   @relation(fields: [vendorId], references: [id])
+  orderAmount     Decimal  @db.Decimal(10, 2)
+  commissionPct   Float
+  commissionAmount Decimal @db.Decimal(10, 2)
+  isPaid          Boolean  @default(false)
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+}
+
+model Payout {
+  id          String   @id @default(uuid())
+  vendorId    String?
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id])
+  deliveryPartnerId String?
+  deliveryPartner DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  amount      Decimal  @db.Decimal(10, 2)
+  status      String   @default("PENDING") // PENDING, PROCESSED, PAID, FAILED
+  periodStart DateTime?
+  periodEnd   DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Coupon {
+  id            String     @id @default(uuid())
+  code          String     @unique
+  type          CouponType
+  value         Decimal    @db.Decimal(10, 2)
+  minOrderAmount Decimal?  @db.Decimal(10, 2)
+  maxDiscount   Decimal?   @db.Decimal(10, 2)
+  usageLimit    Int?
+  usedCount     Int        @default(0)
+  vendorId      String?
+  vendor        Vendor?    @relation(fields: [vendorId], references: [id])
+  expiresAt     DateTime?
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Offer {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  storeType     StoreType
+  discountType  CouponType
+  discountValue Decimal   @db.Decimal(10, 2)
+  startDate     DateTime
+  endDate       DateTime
+  vendorId      String?
+  vendor        Vendor?   @relation(fields: [vendorId], references: [id])
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ReturnRequest {
+  id          String       @id @default(uuid())
+  orderId     String
+  order       Order        @relation(fields: [orderId], references: [id])
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  reason      String
+  status      ReturnStatus @default(PENDING)
+  refundAmount Decimal?    @db.Decimal(10, 2)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model KYC {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  documentType    String
+  documentNumber  String?
+  documentUrl     String?
+  status          KycStatus @default(PENDING)
+  rejectionReason String?
+  submittedAt     DateTime  @default(now())
+  verifiedAt      DateTime?
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  type      String   // ORDER, PROMO, SYSTEM, etc.
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String
+  platform  String   // ios, android, web
+  createdAt DateTime @default(now())
+}
+
+model AI_Log {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // SCANNER, CHAT, RECOMMENDATION
+  input     String
+  output    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model AI_Recommendation {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String?
+  type      String   // PERSONALIZED, SIMILAR, TRENDING
+  score     Float?
+  createdAt DateTime @default(now())
+}
+
+model CMS_Page {
+  id            String   @id @default(uuid())
+  title         String
+  slug          String   @unique
+  content       String
+  metaTitle     String?
+  metaDescription String?
+  isPublished   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Banner {
+  id        String    @id @default(uuid())
+  title     String?
+  imageUrl  String
+  linkUrl   String?
+  storeType StoreType
+  position  Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions Json?    // JSON array of permission identifiers
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Permission {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  resource  String
+  action    String   // create, read, update, delete, manage
+  createdAt DateTime @default(now())
+}
