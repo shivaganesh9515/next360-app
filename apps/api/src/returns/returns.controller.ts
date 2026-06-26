@@ -29,15 +29,24 @@ export class ReturnsController {
     return this.returnsService.findAll(user.id, user.role);
   }
 
+  // Vendor-specific returns
+  @Get('vendor')
+  @UseGuards(RolesGuard)
+  @Roles('VENDOR')
+  findVendorReturns(@CurrentUser() user: any) {
+    return this.returnsService.findAll(user.id, 'ADMIN'); // Admins see all, vendors see all
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.returnsService.findOne(id);
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
-  process(@Param('id') id: string, @Body() dto: ProcessReturnDto) {
-    return this.returnsService.process(id, dto);
+  process(@Param('id') id: string, @Body() dto: any) {
+    return this.returnsService.process(id, {
+      status: dto.status,
+      rejectionReason: dto.reason,
+    });
   }
 }

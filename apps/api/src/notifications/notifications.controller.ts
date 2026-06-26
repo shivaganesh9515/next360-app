@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Query,
@@ -43,6 +44,11 @@ export class NotificationsController {
 
   @Patch('read-all')
   markAllAsRead(@CurrentUser() user: { id: string }) {
+    return this.notificationsService.markAllAsRead(user.id);
+  }
+
+  @Post('read-all')
+  markAllAsReadPost(@CurrentUser() user: { id: string }) {
     return this.notificationsService.markAllAsRead(user.id);
   }
 }
