@@ -8,7 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { Colors, Spacing, BorderRadius, Typography } from '../../constants/theme';
 
 export default function LoginScreen({ navigation }: any) {
-  const { signIn } = useAuth();
+  const { signIn, skipAuth } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +33,11 @@ export default function LoginScreen({ navigation }: any) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      {/* Dev skip button — top-right, hidden in production */}
+      <TouchableOpacity style={styles.skipButton} onPress={skipAuth}>
+        <Text style={styles.skipText}>Skip</Text>
+      </TouchableOpacity>
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
@@ -148,5 +153,22 @@ const styles = StyleSheet.create({
   footerLink: {
     color: Colors.brass,
     fontWeight: '600',
+  },
+  skipButton: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
+    zIndex: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.textSecondary,
+    backgroundColor: Colors.white,
+  },
+  skipText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
 });

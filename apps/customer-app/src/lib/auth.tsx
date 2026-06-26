@@ -9,6 +9,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: { email: string; password: string; name: string; phone?: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  skipAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,9 +50,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  /** Dev-only: skip auth and jump straight into the app */
+  const skipAuth = useCallback(() => {
+    setUser({
+      id: 'dev-user-id',
+      email: 'dev@skip.com',
+      name: 'Dev User',
+      role: 'CUSTOMER',
+    });
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, isAuthenticated: !!user, signIn, signUp, signOut }}
+      value={{ user, isLoading, isAuthenticated: !!user, signIn, signUp, signOut, skipAuth }}
     >
       {children}
     </AuthContext.Provider>
