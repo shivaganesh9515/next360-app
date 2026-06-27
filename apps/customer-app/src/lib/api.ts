@@ -98,6 +98,12 @@ export const customerApi = {
     api.post<{ access_token: string; user: any }>('/auth/register', { ...data, role: 'CUSTOMER' }),
   getProfile: () => api.get<any>('/users/me'),
 
+  // Phone OTP auth
+  sendPhoneOtp: (phone: string) =>
+    api.post<{ message: string }>('/auth/send-otp', { phone }),
+  verifyPhoneOtp: (phone: string, otp: string) =>
+    api.post<{ access_token: string; user: any }>('/auth/verify-otp', { phone, otp }),
+
   // Products
   getProducts: (params?: Record<string, any>) =>
     api.get<any>('/products', params),

@@ -8,6 +8,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: { email: string; password: string; name: string; phone?: string }) => Promise<void>;
+  sendPhoneOtp: (phone: string) => Promise<void>;
+  verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
   signOut: () => Promise<void>;
   skipAuth: () => void;
 }
@@ -18,9 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  useEffect(() => { checkAuth(); }, []);
 
   async function checkAuth() {
     try {
@@ -45,25 +45,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
   }, []);
 
+  const sendPhoneOtp = useCallback(async (phone: string) => {
+    await customerApi.sendPhoneOtp(phone);
+  }, []);
+
+  const verifyPhoneOtp = useCallback(async (phone: string, otp: string) => {
+    const res = await customerApi.verifyPhoneOtp(phone, otp);
+    await setToken(res.access_token);
+    setUser(res.user);
+  }, []);
+
   const signOut = useCallback(async () => {
     await removeToken();
     setUser(null);
   }, []);
 
-  /** Dev-only: skip auth and jump straight into the app */
   const skipAuth = useCallback(() => {
-    setUser({
-      id: 'dev-user-id',
-      email: 'dev@skip.com',
-      name: 'Dev User',
-      role: 'CUSTOMER',
-    });
+    setUser({ id: 'dev-user-id', email: 'dev@skip.com', name: 'Dev User', role: 'CUSTOMER' });
   }, []);
 
   return (
-    <AuthContext.Provider
-      value={{ user, isLoading, isAuthenticated: !!user, signIn, signUp, signOut, skipAuth }}
-    >
+    <AuthContext.Provider value={{
+      user, isLoading, isAuthenticated: !!user,
+      signIn, signUp, sendPhoneOtp, verifyPhoneOtp, signOut, skipAuth,
+    }}>
       {children}
     </AuthContext.Provider>
   );

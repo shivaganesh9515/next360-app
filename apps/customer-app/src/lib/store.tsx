@@ -7,16 +7,18 @@ const STORE_KEY = 'selected_store_type';
 interface StoreContextType {
   storeType: StoreType;
   setStoreType: (type: StoreType) => Promise<void>;
+  cartCount: number;
+  setCartCount: (n: number) => void;
+  incrementCart: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [storeType, setStoreTypeState] = useState<StoreType>(StoreType.ORGANIC);
+  const [cartCount, setCartCount] = useState(0);
 
-  useEffect(() => {
-    loadStoreType();
-  }, []);
+  useEffect(() => { loadStoreType(); }, []);
 
   async function loadStoreType() {
     try {
@@ -34,8 +36,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORE_KEY, type);
   };
 
+  const incrementCart = () => setCartCount(c => c + 1);
+
   return (
-    <StoreContext.Provider value={{ storeType, setStoreType }}>
+    <StoreContext.Provider value={{ storeType, setStoreType, cartCount, setCartCount, incrementCart }}>
       {children}
     </StoreContext.Provider>
   );

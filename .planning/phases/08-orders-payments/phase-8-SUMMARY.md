@@ -235,6 +235,14 @@ Each unit of work was committed atomically:
 - Commission tracking ready for Phase 9 (Admin Panel payout management)
 - Remaining: webhook secret verification, Route payout automation
 
+## Self-Check: PASSED
+
+- [x] SUMMARY.md created at `.planning/phases/08-orders-payments/phase-8-SUMMARY.md`
+- [x] STATE.md updated (Phase 8 complete, Phase 5 next)
+- [x] ROADMAP.md updated (Phase 8 ✅, requirements checked, 5/11 complete)
+- [x] 3 commits exist: `b7b3e42`, `f3eead5`, `32c51c1`
+- [x] Build passes with 0 errors (`npm run build --workspace=@next360/api`)
+
 ---
 *Phase: 08-orders-payments*
 *Completed: 2026-06-26*
