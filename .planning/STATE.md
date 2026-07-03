@@ -1,11 +1,11 @@
 # Project State
 
-**Status:** Execution in Progress — Phases 1–4, 8 Complete; 5–7, 9–11 Remaining
+**Status:** Execution in Progress — Phases 1–5, 8–10 Complete; 6–7, 11 Remaining
 
 ## Current Phase
-- **Active:** Phase 5 — Customer App A (Storefront) (next)
-- **Completed:** Phases 1, 2, 3, 4, 8
-- **Remaining:** Phases 5, 6, 7, 9, 10, 11
+- **Active:** Phase 6 — Customer App B (Cart/Profile) (next)
+- **Completed:** Phases 1, 2, 3, 4, 5, 8, 9, 10
+- **Remaining:** Phases 6, 7, 11
 
 ## Phase Status
 
@@ -15,12 +15,12 @@
 | 2 — Auth & RBAC | ✅ Complete | 02-PLAN.md |
 | 3 — Core API (Products, Cart, Orders prep) | ✅ Complete | 03/04-PLAN.md |
 | 4 — Vendor Dashboard (Web) | ✅ Complete | 05-PLAN.md |
-| 5 — Customer App A (Storefront) | 🎯 Next | 06-PLAN.md |
-| 6 — Customer App B (Cart/Profile) | 🔲 Not Started | 07-PLAN.md |
+| 5 — Customer App A (Storefront) | ✅ Complete | 06-PLAN.md |
+| 6 — Customer App B (Cart/Profile) | 🎯 Next | 07-PLAN.md |
 | 7 — AI Features | 🔲 Not Started | 11-PLAN.md |
 | 8 — Orders & Payments | ✅ Complete | 08-PLAN.md |
-| 9 — Admin Panel (Web) | 🔲 Not Started | 09-PLAN.md |
-| 10 — Delivery App (Mobile) | 🔲 Not Started | 10-PLAN.md |
+| 9 — Admin Panel (Web) | ✅ Complete | 09-PLAN.md |
+| 10 — Delivery App (Mobile) | ✅ Complete | 10-PLAN.md |
 | 11 — Polish & Launch | 🔲 Not Started | — |
 
 ## What's Built
@@ -44,6 +44,23 @@
 - Orders listing, returns management, coupons & offers CRUD
 - Customers, Analytics (sales/revenue charts), Earnings (payouts/transactions)
 - Store profile editing, Notifications, Settings, Support
+
+### Admin Panel (apps/admin-panel)
+- Next.js App Router app with 34 routes
+- Auth (login), Dashboard (overview stats, charts, recent activity)
+- Vendor management (list, detail, approvals), Delivery partner management
+- Product management, Catalog (categories, sub-categories, brands)
+- Order management (list, detail, returns, refunds)
+- Financial (payments, vendor/delivery payouts, commissions)
+- Inventory, Reviews, Ratings, Promotions (coupons, offers)
+- AI logs, Reports, CMS (pages, banners), Zones, Roles, Settings
+
+### Delivery App (apps/delivery-app)
+- Expo React Native app with tab-based navigation
+- Auth (login), Dashboard (Online/Offline toggle, new orders, stats)
+- New Orders list (accept/reject), Active Delivery (status tracking, OTP verification)
+- Delivery History (period filtering), Earnings (breakdown, stats)
+- Profile, Supabase Realtime for incoming orders
 
 ## What's Missing (Next Phases)
 - **Customer Mobile App (Phases 5+6):** Expo React Native storefront with 3 store-type tabs, checkout, profile
