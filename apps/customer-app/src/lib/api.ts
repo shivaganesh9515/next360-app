@@ -95,14 +95,18 @@ export const customerApi = {
   login: (email: string, password: string) =>
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
   signup: (data: { email: string; password: string; name: string; phone?: string }) =>
-    api.post<{ access_token: string; user: any }>('/auth/register', { ...data, role: 'CUSTOMER' }),
+    api.post<{ access_token: string; user: any }>('/auth/signup', { ...data, role: 'CUSTOMER' }),
   getProfile: () => api.get<any>('/users/me'),
+  updateProfile: (data: { name?: string; phone?: string }) =>
+    api.patch<any>('/users/me', data),
 
-  // Phone OTP auth
-  sendPhoneOtp: (phone: string) =>
-    api.post<{ message: string }>('/auth/send-otp', { phone }),
-  verifyPhoneOtp: (phone: string, otp: string) =>
-    api.post<{ access_token: string; user: any }>('/auth/verify-otp', { phone, otp }),
+  // Email verification / password recovery
+  verifyOtp: (email: string, otp: string) =>
+    api.post<{ message: string }>('/auth/verify-otp', { email, otp }),
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ message: string }>('/auth/reset-password', { token, newPassword }),
 
   // Products
   getProducts: (params?: Record<string, any>) =>
@@ -134,6 +138,7 @@ export const customerApi = {
   getOrders: (params?: Record<string, any>) =>
     api.get<any>('/orders', params),
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
+  getOrderTimeline: (id: string) => api.get<any>(`/orders/${id}/timeline`),
 
   // Wishlist
   getWishlist: () => api.get<any[]>('/wishlist'),
@@ -162,4 +167,21 @@ export const customerApi = {
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
   markAllNotificationsRead: () => api.post<any>('/notifications/read-all'),
+
+  // AI Features
+  sendAiMessage: (message: string, context?: { productId?: string; orderId?: string }) =>
+    api.post<any>('/ai/chat', { message, context }),
+  scanProduct: async (imageUri: string): Promise<any> => {
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || 'scan.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    formData.append('file', { uri: imageUri, name: filename, type } as any);
+    return api.upload<any>('/ai/scan', formData);
+  },
+  getAiRecommendations: (limit?: number) =>
+    api.get<any>('/ai/recommendations', { limit: limit || 10 }),
+  getHealthInsights: () => api.get<any>('/ai/health-insights'),
+  getChatHistory: (page?: number, limit?: number) =>
+    api.get<any>('/ai/chat-history', { page: page || 1, limit: limit || 20 }),
 };

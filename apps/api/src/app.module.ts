@@ -18,6 +18,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CommissionModule } from './commission/commission.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CommissionModule } from './commission/commission.module';
     OrdersModule,
     PaymentsModule,
     CommissionModule,
+    AiModule,
   ],
 })
 export class AppModule {}
