@@ -7,8 +7,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/auth';
-import { useStore } from '../lib/store';
-import { Colors, Typography } from '../constants/theme';
+import { useZone } from '../lib/zone';
+import { Colors } from '../constants/theme';
 import SplashScreen from '../screens/onboarding/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -17,47 +17,51 @@ import VerificationCodeScreen from '../screens/auth/VerificationCodeScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
+import SearchScreen from '../screens/search/SearchScreen';
 import ProductListScreen from '../screens/storefront/ProductListScreen';
-import ProductDetailScreen from '../screens/storefront/ProductDetailScreen';
 import CartScreen from '../screens/cart/CartScreen';
 import CheckoutScreen from '../screens/cart/CheckoutScreen';
 import OrderConfirmationScreen from '../screens/cart/OrderConfirmationScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import OrderHistoryScreen from '../screens/profile/OrderHistoryScreen';
+import OrderDetailScreen from '../screens/profile/OrderDetailScreen';
 import AddressListScreen from '../screens/profile/AddressListScreen';
 import AddAddressScreen from '../screens/profile/AddAddressScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import SupportScreen from '../screens/profile/SupportScreen';
+import WishlistScreen from '../screens/wishlist/WishlistScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import PromosScreen from '../screens/promos/PromosScreen';
+import SelectLocationScreen from '../screens/location/SelectLocationScreen';
+import AiAssistantScreen from '../screens/ai/AiAssistantScreen';
+import AiProductScannerScreen from '../screens/ai/AiProductScannerScreen';
+import AiRecommendationsScreen from '../screens/ai/AiRecommendationsScreen';
+import AiHealthInsightsScreen from '../screens/ai/AiHealthInsightsScreen';
+import AiChatHistoryScreen from '../screens/ai/AiChatHistoryScreen';
 
 const ONBOARDING_KEY = 'next360:hasOnboarded';
 
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
+const OrdersStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const GREEN_DARK = '#1A5C35';
 const GREEN_PILL = '#E8F5EE';
 
-// ── Inline icons (no external dep) ───────────────────────────────────────────
-// Using well-supported Unicode symbols that render cleanly on iOS & Android
-const ICONS = {
-  home:    { filled: '⌂',  outline: '⌂'  },   // we style active/inactive by color+weight
-  orders:  { filled: '⊠',  outline: '⊡'  },
-  heart:   { filled: '♥',  outline: '♡'  },
-  person:  { filled: '●',  outline: '○'  },
-} as const;
-
-// ── Tab config ────────────────────────────────────────────────────────────────
+// Per CLAUDE.md: floating pill nav is exactly these 4 items — Cart and Profile are
+// reached via icons in the Home top bar instead of living in the persistent nav.
 const TABS = [
-  { name: 'Home',     label: 'Home',    iconFilled: '🏠', iconOutline: '🏠' },
-  { name: 'Cart',     label: 'Cart',    iconFilled: '🛒', iconOutline: '🛒' },
-  { name: 'Wishlist', label: 'Wishlist',iconFilled: '❤', iconOutline: '🤍' },
-  { name: 'Profile',  label: 'Profile', iconFilled: '👤', iconOutline: '👤' },
+  { name: 'Home',        label: 'Home',         iconFilled: '🏠', iconOutline: '🏠' },
+  { name: 'AllProducts', label: 'All Products', iconFilled: '🛍️', iconOutline: '🛍️' },
+  { name: 'Favorites',   label: 'Favorites',    iconFilled: '❤', iconOutline: '🤍' },
+  { name: 'Orders',      label: 'Orders',       iconFilled: '📦', iconOutline: '📦' },
 ] as const;
 
 // ── Floating pill tab bar ─────────────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets     = useSafeAreaInsets();
-  const { cartCount } = useStore();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[pill.outer, { bottom: insets.bottom + 16 }]}>
@@ -88,13 +92,6 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 <Text style={[pill.iconText, focused && pill.iconTextActive]}>
                   {focused ? tab.iconFilled : tab.iconOutline}
                 </Text>
-                {tab.name === 'Cart' && cartCount > 0 && (
-                  <View style={pill.badge}>
-                    <Text style={pill.badgeTxt}>
-                      {cartCount > 9 ? '9+' : String(cartCount)}
-                    </Text>
-                  </View>
-                )}
               </View>
               <Text style={[pill.label, focused && pill.labelActive]}>
                 {tab.label}
@@ -103,15 +100,6 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           );
         })}
       </View>
-    </View>
-  );
-}
-
-// ── Screens ───────────────────────────────────────────────────────────────────
-function PlaceholderScreen({ title }: { title: string }) {
-  return (
-    <View style={s.placeholder}>
-      <Text style={s.placeholderTitle}>{title}</Text>
     </View>
   );
 }
@@ -127,17 +115,22 @@ function HomeStackNavigator() {
       }}
     >
       <HomeStack.Screen name="Storefront"    component={HomeScreen}           options={{ headerShown: false }} />
-      <HomeStack.Screen name="Search"        component={() => <PlaceholderScreen title="Search" />}        options={{ title: 'Search' }} />
-      <HomeStack.Screen name="Notifications" component={() => <PlaceholderScreen title="Notifications" />} options={{ title: 'Notifications' }} />
+      <HomeStack.Screen name="Search"        component={SearchScreen}         options={{ headerShown: false }} />
+      <HomeStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
       <HomeStack.Screen
         name="ProductList"
         component={ProductListScreen}
         options={({ route }: any) => ({ title: route.params?.categoryName || 'Products' })}
       />
-      <HomeStack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: '' }} />
       <HomeStack.Screen name="Cart" component={CartScreen} options={{ title: 'Cart' }} />
       <HomeStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
       <HomeStack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: 'Order Placed' }} />
+      <HomeStack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="AiAssistant" component={AiAssistantScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="AiScanner" component={AiProductScannerScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="AiRecommendations" component={AiRecommendationsScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="AiHealthInsights" component={AiHealthInsightsScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="AiChatHistory" component={AiChatHistoryScreen} options={{ headerShown: false }} />
     </HomeStack.Navigator>
   );
 }
@@ -154,6 +147,15 @@ function AuthStack() {
   );
 }
 
+function OrdersStackNavigator() {
+  return (
+    <OrdersStack.Navigator screenOptions={{ headerShown: false }}>
+      <OrdersStack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+      <OrdersStack.Screen name="OrderDetail" component={OrderDetailScreen} />
+    </OrdersStack.Navigator>
+  );
+}
+
 function ProfileStackNavigator() {
   return (
     <ProfileStack.Navigator
@@ -166,8 +168,13 @@ function ProfileStackNavigator() {
     >
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders' }} />
+      <ProfileStack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />
       <ProfileStack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address' }} />
+      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Support" component={SupportScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Promos" component={PromosScreen} options={{ headerShown: false }} />
     </ProfileStack.Navigator>
   );
 }
@@ -178,16 +185,17 @@ function MainTabs() {
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home"     component={HomeStackNavigator} />
-      <Tab.Screen name="Cart"     component={CartScreen} />
-      <Tab.Screen name="Wishlist" component={() => <PlaceholderScreen title="Wishlist" />} />
-      <Tab.Screen name="Profile"  component={ProfileStackNavigator} />
+      <Tab.Screen name="Home"        component={HomeStackNavigator} />
+      <Tab.Screen name="AllProducts" component={ProductListScreen} />
+      <Tab.Screen name="Favorites"   component={WishlistScreen} />
+      <Tab.Screen name="Orders"      component={OrdersStackNavigator} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { city } = useZone();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
@@ -212,10 +220,18 @@ export default function AppNavigator() {
     );
   }
 
+  if (isAuthenticated && !city) {
+    return <SelectLocationScreen navigation={{ goBack: () => {} }} mandatory />;
+  }
+
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
       {isAuthenticated ? (
-        <RootStack.Screen name="Main" component={MainTabs} />
+        <>
+          <RootStack.Screen name="Main" component={MainTabs} />
+          <RootStack.Screen name="ProfileFlow" component={ProfileStackNavigator} />
+          <RootStack.Screen name="SelectLocation" component={SelectLocationScreen} />
+        </>
       ) : (
         <RootStack.Screen name="Auth" component={AuthStack} />
       )}
@@ -267,24 +283,6 @@ const pill = StyleSheet.create({
   iconTextActive: {
     opacity: 1,
   },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FF3B30',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeTxt: {
-    fontSize: 9,
-    color: '#FFF',
-    fontFamily: 'Inter_600SemiBold',
-    lineHeight: 12,
-  },
   label: {
     fontFamily: 'Inter_400Regular',
     fontSize: 10,
@@ -296,15 +294,3 @@ const pill = StyleSheet.create({
   },
 });
 
-const s = StyleSheet.create({
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  placeholderTitle: {
-    ...Typography.h1,
-    color: Colors.text,
-  },
-});
