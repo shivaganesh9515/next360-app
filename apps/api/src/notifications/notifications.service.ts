@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger('NotificationsService');
+  private readonly EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(userId: string, page = 1, limit = 20) {
@@ -71,5 +74,137 @@ export class NotificationsService {
       where: { userId, isRead: false },
     });
     return { count };
+  }
+
+  // Push notification methods
+  async registerPushToken(userId: string, expoPushToken: string) {
+    // Store the push token in the user's profile
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { pushToken: expoPushToken },
+    });
+    return { message: 'Push token registered successfully' };
+  }
+
+  async unregisterPushToken(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { pushToken: null },
+    });
+    return { message: 'Push token unregistered successfully' };
+  }
+
+  async sendPushNotification(
+    expoPushToken: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ) {
+    try {
+      const response = await fetch(this.EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: expoPushToken,
+          sound: 'default',
+          title,
+          body,
+          data: data || {},
+        }),
+      });
+
+      const result = await response.json();
+      if (result.errors) {
+        this.logger.error(`Push notification failed: ${JSON.stringify(result.errors)}`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error(`Push notification error: ${error.message}`);
+      return false;
+    }
+  }
+
+  async sendOrderStatusNotification(
+    orderId: string,
+    status: string,
+    userId: string,
+    storeName?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { pushToken: true },
+    });
+
+    if (!user?.pushToken) return false;
+
+    let title = 'Order Update';
+    let body = '';
+
+    switch (status) {
+      case 'CONFIRMED':
+        title = 'Order Confirmed!';
+        body = `Your order #${orderId.slice(0, 8)} has been confirmed.`;
+        break;
+      case 'PACKED':
+        title = 'Order Packed';
+        body = `Your order #${orderId.slice(0, 8)} is being prepared at ${storeName || 'the store'}.`;
+        break;
+      case 'OUT_FOR_DELIVERY':
+        title = 'Out for Delivery';
+        body = `Your order #${orderId.slice(0, 8)} is out for delivery!`;
+        break;
+      case 'DELIVERED':
+        title = 'Order Delivered!';
+        body = `Order #${orderId.slice(0, 8)} delivered. Enjoy your products!`;
+        break;
+      case 'CANCELLED':
+        title = 'Order Cancelled';
+        body = `Order #${orderId.slice(0, 8)} has been cancelled.`;
+        break;
+      default:
+        return false;
+    }
+
+    return this.sendPushNotification(user.pushToken, title, body, {
+      orderId,
+      status,
+      screen: 'OrderDetail',
+    });
+  }
+
+  async sendNewOrderNotification(
+    deliveryPartnerToken: string,
+    orderId: string,
+    storeName: string,
+    storeType: string,
+  ) {
+    return this.sendPushNotification(
+      deliveryPartnerToken,
+      'New Delivery Available!',
+      `Order #${orderId.slice(0, 8)} from ${storeName} (${storeType})`,
+      {
+        orderId,
+        screen: 'NewOrders',
+      },
+    );
+  }
+
+  async getAllPushTokens(role?: string) {
+    const where: any = { pushToken: { not: null } };
+    if (role) {
+      where.role = role;
+    }
+    
+    const users = await this.prisma.user.findMany({
+      where,
+      select: { id: true, pushToken: true, role: true },
+    });
+    
+    return users
+      .filter(u => u.pushToken)
+      .map(u => ({ userId: u.id, token: u.pushToken!, role: u.role }));
   }
 }

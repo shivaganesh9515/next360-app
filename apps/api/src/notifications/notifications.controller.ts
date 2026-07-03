@@ -3,12 +3,16 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
+  Body,
   UseGuards,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('notifications')
@@ -50,5 +54,25 @@ export class NotificationsController {
   @Post('read-all')
   markAllAsReadPost(@CurrentUser() user: { id: string }) {
     return this.notificationsService.markAllAsRead(user.id);
+  }
+
+  @Post('register')
+  registerPushToken(
+    @CurrentUser() user: { id: string },
+    @Body('expoPushToken') expoPushToken: string,
+  ) {
+    return this.notificationsService.registerPushToken(user.id, expoPushToken);
+  }
+
+  @Delete('unregister')
+  unregisterPushToken(@CurrentUser() user: { id: string }) {
+    return this.notificationsService.unregisterPushToken(user.id);
+  }
+
+  @Get('tokens')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  getAllPushTokens(@Query('role') role?: string) {
+    return this.notificationsService.getAllPushTokens(role);
   }
 }
