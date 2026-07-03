@@ -1,24 +1,39 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import {
-  Text, View, StyleSheet, ActivityIndicator, TouchableOpacity,
+  Text, View, StyleSheet, TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/auth';
 import { useStore } from '../lib/store';
 import { Colors, Typography } from '../constants/theme';
+import SplashScreen from '../screens/onboarding/SplashScreen';
+import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
+import VerificationCodeScreen from '../screens/auth/VerificationCodeScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import ProductListScreen from '../screens/storefront/ProductListScreen';
 import ProductDetailScreen from '../screens/storefront/ProductDetailScreen';
+import CartScreen from '../screens/cart/CartScreen';
+import CheckoutScreen from '../screens/cart/CheckoutScreen';
+import OrderConfirmationScreen from '../screens/cart/OrderConfirmationScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
+import OrderHistoryScreen from '../screens/profile/OrderHistoryScreen';
+import AddressListScreen from '../screens/profile/AddressListScreen';
+import AddAddressScreen from '../screens/profile/AddAddressScreen';
+
+const ONBOARDING_KEY = 'next360:hasOnboarded';
 
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const GREEN      = '#2A7A4B';
 const GREEN_DARK = '#1A5C35';
 const GREEN_PILL = '#E8F5EE';
 
@@ -120,16 +135,40 @@ function HomeStackNavigator() {
         options={({ route }: any) => ({ title: route.params?.categoryName || 'Products' })}
       />
       <HomeStack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: '' }} />
+      <HomeStack.Screen name="Cart" component={CartScreen} options={{ title: 'Cart' }} />
+      <HomeStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+      <HomeStack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: 'Order Placed' }} />
     </HomeStack.Navigator>
   );
 }
 
 function AuthStack() {
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
-      <RootStack.Screen name="Login"  component={LoginScreen} />
+    <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
+      <RootStack.Screen name="Login" component={LoginScreen} />
       <RootStack.Screen name="Signup" component={SignupScreen} />
+      <RootStack.Screen name="VerificationCode" component={VerificationCodeScreen} />
+      <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </RootStack.Navigator>
+  );
+}
+
+function ProfileStackNavigator() {
+  return (
+    <ProfileStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: '#fff' },
+        headerTintColor: GREEN_DARK,
+        headerTitleStyle: { fontFamily: 'Inter_600SemiBold', fontSize: 16 },
+        headerShadowVisible: false,
+      }}
+    >
+      <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders' }} />
+      <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />
+      <ProfileStack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address' }} />
+    </ProfileStack.Navigator>
   );
 }
 
@@ -140,21 +179,36 @@ function MainTabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home"     component={HomeStackNavigator} />
-      <Tab.Screen name="Cart"     component={() => <PlaceholderScreen title="Cart" />} />
+      <Tab.Screen name="Cart"     component={CartScreen} />
       <Tab.Screen name="Wishlist" component={() => <PlaceholderScreen title="Wishlist" />} />
-      <Tab.Screen name="Profile"  component={() => <PlaceholderScreen title="Profile" />} />
+      <Tab.Screen name="Profile"  component={ProfileStackNavigator} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then((value) => setNeedsOnboarding(value !== 'true'))
+      .finally(() => setCheckingOnboarding(false));
+  }, []);
+
+  if (isLoading || checkingOnboarding) {
+    return <SplashScreen />;
+  }
+
+  if (needsOnboarding) {
     return (
-      <View style={s.placeholder}>
-        <ActivityIndicator size="large" color={GREEN} />
-      </View>
+      <OnboardingScreen
+        onDone={() => {
+          AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+          setNeedsOnboarding(false);
+        }}
+      />
     );
   }
 
