@@ -9,6 +9,8 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
     "clean": "turbo clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },
