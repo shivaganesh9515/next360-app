@@ -1,11 +1,11 @@
 # Project State
 
-**Status:** Execution in Progress — Phases 1–5, 8–10 Complete; 6–7, 11 Remaining
+**Status:** Execution in Progress — Phases 1–10 Complete; 7, 11 Remaining
 
 ## Current Phase
-- **Active:** Phase 6 — Customer App B (Cart/Profile) (next)
-- **Completed:** Phases 1, 2, 3, 4, 5, 8, 9, 10
-- **Remaining:** Phases 6, 7, 11
+- **Active:** Phase 7 — AI Features (next)
+- **Completed:** Phases 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+- **Remaining:** Phases 7, 11
 
 ## Phase Status
 
@@ -16,8 +16,8 @@
 | 3 — Core API (Products, Cart, Orders prep) | ✅ Complete | 03/04-PLAN.md |
 | 4 — Vendor Dashboard (Web) | ✅ Complete | 05-PLAN.md |
 | 5 — Customer App A (Storefront) | ✅ Complete | 06-PLAN.md |
-| 6 — Customer App B (Cart/Profile) | 🎯 Next | 07-PLAN.md |
-| 7 — AI Features | 🔲 Not Started | 11-PLAN.md |
+| 6 — Customer App B (Cart/Profile) | ✅ Complete | 07-PLAN.md |
+| 7 — AI Features | 🎯 Next | 11-PLAN.md |
 | 8 — Orders & Payments | ✅ Complete | 08-PLAN.md |
 | 9 — Admin Panel (Web) | ✅ Complete | 09-PLAN.md |
 | 10 — Delivery App (Mobile) | ✅ Complete | 10-PLAN.md |
@@ -62,17 +62,25 @@
 - Delivery History (period filtering), Earnings (breakdown, stats)
 - Profile, Supabase Realtime for incoming orders
 
+### Customer App B (apps/customer-app — Cart/Profile)
+- CartScreen with quantity controls, empty state, and summary bar
+- CheckoutScreen with address selection and payment method
+- OrderConfirmationScreen with success feedback
+- ProfileScreen with user info and menu navigation
+- OrderHistoryScreen with order list and status badges
+- AddressListScreen with default address management
+- AddAddressScreen with form validation
+- CartItem, AddressCard, OrderSummaryCard components
+- Updated AppNavigator with all new screens and tab navigation
+
 ## What's Missing (Next Phases)
-- **Customer Mobile App (Phases 5+6):** Expo React Native storefront with 3 store-type tabs, checkout, profile
-- **Admin Panel (Phase 9):** Next.js admin dashboard
-- **Delivery App (Phase 10):** Expo delivery partner app
 - **AI Features (Phase 7):** Product scanner, recommendations, chat assistant
 - **Polish & Launch (Phase 11):** Push notifications, error handling, seed data, deployment
 
 ## Git
 - Remote: `https://github.com/shivaganesh9515/next360-app.git` (branch: main)
 - Git user: shivaganesh9515 (global), Credential Manager has shivaganesh9515 + Shivaganesh-dev
-- 7 commits pushed (foundation → API modules)
+- Latest commit: `4f2d028` - feat(07): complete customer app cart/checkout and profile flows
 
 ## Decisions Log
 
