@@ -2,12 +2,34 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import Constants from 'expo-constants';
+
+const isDev = Constants.expoConfig?.extra?.eas?.projectId === undefined || __DEV__;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuthStore();
+
+  const handleSkip = () => {
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: {
+        id: 'dev-001',
+        email: 'dev@next360.com',
+        name: 'Dev Driver',
+        phone: '+919999999999',
+        role: 'DELIVERY_PARTNER',
+        avatar: undefined,
+        completedDeliveries: 42,
+        rating: 4.8,
+        totalEarnings: 2560000,
+      },
+      isLoading: false,
+    });
+    router.replace('/(tabs)');
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -32,6 +54,13 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.inner}>
+        {/* Dev Skip Button */}
+        {isDev && (
+          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+            <Text style={styles.skipButtonText}>SKIP (Dev)</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoIcon}>
@@ -103,6 +132,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  skipButton: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    zIndex: 10,
+  },
+  skipButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   logoContainer: {
     alignItems: 'center',

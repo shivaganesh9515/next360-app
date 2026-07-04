@@ -6,6 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { customerApi } from '../../lib/api';
+import { useStore } from '../../lib/store';
+import { useProductSheet } from '../../lib/productSheet';
 import { Product, StoreType } from '../../types';
 import ProductCard from '../../components/ProductCard';
 import {
@@ -24,7 +26,12 @@ const SORT_OPTIONS = [
 export default function ProductListScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { storeType, categoryId, categoryName } = route.params || {};
+  const { addToCart, storeType: activeStoreType } = useStore();
+  const { open: openProduct } = useProductSheet();
+  const { categoryId, categoryName } = route.params || {};
+  // Falls back to the globally selected store (StoreToggle) when opened as the
+  // "All Products" tab root rather than navigated to with an explicit storeType.
+  const storeType = route.params?.storeType || activeStoreType;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +40,7 @@ export default function ProductListScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [sortBy, setSortBy] = useState('trending');
 
-  const accent = getStoreAccent(storeType || 'ORGANIC');
+  const accent = getStoreAccent(storeType);
 
   const fetchProducts = useCallback(async (pageNum: number, isRefresh = false) => {
     try {
@@ -81,13 +88,13 @@ export default function ProductListScreen() {
   };
 
   const handleQuickAdd = (product: Product) => {
-    customerApi.addToCart(product.id, 1)
+    addToCart(product.id, 1)
       .then(() => Alert.alert('Added', `${product.name} added to cart`))
       .catch(() => Alert.alert('Error', 'Please sign in to add items'));
   };
 
   const handleProductPress = (product: Product) => {
-    navigation.navigate('ProductDetail', { productId: product.id });
+    openProduct(product.id);
   };
 
   return (

@@ -14,10 +14,10 @@ export default function ProductVariantsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getProduct(params.id).then((p: any) => {
+    vendorApi.getProduct(String(params.id)).then((p: any) => {
       setProductName(p.name);
       setVariants(p.variants || []);
-    }).catch(console.error).finally(() => setLoading(false));
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [params.id]);
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
@@ -25,7 +25,7 @@ export default function ProductVariantsPage() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <Link href={`/products/${params.id}`} className="p-1.5 hover:bg-gray-100 rounded"><ArrowLeft className="w-5 h-5 text-gray-600" /></Link>
+        <Link href={`/products/${String(params.id)}`} className="p-1.5 hover:bg-gray-100 rounded"><ArrowLeft className="w-5 h-5 text-gray-600" /></Link>
         <div><h2 className="text-xl font-bold text-gray-800">Variants</h2><p className="text-sm text-gray-500">{productName}</p></div>
       </div>
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

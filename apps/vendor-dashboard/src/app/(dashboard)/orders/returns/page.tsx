@@ -10,7 +10,7 @@ export default function ReturnsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getReturns().then((res: any) => setReturns(Array.isArray(res) ? res : res.data || [])).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getReturns().then((res: any) => setReturns(Array.isArray(res) ? res : res.data || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const handleAction = async (id: string, status: string) => {

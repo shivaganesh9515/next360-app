@@ -10,6 +10,9 @@ interface User {
   phone?: string;
   role: string;
   avatar?: string;
+  completedDeliveries?: number;
+  rating?: number;
+  totalEarnings?: number;
 }
 
 interface AuthState {

@@ -24,15 +24,28 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const response = await fetch(url, { ...fetchOptions, headers });
+  try {
+    const response = await fetch(url, { ...fetchOptions, headers });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    }
+
+    if (response.status === 204) return undefined as T;
+
+    const text = await response.text();
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error('API returned invalid response. Is the server running?');
+    }
+  } catch (e) {
+    if (e instanceof TypeError && e.message.includes('fetch')) {
+      throw new Error('Unable to connect to server. Please check your connection.');
+    }
+    throw e;
   }
-
-  if (response.status === 204) return undefined as T;
-  return response.json();
 }
 
 export const api = {
@@ -58,7 +71,12 @@ export const api = {
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
-    return response.json();
+    const text = await response.text();
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error('Upload returned invalid response');
+    }
   },
 };
 

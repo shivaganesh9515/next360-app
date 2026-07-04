@@ -41,6 +41,8 @@ export function setupNotificationListeners(navigation: any) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -50,7 +52,7 @@ export function setupNotificationListeners(navigation: any) {
   const subscription = Notifications.addNotificationResponseReceivedListener(
     (response) => {
       const data = response.notification.request.content.data;
-      if (data.screen && data.orderId) {
+      if (data?.screen && data?.orderId) {
         navigation.navigate(data.screen, { orderId: data.orderId });
       }
     },

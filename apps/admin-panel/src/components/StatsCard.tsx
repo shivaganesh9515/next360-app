@@ -25,18 +25,18 @@ export default function StatsCard({ icon, title, label, value, trend, color, acc
   const displayLabel = label || title;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-gray-500 mb-1">{displayLabel}</p>
-          <p className="text-2xl font-bold text-gray-800">{loading ? '...' : value}</p>
+          <p className="text-sm text-slate-500 mb-1">{displayLabel}</p>
+          <p className="text-2xl font-bold text-slate-900 tabular-nums">{loading ? '...' : value}</p>
           {trend && (
             <p className={`text-xs mt-1 ${trend.isUp ? 'text-emerald-600' : 'text-red-500'}`}>
               {trend.isUp ? '↑' : '↓'} {Math.abs(trend.value)}% vs last month
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-lg bg-gradient-to-br ${accentClasses[accentLabel] || accentClasses.emerald} text-white`}>
+        <div className={`p-3 rounded-lg bg-gradient-to-br ${accentClasses[accentLabel] || accentClasses.emerald} text-white`} aria-hidden="true">
           {icon}
         </div>
       </div>

@@ -1,5 +1,6 @@
 interface StatusBadgeProps {
   status: string;
+  color?: string;
 }
 
 const statusStyles: Record<string, string> = {
@@ -34,8 +35,8 @@ const statusStyles: Record<string, string> = {
   false: 'bg-gray-100 text-gray-500',
 };
 
-export default function StatusBadge({ status }: StatusBadgeProps) {
-  const style = statusStyles[status] || 'bg-gray-100 text-gray-600';
+export default function StatusBadge({ status, color }: StatusBadgeProps) {
+  const style = color || statusStyles[status] || 'bg-gray-100 text-gray-600';
   return (
     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${style}`}>
       {status.replace(/_/g, ' ')}

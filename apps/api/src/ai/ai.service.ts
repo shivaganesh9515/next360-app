@@ -6,7 +6,7 @@ interface ChatMessage {
   content: string;
 }
 
-interface ScanResult {
+export interface ScanResult {
   productName: string;
   category: string;
   nutritionalInfo?: Record<string, any>;
@@ -14,14 +14,14 @@ interface ScanResult {
   matchedProductId?: string;
 }
 
-interface Recommendation {
+export interface Recommendation {
   productId: string;
   productName: string;
   reason: string;
   score: number;
 }
 
-interface HealthInsight {
+export interface HealthInsight {
   summary: string;
   tips: string[];
   warnings: string[];
@@ -119,7 +119,13 @@ export class AiService {
     const [orders, wishlist] = await Promise.all([
       this.prisma.order.findMany({
         where: { userId },
-        include: { items: { include: { product: true } } },
+        include: {
+          vendorGroups: {
+            include: {
+              items: { include: { product: { include: { category: true } } } },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
@@ -133,11 +139,13 @@ export class AiService {
     // Extract frequently bought categories
     const categoryFrequency = new Map<string, number>();
     orders.forEach(order => {
-      order.items.forEach(item => {
-        const category = item.product?.category;
-        if (category) {
-          categoryFrequency.set(category, (categoryFrequency.get(category) || 0) + item.quantity);
-        }
+      order.vendorGroups.forEach(group => {
+        group.items.forEach(item => {
+          const categoryName = item.product?.category?.name;
+          if (categoryName) {
+            categoryFrequency.set(categoryName, (categoryFrequency.get(categoryName) || 0) + item.quantity);
+          }
+        });
       });
     });
 
@@ -150,13 +158,21 @@ export class AiService {
     // Find products to recommend
     const recommendations: Recommendation[] = [];
     
+    // Look up category IDs from names
+    const preferredCategoryRecords = await this.prisma.category.findMany({
+      where: { name: { in: preferredCategories } },
+      select: { id: true, name: true },
+    });
+    const preferredCategoryIds = preferredCategoryRecords.map(c => c.id);
+    
     // Get products from preferred categories
     const categoryProducts = await this.prisma.product.findMany({
       where: {
-        category: { in: preferredCategories },
+        categoryId: { in: preferredCategoryIds },
         isApproved: true,
         isActive: true,
       },
+      include: { category: true },
       take: limit,
     });
 
@@ -164,7 +180,7 @@ export class AiService {
       recommendations.push({
         productId: product.id,
         productName: product.name,
-        reason: `Based on your interest in ${product.category}`,
+        reason: `Based on your interest in ${product.category?.name || 'similar products'}`,
         score: 0.8 + Math.random() * 0.2,
       });
     });
@@ -210,21 +226,30 @@ export class AiService {
     // Get user's recent purchases
     const orders = await this.prisma.order.findMany({
       where: { userId, status: 'DELIVERED' },
-      include: { items: { include: { product: true } } },
+      include: {
+        vendorGroups: {
+          include: {
+            items: { include: { product: { include: { category: true } } } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: 30,
     });
 
     // Analyze purchased products
-    const purchasedProducts = orders.flatMap(order => 
-      order.items.map(item => item.product).filter(Boolean)
+    const purchasedProducts = orders.flatMap(order =>
+      order.vendorGroups.flatMap(group =>
+        group.items.map(item => item.product).filter(Boolean)
+      )
     );
 
     // Categorize purchases
     const categories = new Map<string, number>();
     purchasedProducts.forEach(product => {
-      if (product?.category) {
-        categories.set(product.category, (categories.get(product.category) || 0) + 1);
+      const categoryName = product?.category?.name;
+      if (categoryName) {
+        categories.set(categoryName, (categories.get(categoryName) || 0) + 1);
       }
     });
 
@@ -449,8 +474,8 @@ Keep responses concise and actionable.`;
       }),
     });
 
-    const data = await response.json();
-    return data.choices[0]?.message?.content || 'Sorry, I could not process your request.';
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    return data.choices?.[0]?.message?.content || 'Sorry, I could not process your request.';
   }
 
   private async callGemini(messages: ChatMessage[]): Promise<string> {
@@ -465,7 +490,7 @@ Keep responses concise and actionable.`;
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
     return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not process your request.';
   }
 
@@ -494,8 +519,8 @@ Keep responses concise and actionable.`;
       }),
     });
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content || '{}';
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const content = data.choices?.[0]?.message?.content || '{}';
     
     try {
       const parsed = JSON.parse(content);
@@ -531,7 +556,7 @@ Keep responses concise and actionable.`;
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     
     try {

@@ -1,52 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { customerApi } from '../../lib/api';
+import { Address } from '../../types';
+import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 
-const GREEN = '#2A7A4B';
-
-export default function AddressListScreen({ navigation }: any) {
-  const [addresses, setAddresses] = useState<any[]>([]);
+export default function AddressListScreen({ navigation, route }: any) {
+  const onSelect = route.params?.onSelect as ((address: Address) => void) | undefined;
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadAddresses();
-  }, []);
-
-  const loadAddresses = async () => {
+  const load = useCallback(async () => {
     try {
-      const res = await customerApi.getAddresses();
-      setAddresses(res?.data || res || []);
-    } catch (err) {
-      console.error('Failed to load addresses:', err);
+      const res: any = await customerApi.getAddresses();
+      setAddresses(Array.isArray(res) ? res : res?.data || []);
+    } catch {
+      setAddresses([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const handleSetDefault = async (id: string) => {
     try {
       await customerApi.updateAddress(id, { isDefault: true });
-      setSelectedId(id);
-      // Update local state
-      setAddresses(prev =>
-        prev.map(addr => ({
-          ...addr,
-          isDefault: addr.id === id,
-        }))
-      );
-    } catch (err) {
+      load();
+    } catch {
       Alert.alert('Error', 'Failed to set default address');
     }
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Address', 'Are you sure?', [
+    Alert.alert('Delete address', 'Are you sure you want to remove this address?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -54,8 +45,8 @@ export default function AddressListScreen({ navigation }: any) {
         onPress: async () => {
           try {
             await customerApi.deleteAddress(id);
-            setAddresses(prev => prev.filter(addr => addr.id !== id));
-          } catch (err) {
+            load();
+          } catch {
             Alert.alert('Error', 'Failed to delete address');
           }
         },
@@ -65,203 +56,130 @@ export default function AddressListScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GREEN} />
-        </View>
+      <SafeAreaView style={s.container}>
+        <View style={s.center}><ActivityIndicator size="large" color={Colors.organic} /></View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Addresses</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('AddAddress')}>
-          <Ionicons name="add-circle" size={28} color={GREEN} />
+        <Text style={s.headerTitle}>My Addresses</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('AddAddress')} hitSlop={8}>
+          <Ionicons name="add-circle" size={26} color={Colors.organic} />
         </TouchableOpacity>
       </View>
 
       {addresses.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="location-outline" size={64} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No addresses yet</Text>
-          <Text style={styles.emptySubtitle}>Add your first delivery address</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => navigation.navigate('AddAddress')}
-          >
-            <Text style={styles.addButtonText}>Add Address</Text>
+        <View style={s.center}>
+          <Ionicons name="location-outline" size={64} color={Colors.border} />
+          <Text style={s.emptyTitle}>No addresses yet</Text>
+          <Text style={s.emptySubtitle}>Add your first delivery address.</Text>
+          <TouchableOpacity style={s.addButton} onPress={() => navigation.navigate('AddAddress')}>
+            <Text style={s.addButtonText}>Add Address</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={addresses}
           keyExtractor={(item) => item.id}
-          renderItem={({ item: address }) => (
+          contentContainerStyle={s.list}
+          renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.addressCard}
-              onPress={() => handleSetDefault(address.id)}
+              style={s.card}
+              activeOpacity={onSelect ? 0.8 : 1}
+              onPress={() => {
+                if (onSelect) {
+                  onSelect(item);
+                  navigation.goBack();
+                }
+              }}
             >
-              <View style={styles.addressHeader}>
-                <View style={styles.addressIcon}>
+              <View style={s.cardTop}>
+                <View style={s.cardIcon}>
                   <Ionicons
-                    name={address.type === 'HOME' ? 'home' : address.type === 'WORK' ? 'briefcase' : 'location'}
-                    size={20}
-                    color={GREEN}
+                    name={item.label === 'Home' ? 'home' : item.label === 'Work' ? 'briefcase' : 'location'}
+                    size={18}
+                    color={Colors.organic}
                   />
                 </View>
-                <View style={styles.addressInfo}>
-                  <Text style={styles.addressType}>{address.type || 'Other'}</Text>
-                  <Text style={styles.addressLine1}>{address.line1}</Text>
-                  {address.line2 && <Text style={styles.addressLine2}>{address.line2}</Text>}
-                  <Text style={styles.addressCity}>{address.city}, {address.state} {address.pincode}</Text>
-                </View>
-                {address.isDefault && (
-                  <View style={styles.defaultBadge}>
-                    <Text style={styles.defaultText}>Default</Text>
+                <View style={s.cardInfo}>
+                  <View style={s.cardHeaderRow}>
+                    <Text style={s.cardLabel}>{item.label || 'Address'}</Text>
+                    {item.isDefault && (
+                      <View style={s.defaultBadge}><Text style={s.defaultBadgeText}>Default</Text></View>
+                    )}
                   </View>
-                )}
+                  <Text style={s.cardText}>{item.fullAddress}</Text>
+                  <Text style={s.cardText}>{item.city}, {item.state} - {item.pincode}</Text>
+                </View>
               </View>
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(address.id)}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+
+              <View style={s.cardActions}>
+                {!item.isDefault && (
+                  <TouchableOpacity onPress={() => handleSetDefault(item.id)} hitSlop={8}>
+                    <Text style={s.actionText}>Set as default</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8}>
+                  <Text style={[s.actionText, { color: Colors.error }]}>Delete</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
           )}
-          contentContainerStyle={styles.listContent}
         />
       )}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 8,
-  },
+  headerTitle: { ...Typography.h3, color: Colors.text },
+
+  emptyTitle: { ...Typography.h3, color: Colors.text, marginTop: Spacing.lg },
+  emptySubtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
   addButton: {
-    backgroundColor: GREEN,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
+    backgroundColor: Colors.organic, borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.xxl, paddingVertical: Spacing.md, marginTop: Spacing.xl,
   },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  addButtonText: { ...Typography.button, color: Colors.white },
+
+  list: { padding: Spacing.lg },
+  card: {
+    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
+    borderWidth: 1, borderColor: Colors.cardBorder,
+    padding: Spacing.lg, marginBottom: Spacing.md,
   },
-  listContent: {
-    padding: 16,
+  cardTop: { flexDirection: 'row', gap: Spacing.md },
+  cardIcon: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.organicLight,
+    alignItems: 'center', justifyContent: 'center',
   },
-  addressCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  addressHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  addressIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F0FDF4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  addressInfo: {
-    flex: 1,
-  },
-  addressType: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  addressLine1: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  addressLine2: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  addressCity: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-  },
+  cardInfo: { flex: 1 },
+  cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  cardLabel: { ...Typography.h3, color: Colors.text },
   defaultBadge: {
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: Colors.organicLight, borderRadius: BorderRadius.pill,
+    paddingHorizontal: 8, paddingVertical: 2,
   },
-  defaultText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: GREEN,
+  defaultBadgeText: { ...Typography.caption, color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
+  cardText: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: 2 },
+
+  cardActions: {
+    flexDirection: 'row', gap: 20, marginTop: Spacing.md,
+    borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm,
   },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 12,
-  },
-  deleteButton: {
-    padding: 8,
-  },
+  actionText: { ...Typography.bodySmall, color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
 });

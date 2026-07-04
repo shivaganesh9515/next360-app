@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class SeedService {
@@ -19,14 +18,18 @@ export class SeedService {
     }
 
     try {
-      // 1. Create Users
+      // 0. Create Zone (required for Vendors and Addresses)
+      this.logger.log('Creating zones...');
+      const hyderabadZone = await this.prisma.zone.create({
+        data: { name: 'Hyderabad', city: 'Hyderabad', isActive: true },
+      });
+
+      // 1. Create Users (auth is via Supabase; no password field on User model)
       this.logger.log('Creating users...');
-      const hashedPassword = await bcrypt.hash('password123', 10);
 
       const admin = await this.prisma.user.create({
         data: {
           email: 'admin@next360.com',
-          password: hashedPassword,
           name: 'Admin User',
           phone: '+919876543210',
           role: 'ADMIN',
@@ -37,7 +40,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'organic@next360.com',
-            password: hashedPassword,
             name: 'Green Earth Organics',
             phone: '+919876543211',
             role: 'VENDOR',
@@ -46,7 +48,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'natural@next360.com',
-            password: hashedPassword,
             name: 'Pure Natural Living',
             phone: '+919876543212',
             role: 'VENDOR',
@@ -55,7 +56,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'eco@next360.com',
-            password: hashedPassword,
             name: 'Eco Harmony Store',
             phone: '+919876543213',
             role: 'VENDOR',
@@ -67,7 +67,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'customer1@next360.com',
-            password: hashedPassword,
             name: 'Rahul Sharma',
             phone: '+919876543214',
             role: 'CUSTOMER',
@@ -76,7 +75,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'customer2@next360.com',
-            password: hashedPassword,
             name: 'Priya Patel',
             phone: '+919876543215',
             role: 'CUSTOMER',
@@ -85,7 +83,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'customer3@next360.com',
-            password: hashedPassword,
             name: 'Amit Kumar',
             phone: '+919876543216',
             role: 'CUSTOMER',
@@ -94,7 +91,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'customer4@next360.com',
-            password: hashedPassword,
             name: 'Sneha Reddy',
             phone: '+919876543217',
             role: 'CUSTOMER',
@@ -106,7 +102,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'delivery1@next360.com',
-            password: hashedPassword,
             name: 'Rajesh Delivery',
             phone: '+919876543218',
             role: 'DELIVERY_PARTNER',
@@ -115,7 +110,6 @@ export class SeedService {
         this.prisma.user.create({
           data: {
             email: 'delivery2@next360.com',
-            password: hashedPassword,
             name: 'Suresh Delivery',
             phone: '+919876543219',
             role: 'DELIVERY_PARTNER',
@@ -170,15 +164,17 @@ export class SeedService {
         }),
       ]);
 
-      // 3. Create Vendors
+      // 3. Create Vendors (storeName, storeSlug, zoneId required)
       this.logger.log('Creating vendors...');
       const vendors = await Promise.all([
         this.prisma.vendor.create({
           data: {
             userId: vendorUsers[0].id,
-            businessName: 'Green Earth Organics',
+            storeName: 'Green Earth Organics',
+            storeSlug: 'green-earth-organics',
             storeType: 'ORGANIC',
-            commissionRate: 15,
+            zoneId: hyderabadZone.id,
+            commissionPct: 15,
             status: 'APPROVED',
             description: 'Certified organic products from local farms',
           },
@@ -186,9 +182,11 @@ export class SeedService {
         this.prisma.vendor.create({
           data: {
             userId: vendorUsers[1].id,
-            businessName: 'Pure Natural Living',
+            storeName: 'Pure Natural Living',
+            storeSlug: 'pure-natural-living',
             storeType: 'NATURAL',
-            commissionRate: 15,
+            zoneId: hyderabadZone.id,
+            commissionPct: 15,
             status: 'APPROVED',
             description: 'Natural and Ayurvedic products for healthy living',
           },
@@ -196,9 +194,11 @@ export class SeedService {
         this.prisma.vendor.create({
           data: {
             userId: vendorUsers[2].id,
-            businessName: 'Eco Harmony Store',
+            storeName: 'Eco Harmony Store',
+            storeSlug: 'eco-harmony-store',
             storeType: 'ECO_FRIENDLY',
-            commissionRate: 15,
+            zoneId: hyderabadZone.id,
+            commissionPct: 15,
             status: 'APPROVED',
             description: 'Sustainable and eco-friendly everyday products',
           },
@@ -240,7 +240,7 @@ export class SeedService {
         { name: 'Hemp Backpack', slug: 'hemp-backpack', price: 1200, description: 'Durable hemp fiber backpack', categoryId: ecoCategories[3].id },
       ];
 
-      const createProducts = async (products: any[], vendorId: string) => {
+      const createProducts = async (products: { name: string; slug: string; price: number; description: string; categoryId: string }[], vendorId: string) => {
         return Promise.all(
           products.map((p) =>
             this.prisma.product.create({
@@ -250,6 +250,8 @@ export class SeedService {
                 isApproved: true,
                 isActive: true,
                 stock: Math.floor(Math.random() * 50) + 10,
+                unit: 'piece',
+                images: [],
               },
             })
           )
@@ -259,20 +261,18 @@ export class SeedService {
       const allOrganicProducts = await createProducts(organicProducts, vendors[0].id);
       const allNaturalProducts = await createProducts(naturalProducts, vendors[1].id);
       const allEcoProducts = await createProducts(ecoProducts, vendors[2].id);
-      const allProducts = [...allOrganicProducts, ...allNaturalProducts, ...allEcoProducts];
 
-      // 5. Create Addresses
+      // 5. Create Addresses (fullAddress, not street; no country)
       this.logger.log('Creating addresses...');
       const addresses = await Promise.all([
         this.prisma.address.create({
           data: {
             userId: customerUsers[0].id,
             label: 'Home',
-            street: '123 MG Road',
+            fullAddress: '123 MG Road, Banjara Hills',
             city: 'Hyderabad',
             state: 'Telangana',
             pincode: '500001',
-            country: 'India',
             isDefault: true,
           },
         }),
@@ -280,104 +280,168 @@ export class SeedService {
           data: {
             userId: customerUsers[1].id,
             label: 'Office',
-            street: '456 Banjara Hills',
+            fullAddress: '456 Cyber Towers, HITEC City',
             city: 'Hyderabad',
             state: 'Telangana',
             pincode: '500034',
-            country: 'India',
             isDefault: true,
           },
         }),
       ]);
 
-      // 6. Create Orders
+      // 6. Create Orders (Order → OrderVendorGroup → OrderItem)
       this.logger.log('Creating orders...');
-      await Promise.all([
-        this.prisma.order.create({
-          data: {
-            userId: customerUsers[0].id,
-            addressId: addresses[0].id,
-            status: 'DELIVERED',
-            total: 450,
-            paymentMethod: 'UPI',
-            paymentStatus: 'PAID',
-            items: {
-              create: [
-                { productId: allOrganicProducts[0].id, quantity: 1, price: 250 },
-                { productId: allOrganicProducts[4].id, quantity: 1, price: 180 },
-              ],
-            },
-          },
-        }),
-        this.prisma.order.create({
-          data: {
-            userId: customerUsers[1].id,
-            addressId: addresses[1].id,
-            status: 'OUT_FOR_DELIVERY',
-            total: 620,
-            paymentMethod: 'COD',
-            paymentStatus: 'PENDING',
-            items: {
-              create: [
-                { productId: allNaturalProducts[0].id, quantity: 2, price: 500 },
-                { productId: allNaturalProducts[4].id, quantity: 1, price: 350 },
-              ],
-            },
-          },
-        }),
-        this.prisma.order.create({
-          data: {
-            userId: customerUsers[2].id,
-            addressId: addresses[0].id,
-            status: 'CONFIRMED',
-            total: 350,
-            paymentMethod: 'UPI',
-            paymentStatus: 'PAID',
-            items: {
-              create: [
-                { productId: allEcoProducts[0].id, quantity: 1, price: 450 },
-              ],
-            },
-          },
-        }),
-        this.prisma.order.create({
-          data: {
-            userId: customerUsers[3].id,
-            addressId: addresses[1].id,
-            status: 'PENDING',
-            total: 280,
-            paymentMethod: 'CARD',
-            paymentStatus: 'PENDING',
-            items: {
-              create: [
-                { productId: allOrganicProducts[2].id, quantity: 2, price: 120 },
-                { productId: allOrganicProducts[6].id, quantity: 1, price: 85 },
-              ],
-            },
-          },
-        }),
-        this.prisma.order.create({
-          data: {
-            userId: customerUsers[0].id,
-            addressId: addresses[0].id,
-            status: 'DELIVERED',
-            total: 900,
-            paymentMethod: 'UPI',
-            paymentStatus: 'PAID',
-            items: {
-              create: [
-                { productId: allEcoProducts[4].id, quantity: 1, price: 250 },
-                { productId: allEcoProducts[7].id, quantity: 1, price: 1200 },
-              ],
-            },
-          },
-        }),
-      ]);
+      const now = new Date();
+
+      // Order 1: Rahul — DELIVERED — organic products
+      const order1 = await this.prisma.order.create({
+        data: {
+          userId: customerUsers[0].id,
+          addressId: addresses[0].id,
+          orderNo: 'ORD-000001',
+          totalAmount: 450,
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'PAID',
+          status: 'DELIVERED',
+        },
+      });
+
+      const group1 = await this.prisma.orderVendorGroup.create({
+        data: {
+          orderId: order1.id,
+          vendorId: vendors[0].id,
+          subtotal: 450,
+          status: 'DELIVERED',
+        },
+      });
+
+      await this.prisma.orderItem.createMany({
+        data: [
+          { orderVendorGroupId: group1.id, productId: allOrganicProducts[0].id, name: allOrganicProducts[0].name, priceAtPurchase: allOrganicProducts[0].price, quantity: 1 },
+          { orderVendorGroupId: group1.id, productId: allOrganicProducts[4].id, name: allOrganicProducts[4].name, priceAtPurchase: allOrganicProducts[4].price, quantity: 1 },
+        ],
+      });
+
+      // Order 2: Priya — OUT_FOR_DELIVERY — natural products
+      const order2 = await this.prisma.order.create({
+        data: {
+          userId: customerUsers[1].id,
+          addressId: addresses[1].id,
+          orderNo: 'ORD-000002',
+          totalAmount: 850,
+          paymentMethod: 'COD',
+          paymentStatus: 'PENDING',
+          status: 'OUT_FOR_DELIVERY',
+        },
+      });
+
+      const group2 = await this.prisma.orderVendorGroup.create({
+        data: {
+          orderId: order2.id,
+          vendorId: vendors[1].id,
+          subtotal: 850,
+          status: 'OUT_FOR_DELIVERY',
+        },
+      });
+
+      await this.prisma.orderItem.createMany({
+        data: [
+          { orderVendorGroupId: group2.id, productId: allNaturalProducts[0].id, name: allNaturalProducts[0].name, priceAtPurchase: allNaturalProducts[0].price, quantity: 2 },
+          { orderVendorGroupId: group2.id, productId: allNaturalProducts[4].id, name: allNaturalProducts[4].name, priceAtPurchase: allNaturalProducts[4].price, quantity: 1 },
+        ],
+      });
+
+      // Order 3: Amit — CONFIRMED — eco products
+      const order3 = await this.prisma.order.create({
+        data: {
+          userId: customerUsers[2].id,
+          addressId: addresses[0].id,
+          orderNo: 'ORD-000003',
+          totalAmount: 450,
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'PAID',
+          status: 'CONFIRMED',
+        },
+      });
+
+      const group3 = await this.prisma.orderVendorGroup.create({
+        data: {
+          orderId: order3.id,
+          vendorId: vendors[2].id,
+          subtotal: 450,
+          status: 'CONFIRMED',
+        },
+      });
+
+      await this.prisma.orderItem.createMany({
+        data: [
+          { orderVendorGroupId: group3.id, productId: allEcoProducts[0].id, name: allEcoProducts[0].name, priceAtPurchase: allEcoProducts[0].price, quantity: 1 },
+        ],
+      });
+
+      // Order 4: Sneha — PLACED (not PENDING — that's not in OrderStatus enum)
+      const order4 = await this.prisma.order.create({
+        data: {
+          userId: customerUsers[3].id,
+          addressId: addresses[1].id,
+          orderNo: 'ORD-000004',
+          totalAmount: 205,
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'PENDING',
+          status: 'PLACED',
+        },
+      });
+
+      const group4 = await this.prisma.orderVendorGroup.create({
+        data: {
+          orderId: order4.id,
+          vendorId: vendors[0].id,
+          subtotal: 205,
+          status: 'PLACED',
+        },
+      });
+
+      await this.prisma.orderItem.createMany({
+        data: [
+          { orderVendorGroupId: group4.id, productId: allOrganicProducts[2].id, name: allOrganicProducts[2].name, priceAtPurchase: allOrganicProducts[2].price, quantity: 2 },
+          { orderVendorGroupId: group4.id, productId: allOrganicProducts[6].id, name: allOrganicProducts[6].name, priceAtPurchase: allOrganicProducts[6].price, quantity: 1 },
+        ],
+      });
+
+      // Order 5: Rahul — DELIVERED — eco products
+      const order5 = await this.prisma.order.create({
+        data: {
+          userId: customerUsers[0].id,
+          addressId: addresses[0].id,
+          orderNo: 'ORD-000005',
+          totalAmount: 1450,
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'PAID',
+          status: 'DELIVERED',
+        },
+      });
+
+      const group5 = await this.prisma.orderVendorGroup.create({
+        data: {
+          orderId: order5.id,
+          vendorId: vendors[2].id,
+          subtotal: 1450,
+          status: 'DELIVERED',
+        },
+      });
+
+      await this.prisma.orderItem.createMany({
+        data: [
+          { orderVendorGroupId: group5.id, productId: allEcoProducts[4].id, name: allEcoProducts[4].name, priceAtPurchase: allEcoProducts[4].price, quantity: 1 },
+          { orderVendorGroupId: group5.id, productId: allEcoProducts[7].id, name: allEcoProducts[7].name, priceAtPurchase: allEcoProducts[7].price, quantity: 1 },
+        ],
+      });
 
       this.logger.log('Seed completed successfully!');
       return {
         message: 'Database seeded successfully',
         counts: {
+          zones: 1,
           users: 10,
           vendors: 3,
           categories: 12,
@@ -396,15 +460,22 @@ export class SeedService {
 
     // Delete in reverse order of dependencies
     await this.prisma.orderItem.deleteMany();
+    await this.prisma.deliveryAssignment.deleteMany();
+    await this.prisma.orderVendorGroup.deleteMany();
     await this.prisma.order.deleteMany();
+    await this.prisma.payment.deleteMany();
+    await this.prisma.commission.deleteMany();
     await this.prisma.cartItem.deleteMany();
     await this.prisma.wishlistItem.deleteMany();
     await this.prisma.review.deleteMany();
     await this.prisma.product.deleteMany();
     await this.prisma.category.deleteMany();
     await this.prisma.vendor.deleteMany();
-    await this.prisma.address.deleteMany();
+    await this.prisma.pushToken.deleteMany();
+    await this.prisma.aI_Log.deleteMany();
     await this.prisma.notification.deleteMany();
+    await this.prisma.address.deleteMany();
+    await this.prisma.zone.deleteMany();
     await this.prisma.user.deleteMany();
 
     this.logger.log('Database reset complete');

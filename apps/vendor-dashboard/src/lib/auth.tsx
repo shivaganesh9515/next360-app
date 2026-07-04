@@ -21,9 +21,19 @@ interface AuthContextType {
   verifyOtp: (email: string, otp: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  skipAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const DEV_SKIP_KEY = 'vendor_dev_skip';
+
+const DEV_VENDOR_USER: User = {
+  id: 'dev-vendor-001',
+  email: 'vendor@next360.dev',
+  name: 'Dev Vendor',
+  role: 'VENDOR',
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -31,6 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // Dev-only bypass: skip the real API/DB round trip entirely so the dashboard
+    // is reachable while the backend/DB isn't provisioned yet.
+    if (localStorage.getItem(DEV_SKIP_KEY) === 'true') {
+      setUser(DEV_VENDOR_USER);
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem('vendor_token');
     if (token) {
       vendorApi.getProfile()
@@ -62,12 +80,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('vendor_token');
+    localStorage.removeItem(DEV_SKIP_KEY);
     setUser(null);
     router.push('/login');
   };
 
+  const skipAuth = () => {
+    localStorage.setItem(DEV_SKIP_KEY, 'true');
+    setUser(DEV_VENDOR_USER);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, verifyOtp, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, verifyOtp, logout, isAuthenticated: !!user, skipAuth }}>
       {children}
     </AuthContext.Provider>
   );

@@ -78,18 +78,22 @@ export class NotificationsService {
 
   // Push notification methods
   async registerPushToken(userId: string, expoPushToken: string) {
-    // Store the push token in the user's profile
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { pushToken: expoPushToken },
+    // Check if token already exists
+    const existing = await this.prisma.pushToken.findFirst({
+      where: { userId, token: expoPushToken },
+    });
+    if (existing) {
+      return { message: 'Push token already registered' };
+    }
+    await this.prisma.pushToken.create({
+      data: { userId, token: expoPushToken, platform: 'unknown' },
     });
     return { message: 'Push token registered successfully' };
   }
 
   async unregisterPushToken(userId: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { pushToken: null },
+    await this.prisma.pushToken.deleteMany({
+      where: { userId },
     });
     return { message: 'Push token unregistered successfully' };
   }
@@ -115,14 +119,15 @@ export class NotificationsService {
         }),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as { errors?: unknown[] };
       if (result.errors) {
         this.logger.error(`Push notification failed: ${JSON.stringify(result.errors)}`);
         return false;
       }
       return true;
-    } catch (error) {
-      this.logger.error(`Push notification error: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Push notification error: ${message}`);
       return false;
     }
   }
@@ -133,12 +138,12 @@ export class NotificationsService {
     userId: string,
     storeName?: string,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { pushToken: true },
+    const pushTokens = await this.prisma.pushToken.findMany({
+      where: { userId },
+      select: { token: true },
     });
 
-    if (!user?.pushToken) return false;
+    if (!pushTokens.length) return false;
 
     let title = 'Order Update';
     let body = '';
@@ -168,11 +173,17 @@ export class NotificationsService {
         return false;
     }
 
-    return this.sendPushNotification(user.pushToken, title, body, {
-      orderId,
-      status,
-      screen: 'OrderDetail',
-    });
+    // Send to all registered tokens for this user
+    const results = await Promise.all(
+      pushTokens.map(({ token }) =>
+        this.sendPushNotification(token, title, body, {
+          orderId,
+          status,
+          screen: 'OrderDetail',
+        })
+      ),
+    );
+    return results.some(Boolean);
   }
 
   async sendNewOrderNotification(
@@ -193,18 +204,16 @@ export class NotificationsService {
   }
 
   async getAllPushTokens(role?: string) {
-    const where: any = { pushToken: { not: null } };
+    const where: any = {};
     if (role) {
-      where.role = role;
+      where.user = { role };
     }
     
-    const users = await this.prisma.user.findMany({
+    const tokens = await this.prisma.pushToken.findMany({
       where,
-      select: { id: true, pushToken: true, role: true },
+      include: { user: { select: { id: true, role: true } } },
     });
     
-    return users
-      .filter(u => u.pushToken)
-      .map(u => ({ userId: u.id, token: u.pushToken!, role: u.role }));
+    return tokens.map(t => ({ userId: t.user.id, token: t.token, role: t.user.role }));
   }
 }

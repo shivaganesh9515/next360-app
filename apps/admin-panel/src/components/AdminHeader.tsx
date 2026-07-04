@@ -5,9 +5,10 @@ import { useAuth } from '@/lib/auth';
 
 interface AdminHeaderProps {
   onMenuClick?: () => void;
+  title?: string;
 }
 
-export default function AdminHeader({ onMenuClick }: AdminHeaderProps) {
+export default function AdminHeader({ onMenuClick, title }: AdminHeaderProps) {
   const { user, logout } = useAuth();
 
   return (
@@ -16,6 +17,7 @@ export default function AdminHeader({ onMenuClick }: AdminHeaderProps) {
         <button onClick={onMenuClick} className="lg:hidden p-1 hover:bg-gray-100 rounded">
           <Menu className="w-5 h-5 text-gray-600" />
         </button>
+        {title && <h1 className="text-lg font-semibold text-gray-800">{title}</h1>}
       </div>
       <div className="flex items-center gap-4">
         <button className="p-2 hover:bg-gray-100 rounded-full relative">

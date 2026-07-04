@@ -11,7 +11,7 @@ export default function StoreProfilePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getStore('me').then((res: any) => setVendor(res)).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getStore('me').then((res: any) => setVendor(res)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;

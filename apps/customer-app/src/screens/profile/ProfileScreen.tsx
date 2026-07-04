@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../lib/auth';
+import { Colors } from '../../constants/theme';
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
@@ -20,9 +21,24 @@ export default function ProfileScreen({ navigation }: any) {
 
   const menuItems = [
     {
+      icon: 'person-outline',
+      label: 'Edit Profile',
+      onPress: () => navigation.navigate('EditProfile'),
+    },
+    {
       icon: 'receipt-outline',
       label: 'My Orders',
       onPress: () => navigation.navigate('OrderHistory'),
+    },
+    {
+      icon: 'heart-outline',
+      label: 'Favourites',
+      onPress: () => navigation.navigate('Main', { screen: 'Favorites' }),
+    },
+    {
+      icon: 'pricetag-outline',
+      label: 'Offers & Coupons',
+      onPress: () => navigation.navigate('Promos'),
     },
     {
       icon: 'location-outline',
@@ -30,19 +46,14 @@ export default function ProfileScreen({ navigation }: any) {
       onPress: () => navigation.navigate('AddressList'),
     },
     {
-      icon: 'card-outline',
-      label: 'Payment Methods',
-      onPress: () => {},
+      icon: 'notifications-outline',
+      label: 'Notifications',
+      onPress: () => navigation.navigate('Notifications'),
     },
     {
-      icon: 'settings-outline',
-      label: 'Settings',
-      onPress: () => {},
-    },
-    {
-      icon: 'information-circle-outline',
-      label: 'About',
-      onPress: () => {},
+      icon: 'help-circle-outline',
+      label: 'Support',
+      onPress: () => navigation.navigate('Support'),
     },
   ];
 
@@ -95,24 +106,24 @@ export default function ProfileScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.background,
   },
   header: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.border,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: Colors.text,
   },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     margin: 16,
     borderRadius: 12,
     padding: 16,
@@ -121,7 +132,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2A7A4B',
+    backgroundColor: Colors.organic,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -136,15 +147,15 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: Colors.text,
   },
   userEmail: {
     fontSize: 14,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     marginTop: 4,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     marginHorizontal: 16,
     borderRadius: 12,
     overflow: 'hidden',
@@ -158,7 +169,7 @@ const styles = StyleSheet.create({
   },
   menuItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: Colors.border,
   },
   menuLeft: {
     flexDirection: 'row',
@@ -166,7 +177,7 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     fontSize: 16,
-    color: '#374151',
+    color: Colors.text,
     marginLeft: 12,
   },
   signOutButton: {
@@ -182,12 +193,12 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#EF4444',
+    color: Colors.error,
     marginLeft: 8,
   },
   version: {
     textAlign: 'center',
-    color: '#9CA3AF',
+    color: Colors.textSecondary,
     fontSize: 12,
     marginTop: 24,
   },

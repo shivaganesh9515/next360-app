@@ -7,10 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../lib/store';
 import { CartItem as CartItemType } from '../../types';
-import { Colors, Typography } from '../../constants/theme';
-
-const GREEN = Colors.organic;
-const GREEN_DARK = Colors.brass;
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 
 function CartItemRow({ item, onQuantityChange, onRemove }: {
   item: CartItemType;
@@ -30,7 +27,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
   };
 
   return (
-    <View style={styles.cartItem}>
+    <View style={[styles.cartItem, Shadows.card]}>
       <Image
         source={{ uri: item.product?.images?.[0] || 'https://via.placeholder.com/80' }}
         style={styles.itemImage}
@@ -46,7 +43,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
           onPress={() => handleQuantityChange(item.quantity - 1)}
           disabled={updating}
         >
-          <Ionicons name="remove" size={18} color={GREEN} />
+          <Ionicons name="remove" size={16} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.quantityText}>{item.quantity}</Text>
         <TouchableOpacity
@@ -54,14 +51,15 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
           onPress={() => handleQuantityChange(item.quantity + 1)}
           disabled={updating}
         >
-          <Ionicons name="add" size={18} color={GREEN} />
+          <Ionicons name="add" size={16} color={Colors.text} />
         </TouchableOpacity>
       </View>
       <TouchableOpacity
         style={styles.removeButton}
         onPress={() => onRemove(item.id)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+        <Ionicons name="trash-outline" size={17} color={Colors.error} />
       </TouchableOpacity>
     </View>
   );
@@ -118,13 +116,14 @@ export default function CartScreen({ navigation }: any) {
     ]);
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toFixed(0)}`;
+  const DELIVERY_FEE = 40;
+  const formatCurrency = (amount: number) => `₹${amount.toFixed(0)}`;
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GREEN} />
+          <ActivityIndicator size="large" color={Colors.organic} />
         </View>
       </SafeAreaView>
     );
@@ -134,11 +133,11 @@ export default function CartScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
-          <Ionicons name="cart-outline" size={80} color="#D1D5DB" />
+          <Ionicons name="bag-handle-outline" size={72} color={Colors.border} />
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>Add some items to get started</Text>
           <TouchableOpacity
-            style={styles.shopButton}
+            style={[styles.shopButton, Shadows.button(Colors.organic)]}
             onPress={() => navigation.navigate('Home')}
           >
             <Text style={styles.shopButtonText}>Start Shopping</Text>
@@ -152,8 +151,8 @@ export default function CartScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Cart ({totalItems} items)</Text>
-        <TouchableOpacity onPress={handleClearCart}>
+        <Text style={styles.headerTitle}>Cart ({cartCount} items)</Text>
+        <TouchableOpacity onPress={handleClearCart} hitSlop={8}>
           <Text style={styles.clearText}>Clear All</Text>
         </TouchableOpacity>
       </View>
@@ -171,31 +170,32 @@ export default function CartScreen({ navigation }: any) {
         )}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[GREEN]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.organic]} />
         }
       />
 
       {/* Bottom Summary */}
-      <View style={styles.summaryBar}>
+      <View style={[styles.summaryBar, Shadows.raised]}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
           <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Delivery</Text>
-          <Text style={styles.summaryValue}>₹40</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(DELIVERY_FEE)}</Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{formatCurrency(subtotal + 4000)}</Text>
+          <Text style={styles.totalValue}>{formatCurrency(subtotal + DELIVERY_FEE)}</Text>
         </View>
         <TouchableOpacity
-          style={styles.checkoutButton}
+          style={[styles.checkoutButton, Shadows.button(Colors.organic)]}
           onPress={() => navigation.navigate('Checkout')}
         >
           <Text style={styles.checkoutButtonText}>
-            Proceed to Checkout ({totalItems} items)
+            Proceed to Checkout ({cartCount} items)
           </Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.white} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -205,7 +205,7 @@ export default function CartScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -216,157 +216,154 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...Typography.h3,
+    color: Colors.text,
   },
   clearText: {
-    fontSize: 14,
-    color: '#EF4444',
+    ...Typography.bodySmall,
+    color: Colors.error,
+    fontFamily: 'Inter_600SemiBold',
   },
   listContent: {
-    padding: 16,
+    padding: Spacing.lg,
   },
   cartItem: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
     alignItems: 'center',
   },
   itemImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    width: 68,
+    height: 68,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.border,
   },
   itemInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: Spacing.md,
   },
   itemName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
+    ...Typography.bodySmall,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
   },
   itemUnit: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    ...Typography.caption,
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   itemPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: GREEN_DARK,
+    ...Typography.h3,
+    color: Colors.brass,
     marginTop: 4,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 4,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: 2,
   },
   quantityButton: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quantityText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    minWidth: 24,
+    ...Typography.bodySmall,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+    minWidth: 20,
     textAlign: 'center',
   },
   removeButton: {
-    padding: 8,
-    marginLeft: 8,
+    padding: Spacing.xs,
+    marginLeft: Spacing.sm,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.xxl,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
+    ...Typography.h2,
+    color: Colors.text,
+    marginTop: Spacing.lg,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 8,
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
   },
   shopButton: {
-    backgroundColor: GREEN,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
+    backgroundColor: Colors.organic,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.pill,
+    marginTop: Spacing.xl,
   },
   shopButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...Typography.button,
+    color: Colors.white,
   },
   summaryBar: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    padding: 16,
-    paddingBottom: 32,
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   summaryLabel: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
   },
   summaryValue: {
-    fontSize: 14,
-    color: '#374151',
+    ...Typography.bodySmall,
+    color: Colors.text,
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 8,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing.sm,
     marginTop: 4,
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...Typography.h3,
+    color: Colors.text,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: GREEN_DARK,
+    ...Typography.h2,
+    color: Colors.brass,
   },
   checkoutButton: {
-    backgroundColor: GREEN,
-    borderRadius: 12,
-    paddingVertical: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.organic,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: Spacing.md + 2,
+    marginTop: Spacing.md,
   },
   checkoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...Typography.button,
+    color: Colors.white,
   },
 });

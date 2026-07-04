@@ -3,8 +3,8 @@ import { ThrottlerGuard as NestThrottlerGuard } from '@nestjs/throttler';
 
 @Injectable()
 export class ThrottlerGuard extends NestThrottlerGuard {
-  protected getTracker(req: Record<string, any>): Promise<string> {
-    return Promise.resolve(req.ip);
+  protected async getTracker(req: Record<string, any>): Promise<string> {
+    return req.ip;
   }
 
   protected getRequestResponse(context: ExecutionContext) {
@@ -12,13 +12,12 @@ export class ThrottlerGuard extends NestThrottlerGuard {
     return { req: ctx.getRequest(), res: ctx.getResponse() };
   }
 
-  protected throwThrottlingException(
+  protected async throwThrottlingException(
     context: ExecutionContext,
-    limit: number,
-    ttl: number,
-  ): void {
+    throttlerLimitDetail: { ttl: number; limit: number; key: string },
+  ): Promise<void> {
     const response = context.switchToHttp().getResponse();
-    response.setHeader('Retry-After', Math.ceil(ttl / 1000));
+    response.setHeader('Retry-After', Math.ceil(throttlerLimitDetail.ttl / 1000));
     throw new HttpException(
       {
         statusCode: HttpStatus.TOO_MANY_REQUESTS,

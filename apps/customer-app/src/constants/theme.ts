@@ -14,10 +14,13 @@ export const Colors = {
 
   // Store accents
   organic: '#5C6B4D',
+  organicDark: '#3E4A34',
   organicLight: '#E8EDE3',
   natural: '#9B6A3F',
+  naturalDark: '#6E4A2A',
   naturalLight: '#F0E6DC',
   eco: '#2F5D62',
+  ecoDark: '#1E3E42',
   ecoLight: '#DCEBEC',
 
   // Status
@@ -48,6 +51,26 @@ export const getStoreAccentLight = (storeType: string) => {
   }
 };
 
+// Darker stop for accent -> accentDark gradients (hero banners, active nav, buttons)
+export const getStoreAccentDark = (storeType: string) => {
+  switch (storeType) {
+    case 'ORGANIC': return Colors.organicDark;
+    case 'NATURAL': return Colors.naturalDark;
+    case 'ECO_FRIENDLY': return Colors.ecoDark;
+    default: return Colors.organicDark;
+  }
+};
+
+// rgba(accent, 0.3) per CLAUDE.md "Design Tokens" — cardBorder swaps per category, everything else is fixed
+export const getStoreCardBorder = (storeType: string) => {
+  switch (storeType) {
+    case 'ORGANIC': return 'rgba(92,107,77,0.3)';
+    case 'NATURAL': return 'rgba(155,106,63,0.3)';
+    case 'ECO_FRIENDLY': return 'rgba(47,93,98,0.3)';
+    default: return 'rgba(92,107,77,0.3)';
+  }
+};
+
 export const getStoreLabel = (storeType: string) => {
   switch (storeType) {
     case 'ORGANIC': return 'Organic';
@@ -73,6 +96,33 @@ export const BorderRadius = {
   lg: 18,
   xl: 24,
   pill: 999,
+};
+
+// Soft, warm-tinted shadows (not pure black) — the depth cue that reads as "premium"
+// rather than flat. Use `card` for product cards/tiles, `raised` for floating nav/sheets,
+// `button` for primary CTAs so they visually lift off the page.
+export const Shadows = {
+  card: {
+    shadowColor: '#3A3626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  raised: {
+    shadowColor: '#2A2718',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  button: (tint: string = '#3A3626') => ({
+    shadowColor: tint,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 6,
+  }),
 };
 
 export const Typography = {

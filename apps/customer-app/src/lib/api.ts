@@ -167,6 +167,9 @@ export const customerApi = {
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
   markAllNotificationsRead: () => api.post<any>('/notifications/read-all'),
+  registerPushToken: (expoPushToken: string) =>
+    api.post<any>('/notifications/register', { expoPushToken }),
+  unregisterPushToken: () => api.delete<any>('/notifications/unregister'),
 
   // AI Features
   sendAiMessage: (message: string, context?: { productId?: string; orderId?: string }) =>

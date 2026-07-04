@@ -1,115 +1,105 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
+import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import BigButton from '../../components/BigButton';
 
-const GREEN = '#2A7A4B';
-const ADDRESS_TYPES = ['HOME', 'WORK', 'OTHER'];
+const LABELS = ['Home', 'Work', 'Other'];
 
 export default function AddAddressScreen({ navigation }: any) {
-  const [line1, setLine1] = useState('');
-  const [line2, setLine2] = useState('');
+  const [label, setLabel] = useState('Home');
+  const [fullAddress, setFullAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
-  const [type, setType] = useState('HOME');
   const [loading, setLoading] = useState(false);
 
-  const isValid = line1.trim() && city.trim() && state.trim() && pincode.trim();
+  const isValid = fullAddress.trim() && city.trim() && state.trim() && pincode.trim().length === 6;
 
   const handleSave = async () => {
     if (!isValid) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Missing details', 'Fill in the address, city, state, and a 6-digit pincode.');
       return;
     }
-
     setLoading(true);
     try {
       await customerApi.createAddress({
-        line1: line1.trim(),
-        line2: line2.trim(),
+        label,
+        fullAddress: fullAddress.trim(),
         city: city.trim(),
         state: state.trim(),
         pincode: pincode.trim(),
-        type,
       });
-      Alert.alert('Success', 'Address added successfully', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to add address');
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert('Could not save address', err.message || 'Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Address</Text>
+        <Text style={s.headerTitle}>Add Address</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Address Type */}
-        <Text style={styles.label}>Address Type</Text>
-        <View style={styles.typeContainer}>
-          {ADDRESS_TYPES.map((t) => (
+      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <Text style={s.label}>Label</Text>
+        <View style={s.typeRow}>
+          {LABELS.map((l) => (
             <TouchableOpacity
-              key={t}
-              style={[styles.typeButton, type === t && styles.typeButtonActive]}
-              onPress={() => setType(t)}
+              key={l}
+              style={[s.typeChip, label === l && s.typeChipActive]}
+              onPress={() => setLabel(l)}
             >
-              <Text style={[styles.typeText, type === t && styles.typeTextActive]}>{t}</Text>
+              <Text style={[s.typeText, label === l && s.typeTextActive]}>{l}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Address Fields */}
-        <Text style={styles.label}>Address Line 1 *</Text>
+        <Text style={s.label}>Full Address *</Text>
         <TextInput
-          style={styles.input}
-          placeholder="House No., Building Name, Street"
-          value={line1}
-          onChangeText={setLine1}
+          style={[s.input, s.inputMultiline]}
+          placeholder="House/flat no., building, street, area, landmark"
+          placeholderTextColor={Colors.textSecondary}
+          value={fullAddress}
+          onChangeText={setFullAddress}
+          multiline
+          numberOfLines={3}
         />
 
-        <Text style={styles.label}>Address Line 2</Text>
+        <Text style={s.label}>City *</Text>
         <TextInput
-          style={styles.input}
-          placeholder="Landmark, Area"
-          value={line2}
-          onChangeText={setLine2}
-        />
-
-        <Text style={styles.label}>City *</Text>
-        <TextInput
-          style={styles.input}
+          style={s.input}
           placeholder="City"
+          placeholderTextColor={Colors.textSecondary}
           value={city}
           onChangeText={setCity}
         />
 
-        <Text style={styles.label}>State *</Text>
+        <Text style={s.label}>State *</Text>
         <TextInput
-          style={styles.input}
+          style={s.input}
           placeholder="State"
+          placeholderTextColor={Colors.textSecondary}
           value={state}
           onChangeText={setState}
         />
 
-        <Text style={styles.label}>Pincode *</Text>
+        <Text style={s.label}>Pincode *</Text>
         <TextInput
-          style={styles.input}
-          placeholder="Pincode"
+          style={s.input}
+          placeholder="6-digit pincode"
+          placeholderTextColor={Colors.textSecondary}
           keyboardType="numeric"
           value={pincode}
           onChangeText={setPincode}
@@ -117,105 +107,39 @@ export default function AddAddressScreen({ navigation }: any) {
         />
       </ScrollView>
 
-      {/* Save Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.saveButton, !isValid && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={!isValid || loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Address</Text>
-          )}
-        </TouchableOpacity>
+      <View style={s.footer}>
+        <BigButton label="Save Address" onPress={handleSave} loading={loading} disabled={!isValid} />
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-    marginTop: 16,
-  },
+  headerTitle: { ...Typography.h3, color: Colors.text },
+
+  content: { flex: 1, padding: Spacing.lg },
+  label: { ...Typography.bodySmall, color: Colors.text, fontFamily: 'Inter_600SemiBold', marginBottom: Spacing.sm, marginTop: Spacing.lg },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1F2937',
+    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
+    ...Typography.body, color: Colors.text,
   },
-  typeContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
+
+  typeRow: { flexDirection: 'row', gap: Spacing.sm },
+  typeChip: {
+    flex: 1, paddingVertical: Spacing.sm + 2, borderRadius: BorderRadius.md,
+    borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center',
   },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-  },
-  typeButtonActive: {
-    backgroundColor: GREEN,
-    borderColor: GREEN,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  typeTextActive: {
-    color: '#FFFFFF',
-  },
-  footer: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  saveButton: {
-    backgroundColor: GREEN,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  typeChipActive: { backgroundColor: Colors.organic, borderColor: Colors.organic },
+  typeText: { ...Typography.bodySmall, color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  typeTextActive: { color: Colors.white },
+
+  footer: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
 });

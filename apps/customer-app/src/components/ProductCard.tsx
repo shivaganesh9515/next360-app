@@ -2,8 +2,9 @@ import React from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../types';
-import { Colors, Spacing, BorderRadius, Typography, getStoreAccent } from '../constants/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, getStoreAccent, getStoreCardBorder } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.lg * 3) / 2;
@@ -22,22 +23,27 @@ export default function ProductCard({ product, onPress, onQuickAdd, isWishlisted
     ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
     : 0;
   const accent = getStoreAccent(product.storeType);
+  const cardBorder = getStoreCardBorder(product.storeType);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={() => onPress(product)} activeOpacity={0.9}>
+    <TouchableOpacity
+      style={[styles.card, Shadows.card, { borderColor: cardBorder }]}
+      onPress={() => onPress(product)}
+      activeOpacity={0.92}
+    >
       {/* Image */}
       <View style={styles.imageContainer}>
         {product.images?.[0] ? (
           <Image source={{ uri: product.images[0] }} style={styles.image} />
         ) : (
-          <View style={[styles.imagePlaceholder, { backgroundColor: accent + '20' }]}>
+          <View style={[styles.imagePlaceholder, { backgroundColor: accent + '1A' }]}>
             <Text style={styles.placeholderText}>🌿</Text>
           </View>
         )}
         {/* Discount badge */}
         {hasDiscount && (
-          <View style={[styles.discountBadge, { backgroundColor: Colors.error }]}>
-            <Text style={styles.discountText}>-{discountPercent}%</Text>
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>{discountPercent}% OFF</Text>
           </View>
         )}
         {/* Wishlist */}
@@ -45,11 +51,26 @@ export default function ProductCard({ product, onPress, onQuickAdd, isWishlisted
           <TouchableOpacity
             style={styles.wishlistBtn}
             onPress={() => onToggleWishlist(product)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Text style={{ fontSize: 18 }}>{isWishlisted ? '❤️' : '🤍'}</Text>
+            <Ionicons
+              name={isWishlisted ? 'heart' : 'heart-outline'}
+              size={15}
+              color={isWishlisted ? Colors.error : Colors.textSecondary}
+            />
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Floating quick-add button, overlapping the image/info seam — lives outside
+          imageContainer since that clips to rounded corners with overflow:hidden */}
+      <TouchableOpacity
+        style={[styles.addBtn, Shadows.button(accent), { backgroundColor: accent }]}
+        onPress={() => onQuickAdd(product)}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+      >
+        <Ionicons name="add" size={20} color={Colors.white} />
+      </TouchableOpacity>
 
       {/* Info */}
       <View style={styles.info}>
@@ -59,27 +80,22 @@ export default function ProductCard({ product, onPress, onQuickAdd, isWishlisted
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
-        <Text style={styles.unit}>{product.unit}</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.unit}>{product.unit}</Text>
+          {!!product.rating && (
+            <View style={styles.ratingPill}>
+              <Ionicons name="star" size={10} color={Colors.brass} />
+              <Text style={styles.rating}>{product.rating.toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: accent }]}>₹{product.price}</Text>
+          <Text style={styles.price}>₹{product.price}</Text>
           {hasDiscount && (
             <Text style={styles.oldPrice}>₹{product.compareAtPrice}</Text>
           )}
         </View>
-        <View style={styles.ratingRow}>
-          {product.rating ? (
-            <Text style={styles.rating}>⭐ {product.rating.toFixed(1)}</Text>
-          ) : null}
-        </View>
       </View>
-
-      {/* Quick add button */}
-      <TouchableOpacity
-        style={[styles.addBtn, { backgroundColor: accent }]}
-        onPress={() => onQuickAdd(product)}
-      >
-        <Text style={styles.addBtnText}>+</Text>
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -88,15 +104,16 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
     marginBottom: Spacing.lg,
     overflow: 'visible',
     position: 'relative',
   },
   imageContainer: {
-    height: CARD_WIDTH * 0.9,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
+    height: CARD_WIDTH * 0.95,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
     overflow: 'hidden',
   },
   image: {
@@ -117,27 +134,30 @@ const styles = StyleSheet.create({
     top: Spacing.sm,
     left: Spacing.sm,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.error,
   },
   discountText: {
-    ...Typography.caption,
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
     color: Colors.white,
-    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   wishlistBtn: {
     position: 'absolute',
     top: Spacing.sm,
     right: Spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.white + 'CC',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   info: {
     padding: Spacing.md,
+    paddingTop: Spacing.md + 6,
   },
   category: {
     ...Typography.caption,
@@ -148,57 +168,53 @@ const styles = StyleSheet.create({
   name: {
     ...Typography.bodySmall,
     color: Colors.text,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    marginTop: 2,
+    minHeight: 34,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 2,
   },
   unit: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
+  },
+  ratingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  rating: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     marginTop: Spacing.xs,
   },
   price: {
     ...Typography.h3,
-    fontWeight: '700',
+    color: Colors.brass,
   },
   oldPrice: {
     ...Typography.bodySmall,
     color: Colors.textSecondary,
     textDecorationLine: 'line-through',
   },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  rating: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
   addBtn: {
     position: 'absolute',
-    bottom: Spacing.md,
+    top: CARD_WIDTH * 0.95 - 18,
     right: Spacing.md,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  },
-  addBtnText: {
-    fontSize: 20,
-    color: Colors.white,
-    fontWeight: '700',
-    lineHeight: 22,
   },
 });

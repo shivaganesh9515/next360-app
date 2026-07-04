@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../constants/theme';
 
-const GREEN = '#2A7A4B';
+const GREEN = Colors.organic;
 
 export default function OrderConfirmationScreen({ navigation, route }: any) {
   const { orderId } = route.params || {};
@@ -46,7 +47,7 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
 
         <TouchableOpacity
           style={styles.ordersButton}
-          onPress={() => navigation.navigate('Profile', { screen: 'OrderHistory' })}
+          onPress={() => navigation.navigate('Main', { screen: 'Orders' })}
         >
           <Text style={styles.ordersButtonText}>View Orders</Text>
         </TouchableOpacity>

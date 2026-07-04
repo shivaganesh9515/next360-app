@@ -20,11 +20,6 @@ export enum OrderStatus {
   REFUNDED = 'REFUNDED',
 }
 
-export enum AddressType {
-  HOME = 'HOME',
-  WORK = 'WORK',
-  OTHER = 'OTHER',
-}
 
 export interface User {
   id: string;
@@ -77,15 +72,13 @@ export interface CartItem {
 
 export interface Address {
   id: string;
-  fullName: string;
-  phone: string;
-  street: string;
-  area: string;
+  label?: string;
+  fullAddress: string;
   city: string;
   state: string;
   pincode: string;
-  landmark?: string;
-  type: AddressType;
+  lat?: number;
+  lng?: number;
   isDefault: boolean;
 }
 

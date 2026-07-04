@@ -10,7 +10,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getAnalytics('30d').then(setAnalytics).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getAnalytics('30d').then(setAnalytics).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;

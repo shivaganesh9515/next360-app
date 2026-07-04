@@ -10,7 +10,7 @@ export default function CustomersPage() {
 
   useEffect(() => {
     vendorApi.getCustomers().then((res: any) => setCustomers(Array.isArray(res) ? res : res.data || []))
-      .catch(console.error).finally(() => setLoading(false));
+      .catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

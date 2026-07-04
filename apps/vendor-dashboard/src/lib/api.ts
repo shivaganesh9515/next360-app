@@ -24,7 +24,13 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const response = await fetch(url, { ...fetchOptions, headers });
+  let response: Response;
+  try {
+    response = await fetch(url, { ...fetchOptions, headers });
+  } catch (err: any) {
+    // Network error (API not running, CORS, etc.)
+    throw new Error('Unable to connect to server. Please try again later.');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -32,7 +38,13 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error('API returned invalid response. Is the server running?');
+  }
 }
 
 export const api = {

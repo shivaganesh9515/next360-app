@@ -8,8 +8,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: { email: string; password: string; name: string; phone?: string }) => Promise<void>;
-  sendPhoneOtp: (phone: string) => Promise<void>;
-  verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
+  verifyOtp: (email: string, otp: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
   skipAuth: () => void;
 }
@@ -45,14 +46,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
   }, []);
 
-  const sendPhoneOtp = useCallback(async (phone: string) => {
-    await customerApi.sendPhoneOtp(phone);
+  const verifyOtp = useCallback(async (email: string, otp: string) => {
+    await customerApi.verifyOtp(email, otp);
   }, []);
 
-  const verifyPhoneOtp = useCallback(async (phone: string, otp: string) => {
-    const res = await customerApi.verifyPhoneOtp(phone, otp);
-    await setToken(res.access_token);
-    setUser(res.user);
+  const forgotPassword = useCallback(async (email: string) => {
+    await customerApi.forgotPassword(email);
+  }, []);
+
+  const resetPassword = useCallback(async (token: string, newPassword: string) => {
+    await customerApi.resetPassword(token, newPassword);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -67,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, isLoading, isAuthenticated: !!user,
-      signIn, signUp, sendPhoneOtp, verifyPhoneOtp, signOut, skipAuth,
+      signIn, signUp, verifyOtp, forgotPassword, resetPassword, signOut, skipAuth,
     }}>
       {children}
     </AuthContext.Provider>

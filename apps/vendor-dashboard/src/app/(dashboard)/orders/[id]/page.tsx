@@ -17,7 +17,7 @@ export default function OrderDetailPage() {
   const [updating, setUpdating] = useState(false);
 
   const fetchOrder = async () => {
-    try { const res = await vendorApi.getOrder(params.id); setOrder(res); }
+    try { const res = await vendorApi.getOrder(String(params.id)); setOrder(res); }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -26,7 +26,7 @@ export default function OrderDetailPage() {
 
   const updateStatus = async (newStatus: string) => {
     setUpdating(true);
-    try { await vendorApi.updateOrderStatus(params.id, newStatus); fetchOrder(); }
+    try { await vendorApi.updateOrderStatus(String(params.id), newStatus); fetchOrder(); }
     catch (e) { console.error(e); }
     finally { setUpdating(false); }
   };

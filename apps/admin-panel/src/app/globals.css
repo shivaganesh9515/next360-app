@@ -1,1 +1,76 @@
 @import "tailwindcss";
+
+/* ── Admin Panel Design Tokens ─────────────────────────────── */
+:root {
+  /* Core palette */
+  --admin-bg: #F8FAFC;
+  --admin-surface: #FFFFFF;
+  --admin-surface-hover: #F1F5F9;
+  --admin-border: #E2E8F0;
+  --admin-border-strong: #CBD5E1;
+
+  /* Sidebar */
+  --admin-sidebar: #111827;
+  --admin-sidebar-hover: #1F2937;
+  --admin-sidebar-active: rgba(16, 185, 129, 0.15);
+  --admin-sidebar-text: #9CA3AF;
+  --admin-sidebar-text-active: #10B981;
+
+  /* Text */
+  --admin-text-primary: #0F172A;
+  --admin-text-secondary: #475569;
+  --admin-text-muted: #94A3B8;
+
+  /* Accent — emerald for actions */
+  --admin-accent: #10B981;
+  --admin-accent-hover: #059669;
+  --admin-accent-light: rgba(16, 185, 129, 0.08);
+  --admin-accent-ring: rgba(16, 185, 129, 0.25);
+
+  /* Status */
+  --admin-success: #10B981;
+  --admin-warning: #F59E0B;
+  --admin-error: #EF4444;
+  --admin-info: #3B82F6;
+
+  /* Shadows */
+  --admin-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --admin-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --admin-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+
+  /* Radius */
+  --admin-radius-sm: 6px;
+  --admin-radius-md: 10px;
+  --admin-radius-lg: 14px;
+
+  /* Transitions */
+  --admin-transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Focus ring utility ────────────────────────────────────── */
+.admin-focus-ring {
+  transition: border-color var(--admin-transition), box-shadow var(--admin-transition);
+}
+.admin-focus-ring:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-ring);
+}
+
+/* ── Smooth page transitions ───────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .admin-animate-in {
+    animation: adminFadeIn 200ms ease-out;
+  }
+}
+
+@keyframes adminFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -51,6 +51,13 @@ export const api = {
 
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+
+  // Push token management
+  registerPushToken: (token: string) =>
+    api.post<any>('/notifications/push-token', { token }),
+
+  unregisterPushToken: () =>
+    api.delete<any>('/notifications/push-token'),
 };
 
 // Delivery-specific API methods

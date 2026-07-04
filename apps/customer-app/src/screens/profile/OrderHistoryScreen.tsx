@@ -6,8 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
+import { Colors } from '../../constants/theme';
 
-const GREEN = '#2A7A4B';
+const GREEN = Colors.organic;
 
 const STATUS_COLORS: Record<string, string> = {
   PLACED: '#6B7280',
@@ -46,7 +47,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
     await loadOrders();
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toFixed(0)}`;
+  const formatCurrency = (amount: number) => `₹${Number(amount || 0).toFixed(0)}`;
 
   const formatDate = (date: string) => {
     const d = new Date(date);
@@ -71,9 +72,11 @@ export default function OrderHistoryScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        ) : <View style={{ width: 24 }} />}
         <Text style={styles.headerTitle}>My Orders</Text>
         <View style={{ width: 24 }} />
       </View>
@@ -110,7 +113,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
               </View>
               <View style={styles.orderInfo}>
                 <Text style={styles.orderItems}>{order.items?.length || 0} items</Text>
-                <Text style={styles.orderTotal}>{formatCurrency(order.total)}</Text>
+                <Text style={styles.orderTotal}>{formatCurrency(order.totalAmount)}</Text>
               </View>
             </TouchableOpacity>
           )}

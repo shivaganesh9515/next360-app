@@ -16,7 +16,7 @@ export default function EditStorePage() {
   useEffect(() => {
     setLoading(true);
     vendorApi.getStore('me').then((res: any) => setForm({ storeName: res.storeName || '', description: res.description || '' }))
-      .catch(console.error).finally(() => setLoading(false));
+      .catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

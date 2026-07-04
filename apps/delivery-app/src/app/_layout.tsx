@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import { useDeliveryStore } from '../store/deliveryStore';
+import { registerForPushNotifications, setupNotificationListeners } from '../lib/notifications';
 
 export default function RootLayout() {
   const { loadSession, isAuthenticated } = useAuthStore();
@@ -15,6 +16,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (isAuthenticated) {
       setupRealtime();
+      registerForPushNotifications();
     }
     return () => {
       cleanupRealtime();

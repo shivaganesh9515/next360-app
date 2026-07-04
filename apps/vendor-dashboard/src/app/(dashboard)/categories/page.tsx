@@ -11,7 +11,7 @@ export default function CategoriesPage() {
   useEffect(() => {
     vendorApi.getCategories({}).then((res: any) => {
       setCategories(Array.isArray(res) ? res : res.data || []);
-    }).catch(console.error).finally(() => setLoading(false));
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

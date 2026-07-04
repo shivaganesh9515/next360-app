@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import { api } from './api';
+import { customerApi } from './api';
 
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
@@ -27,7 +26,7 @@ export async function registerForPushNotifications() {
     console.log('Expo push token:', token);
 
     // Register with backend
-    await api.registerPushToken(token);
+    await customerApi.registerPushToken(token);
 
     return token;
   } catch (error) {
@@ -41,6 +40,8 @@ export function setupNotificationListeners(navigation: any) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -48,9 +49,9 @@ export function setupNotificationListeners(navigation: any) {
 
   // Handle notification tap
   const subscription = Notifications.addNotificationResponseReceivedListener(
-    (response) => {
-      const data = response.notification.request.content.data;
-      if (data.screen && data.orderId) {
+    (response: Notifications.NotificationResponse) => {
+      const data = response.notification.request.content.data as { screen?: string; orderId?: string } | undefined;
+      if (data?.screen && data?.orderId) {
         navigation.navigate(data.screen, { orderId: data.orderId });
       }
     },
@@ -61,7 +62,7 @@ export function setupNotificationListeners(navigation: any) {
 
 export async function unregisterPushToken() {
   try {
-    await api.unregisterPushToken();
+    await customerApi.unregisterPushToken();
   } catch (error) {
     console.error('Failed to unregister push token:', error);
   }

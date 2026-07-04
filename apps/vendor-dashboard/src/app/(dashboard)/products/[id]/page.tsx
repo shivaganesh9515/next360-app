@@ -18,12 +18,12 @@ export default function EditProductPage() {
   useEffect(() => {
     Promise.all([
       vendorApi.getCategories().then(res => setCategories(Array.isArray(res) ? res : res.data || [])),
-      vendorApi.getProduct(params.id).then((p: any) => setForm({
+      vendorApi.getProduct(String(params.id)).then((p: any) => setForm({
         name: p.name, description: p.description || '', categoryId: p.categoryId || '',
         price: String(p.price), compareAtPrice: p.compareAtPrice ? String(p.compareAtPrice) : '',
         unit: p.unit || 'kg', stock: String(p.stock), sku: p.sku || '', isActive: p.isActive,
       })),
-    ]).catch(console.error).finally(() => setFetching(false));
+    ]).catch(() => {}).finally(() => setFetching(false));
   }, [params.id]);
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });
@@ -31,7 +31,7 @@ export default function EditProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
-      await vendorApi.updateProduct(params.id, {
+      await vendorApi.updateProduct(String(params.id), {
         name: form.name, description: form.description || undefined, categoryId: form.categoryId || undefined,
         price: parseFloat(form.price), compareAtPrice: form.compareAtPrice ? parseFloat(form.compareAtPrice) : undefined,
         unit: form.unit, stock: parseInt(form.stock), sku: form.sku || undefined, isActive: form.isActive,
@@ -43,7 +43,7 @@ export default function EditProductPage() {
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this product?')) return;
-    try { await vendorApi.deleteProduct(params.id); router.push('/products'); }
+    try { await vendorApi.deleteProduct(String(params.id)); router.push('/products'); }
     catch (err: any) { setError(err.message); }
   };
 

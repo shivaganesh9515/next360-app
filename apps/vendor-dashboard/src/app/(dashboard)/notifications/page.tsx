@@ -10,7 +10,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     vendorApi.getNotifications().then((res: any) => setNotifications(Array.isArray(res) ? res : []))
-      .catch(console.error).finally(() => setLoading(false));
+      .catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const markRead = async (id: string) => {

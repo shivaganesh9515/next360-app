@@ -11,7 +11,7 @@ export default function EarningsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getEarnings().then(setEarnings).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getEarnings().then(setEarnings).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

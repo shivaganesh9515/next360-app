@@ -9,7 +9,7 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getTransactions({}).then((res: any) => setTransactions(Array.isArray(res) ? res : [])).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getTransactions({}).then((res: any) => setTransactions(Array.isArray(res) ? res : [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

@@ -9,7 +9,7 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getPayouts().then((res: any) => setPayouts(Array.isArray(res) ? res : [])).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getPayouts().then((res: any) => setPayouts(Array.isArray(res) ? res : [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

@@ -55,10 +55,12 @@ const navItems = [
     { href: '/reports/revenue', label: 'Revenue Reports' },
   ]},
   { href: '/cms', label: 'CMS', icon: Image, subItems: [
-    { href: '/cms/pages', label: 'Pages' },
+    { href: '/cms', label: 'Pages' },
     { href: '/cms/banners', label: 'Banners' },
     { href: '/cms/notifications', label: 'Notifications' },
   ]},
+  { href: '/zones', label: 'Zones', icon: MapPin },
+  { href: '/disputes', label: 'Disputes', icon: AlertTriangle },
   { href: '/roles', label: 'Roles & Permissions', icon: Shield, subItems: [
     { href: '/roles', label: 'Roles' },
     { href: '/roles/permissions', label: 'Permissions' },
@@ -79,7 +81,7 @@ export default function AdminSidebar() {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (

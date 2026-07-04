@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, skipAuth } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +27,11 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSkip = () => {
+    skipAuth();
+    router.push('/');
   };
 
   return (
@@ -61,6 +66,14 @@ export default function LoginPage() {
       <p className="text-center text-sm text-gray-500 mt-6">
         Don&apos;t have an account? <Link href="/signup" className="text-emerald-600 hover:text-emerald-700 font-medium">Create one</Link>
       </p>
+      {process.env.NODE_ENV !== 'production' && (
+        <button
+          onClick={handleSkip}
+          className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-2"
+        >
+          Skip (Dev)
+        </button>
+      )}
     </div>
   );
 }

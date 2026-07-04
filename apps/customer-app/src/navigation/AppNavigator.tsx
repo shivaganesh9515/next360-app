@@ -6,9 +6,10 @@ import {
   Text, View, StyleSheet, TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
 import { useZone } from '../lib/zone';
-import { Colors } from '../constants/theme';
+import { Colors, Shadows } from '../constants/theme';
 import SplashScreen from '../screens/onboarding/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -47,16 +48,15 @@ const OrdersStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const GREEN_DARK = '#1A5C35';
-const GREEN_PILL = '#E8F5EE';
-
 // Per CLAUDE.md: floating pill nav is exactly these 4 items — Cart and Profile are
 // reached via icons in the Home top bar instead of living in the persistent nav.
+// Fixed neutral accent (not store-tinted) since nav is global chrome, same rule as
+// Cart/Checkout/Profile never re-theming.
 const TABS = [
-  { name: 'Home',        label: 'Home',         iconFilled: '🏠', iconOutline: '🏠' },
-  { name: 'AllProducts', label: 'All Products', iconFilled: '🛍️', iconOutline: '🛍️' },
-  { name: 'Favorites',   label: 'Favorites',    iconFilled: '❤', iconOutline: '🤍' },
-  { name: 'Orders',      label: 'Orders',       iconFilled: '📦', iconOutline: '📦' },
+  { name: 'Home',        label: 'Home',         iconFilled: 'home',           iconOutline: 'home-outline' },
+  { name: 'AllProducts', label: 'All Products', iconFilled: 'grid',           iconOutline: 'grid-outline' },
+  { name: 'Favorites',   label: 'Favorites',    iconFilled: 'heart',          iconOutline: 'heart-outline' },
+  { name: 'Orders',      label: 'Orders',       iconFilled: 'receipt',        iconOutline: 'receipt-outline' },
 ] as const;
 
 // ── Floating pill tab bar ─────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View style={[pill.outer, { bottom: insets.bottom + 16 }]}>
-      <View style={pill.container}>
+      <View style={[pill.container, Shadows.raised]}>
         {TABS.map((tab, index) => {
           const focused = state.index === index;
           const route   = state.routes[index];
@@ -89,9 +89,11 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
               style={pill.tab}
             >
               <View style={[pill.iconWrap, focused && pill.iconWrapActive]}>
-                <Text style={[pill.iconText, focused && pill.iconTextActive]}>
-                  {focused ? tab.iconFilled : tab.iconOutline}
-                </Text>
+                <Ionicons
+                  name={focused ? tab.iconFilled : tab.iconOutline}
+                  size={19}
+                  color={focused ? Colors.white : Colors.textSecondary}
+                />
               </View>
               <Text style={[pill.label, focused && pill.labelActive]}>
                 {tab.label}
@@ -109,7 +111,7 @@ function HomeStackNavigator() {
     <HomeStack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: '#fff' },
-        headerTintColor: GREEN_DARK,
+        headerTintColor: Colors.organic,
         headerTitleStyle: { fontFamily: 'Inter_600SemiBold', fontSize: 16 },
         headerShadowVisible: false,
       }}
@@ -161,7 +163,7 @@ function ProfileStackNavigator() {
     <ProfileStack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: '#fff' },
-        headerTintColor: GREEN_DARK,
+        headerTintColor: Colors.organic,
         headerTitleStyle: { fontFamily: 'Inter_600SemiBold', fontSize: 16 },
         headerShadowVisible: false,
       }}
@@ -252,36 +254,24 @@ const pill = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 40,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 3,
   },
   iconWrap: {
-    width: 48,
-    height: 36,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 19,
   },
   iconWrapActive: {
-    backgroundColor: GREEN_PILL,
-  },
-  iconText: {
-    fontSize: 20,
-    opacity: 0.5,
-  },
-  iconTextActive: {
-    opacity: 1,
+    backgroundColor: Colors.organic,
   },
   label: {
     fontFamily: 'Inter_400Regular',
@@ -290,7 +280,7 @@ const pill = StyleSheet.create({
   },
   labelActive: {
     fontFamily: 'Inter_600SemiBold',
-    color: GREEN_DARK,
+    color: Colors.organic,
   },
 });
 

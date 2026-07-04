@@ -12,7 +12,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getOrders({}).then((res: any) => setOrders(res.data || res || [])).catch(console.error).finally(() => setLoading(false));
+    vendorApi.getOrders({}).then((res: any) => setOrders(res.data || res || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

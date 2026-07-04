@@ -1,24 +1,36 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StoreType } from '../types';
+import { StoreType, CartItem } from '../types';
+import { customerApi } from './api';
 
 const STORE_KEY = 'selected_store_type';
 
 interface StoreContextType {
   storeType: StoreType;
   setStoreType: (type: StoreType) => Promise<void>;
+
+  cartItems: CartItem[];
   cartCount: number;
-  setCartCount: (n: number) => void;
+  subtotal: number;
+  fetchCart: () => Promise<void>;
+  addToCart: (productId: string, quantity?: number) => Promise<void>;
+  updateCartItem: (itemId: string, quantity: number) => Promise<void>;
+  removeCartItem: (itemId: string) => Promise<void>;
+  clearCart: () => Promise<void>;
   incrementCart: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
+function unwrap<T>(res: any): T[] {
+  return Array.isArray(res) ? res : (res?.data ?? []);
+}
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [storeType, setStoreTypeState] = useState<StoreType>(StoreType.ORGANIC);
-  const [cartCount, setCartCount] = useState(0);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  useEffect(() => { loadStoreType(); }, []);
+  useEffect(() => { loadStoreType(); fetchCart(); }, []);
 
   async function loadStoreType() {
     try {
@@ -36,10 +48,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORE_KEY, type);
   };
 
-  const incrementCart = () => setCartCount(c => c + 1);
+  const fetchCart = useCallback(async () => {
+    try {
+      const res = await customerApi.getCart();
+      setCartItems(unwrap<CartItem>(res));
+    } catch {
+      setCartItems([]);
+    }
+  }, []);
+
+  const addToCart = useCallback(async (productId: string, quantity = 1) => {
+    await customerApi.addToCart(productId, quantity);
+    await fetchCart();
+  }, [fetchCart]);
+
+  const updateCartItem = useCallback(async (itemId: string, quantity: number) => {
+    await customerApi.updateCartItem(itemId, quantity);
+    await fetchCart();
+  }, [fetchCart]);
+
+  const removeCartItem = useCallback(async (itemId: string) => {
+    await customerApi.removeCartItem(itemId);
+    await fetchCart();
+  }, [fetchCart]);
+
+  const clearCart = useCallback(async () => {
+    await customerApi.clearCart();
+    setCartItems([]);
+  }, []);
+
+  // Optimistic bump for the inline "+" quick-add on product cards — a real fetchCart
+  // follow-up (via addToCart) reconciles the true count shortly after.
+  const incrementCart = useCallback(() => {
+    setCartItems((prev) => [...prev, { id: `optimistic-${Date.now()}` } as CartItem]);
+  }, []);
+
+  const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const subtotal = useMemo(
+    () => cartItems.reduce((sum, item) => sum + Number(item.product?.price || 0) * (item.quantity || 1), 0),
+    [cartItems],
+  );
 
   return (
-    <StoreContext.Provider value={{ storeType, setStoreType, cartCount, setCartCount, incrementCart }}>
+    <StoreContext.Provider value={{
+      storeType, setStoreType,
+      cartItems, cartCount, subtotal,
+      fetchCart, addToCart, updateCartItem, removeCartItem, clearCart, incrementCart,
+    }}>
       {children}
     </StoreContext.Provider>
   );
