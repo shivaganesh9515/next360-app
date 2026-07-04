@@ -1,9 +1,9 @@
 # Project State
 
-**Status:** Execution Complete — All Phases Done
+**Status:** Execution Complete — All Phases Done + Polish Pass Complete
 
 ## Current Phase
-- **Active:** None — All phases complete
+- **Active:** None — All phases + polish complete
 - **Completed:** Phases 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
 - **Remaining:** None
 
@@ -37,72 +37,88 @@
 - Offers (vendor CRUD + public active-offers filtered by storeType)
 - Returns (customer create, role-scoped list, admin process)
 - Notifications (list, markRead, markAllRead, unreadCount, create)
+- AI (chat, scan, recommendations, health-insights, admin logs/analytics)
+- Seed (cascade seeding, reset, status)
+- Global Exception Filter, ResponseInterceptor, LoggingInterceptor, ThrottlerGuard
+- Push Notification Service (Expo Push API)
 
-### Vendor Dashboard (apps/vendor-dashboard)
-- Next.js App Router app with 20+ pages
-- Auth (login/signup/OTP), Products (CRUD page, category/inventory mgmt)
-- Orders listing, returns management, coupons & offers CRUD
-- Customers, Analytics (sales/revenue charts), Earnings (payouts/transactions)
-- Store profile editing, Notifications, Settings, Support
+### Vendor Dashboard (apps/vendor-dashboard) — 25 pages
+- Auth (login/signup/OTP), Dashboard (New Orders, Revenue Today, Low Stock, Pending Payout, Order Pipeline, Revenue Chart)
+- Products (list, add/edit, variants), Inventory (stock management, low-stock alerts)
+- Orders (list, detail, status updates), Returns (list, approve/reject)
+- Coupons (CRUD), Offers (CRUD)
+- Customers (list), Analytics (overview + revenue + sales with period filtering)
+- Earnings (payouts/transactions), Store Profile (edit)
+- Notifications, Settings (notifications, security/password, store info redirect)
+- Support (FAQ + contact form with category + API submission)
 
-### Admin Panel (apps/admin-panel)
-- Next.js App Router app with 34 routes
-- Auth (login), Dashboard (overview stats, charts, recent activity)
-- Vendor management (list, detail, approvals), Delivery partner management
-- Product management, Catalog (categories, sub-categories, brands)
+### Admin Panel (apps/admin-panel) — 38 routes
+- Auth (login), Dashboard (Today's Pulse: GMV/Orders/Pending Actions/Active Partners, Pending Actions Queue, Order Pipeline, Revenue Chart, Recent Orders)
+- Vendor management (list, detail, approvals, commission)
+- Delivery partner management (list, detail, status)
+- Product management (list, detail, approval)
+- Catalog (categories, sub-categories, brands)
 - Order management (list, detail, returns, refunds)
+- Disputes (merged returns + refunds, tab filtering, resolve/reject)
 - Financial (payments, vendor/delivery payouts, commissions)
-- Inventory, Reviews, Ratings, Promotions (coupons, offers)
-- AI logs, Reports, CMS (pages, banners), Zones, Roles, Settings
+- Inventory, Reviews, Ratings
+- Promotions (coupons, offers)
+- AI Logs (list with filters + pagination), AI Analytics (feature breakdown, popular queries), AI Recommendations
+- Reports (overview/revenue/vendors/orders/delivery, period filtering, CSV export)
+- CMS (pages, banners), Zones, Roles, Settings (general, payments, notifications, security)
 
 ### Delivery App (apps/delivery-app)
 - Expo React Native app with tab-based navigation
 - Auth (login), Dashboard (Online/Offline toggle, new orders, stats)
 - New Orders list (accept/reject), Active Delivery (status tracking, OTP verification)
 - Delivery History (period filtering), Earnings (breakdown, stats)
-- Profile, Supabase Realtime for incoming orders
+- Profile, Notifications (wired), Supabase Realtime for incoming orders
 
-### Customer App B (apps/customer-app — Cart/Profile)
-- CartScreen with quantity controls, empty state, and summary bar
-- CheckoutScreen with address selection and payment method
-- OrderConfirmationScreen with success feedback
-- ProfileScreen with user info and menu navigation
-- OrderHistoryScreen with order list and status badges
-- AddressListScreen with default address management
-- AddAddressScreen with form validation
-- CartItem, AddressCard, OrderSummaryCard components
-- Updated AppNavigator with all new screens and tab navigation
+### Customer App (apps/customer-app)
+- Expo React Native app with React Navigation + floating pill tab bar
+- Auth (splash, onboarding, phone OTP, zone check)
+- Home (greeting, search, category swatch, banners, curated rows, catalog grid)
+- Category Feed, Search Results, Vendor Storefront
+- Product Detail (bottom sheet), Cart (grouped by vendor), Empty Cart
+- Checkout (address select/add, order review, Razorpay), Order Confirmation
+- Live Tracking (map + timeline), Order History / Detail / Review
+- Profile, Addresses, Wishlist, Support, Settings
 
-### AI Features (Phase 7)
-- AI Backend Module: NestJS service + controller with Prisma logging
-- Endpoints: /ai/chat, /ai/scan, /ai/recommendations, /ai/health-insights, /ai/chat-history
-- Admin endpoints: /ai/admin/logs (paginated), /ai/admin/analytics (aggregated stats)
-- Customer Screens: AiAssistantScreen (chat), AiProductScannerScreen (camera), AiRecommendationsScreen, AiHealthInsightsScreen, AiChatHistoryScreen
-- Admin Screens: AI Logs (filters + table), AI Recommendations, AI Analytics (feature breakdown, popular queries)
-- OpenAI/Gemini integration with graceful fallback to mock responses
+## Quality Status
 
-### Polish & Launch (Phase 12)
-- Global Exception Filter with consistent error responses (HttpException, Prisma errors)
-- ResponseInterceptor wrapping all responses in { success, data, meta } envelope
-- LoggingInterceptor for request/response logging with duration
-- ThrottlerGuard with rate limiting (10/sec default, 5/min auth)
-- Push Notification Service with Expo Push API integration
-- Register/unregister push token endpoints
-- Order status notification templates (CONFIRMED, PACKED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
-- Notification helpers for customer and delivery apps
-- ErrorBoundary components for all 4 apps (customer, delivery, vendor, admin)
-- SeedService with cascade seeding (10 users, 3 vendors, 12 categories, 24 products, 5 orders)
-- SeedController with admin-only endpoints (seed, reset, status)
-- CI Pipeline with lint, typecheck, build, and test jobs
-- Updated app.json for both mobile apps with proper configs
+### TypeScript
+- **All 5 apps:** 0 errors (`npx tsc --noEmit` passes clean)
 
-## What's Missing
-- Nothing — all phases complete
+### API Client Consistency
+- **Admin panel:** `adminApi` via centralized `api.ts` — all pages use it (AI Logs migrated from raw `fetch()`)
+- **Vendor dashboard:** `vendorApi` via centralized `api.ts` — all pages use it
+- Both clients use `response.text()` → `JSON.parse()` pattern (prevents HTML error responses crashing)
+
+### Page API Coverage
+| App | Total | Fully Wired | Partial | Placeholder |
+|-----|-------|-------------|---------|-------------|
+| Admin Panel | 38 | 38 | 0 | 0 |
+| Vendor Dashboard | 25 | 25 | 0 | 0 |
+| Customer App | 20 | 20 | 0 | 0 |
+| Delivery App | 10 | 10 | 0 | 0 |
+
+### Build Status
+- API: ✅ builds
+- Admin Panel: ✅ builds (28 routes)
+- Vendor Dashboard: ✅ builds (25 routes)
+- Delivery App: ✅ builds
+- Customer App: ✅ builds
+
+### Security
+- npm audit: 16 vulnerabilities (13 moderate, 3 high) — all in upstream deps (multer, postcss, uuid) requiring `--force` / breaking changes
+- Global Exception Filter catches all unhandled errors
+- ThrottlerGuard rate limiting active
+- RBAC guards on all protected endpoints
 
 ## Git
 - Remote: `https://github.com/shivaganesh9515/next360-app.git` (branch: main)
 - Git user: shivaganesh9515 (global), Credential Manager has shivaganesh9515 + Shivaganesh-dev
-- Latest commit: `3e5f48a` - feat(12): add seed data, CI pipeline, and production config
+- Latest commit: `60a469d` - fix: complete all remaining partial pages across admin and vendor dashboards
 
 ## Decisions Log
 
@@ -123,6 +139,9 @@
 | 13 | Maps | React Native Maps + Google Maps API |
 | 14 | Push Notifications | Expo Push API + Firebase Cloud Messaging |
 | 15 | Plan Numbering | plan 03=Phase 3A, plan 04=Phase 3B, plan 05=Phase 4, plan 06=Phase 5, plan 07=Phase 6, plan 08=Phase 8, plan 11=Phase 7 |
+| 16 | Admin Dashboard | Action-oriented: Pending Actions Queue + Order Pipeline (not vanity KPIs) |
+| 17 | Vendor Dashboard | Fulfillment-first: What To Do Now + Order Pipeline (not vanity KPIs) |
+| 18 | API Client Pattern | Centralized api.ts with `response.text() → JSON.parse()` for all apps |
 
 ## Blockers
 
