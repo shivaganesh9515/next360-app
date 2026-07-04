@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Star } from 'lucide-react';
+import { Star, Filter } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatsCard from '@/components/StatsCard';
 import { adminApi } from '@/lib/api';
@@ -12,18 +12,27 @@ export default function RatingsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState({ avgRating: 0, totalRatings: 0, fiveStarCount: 0, oneStarCount: 0 });
+  const [ratingFilter, setRatingFilter] = useState<number | ''>('');
+  const [productSearch, setProductSearch] = useState('');
 
-  useEffect(() => { loadRatings(); }, [page]);
+  useEffect(() => { loadRatings(); }, [page, ratingFilter]);
 
   const loadRatings = async () => {
     setLoading(true);
     try {
-      const res = await adminApi.getRatings({ page, limit: 20 });
+      const params: any = { page, limit: 20 };
+      if (ratingFilter !== '') params.rating = ratingFilter;
+      const res = await adminApi.getRatings(params);
       setRatings(res?.data || []);
       setTotalPages(res?.meta?.totalPages || 1);
       if (res?.summary) setStats(res.summary);
     } catch { setRatings([]); } finally { setLoading(false); }
   };
+
+  // Client-side product search filter (since API may not support it)
+  const filteredRatings = productSearch
+    ? ratings.filter(r => (r.product?.name || '').toLowerCase().includes(productSearch.toLowerCase()))
+    : ratings;
 
   const columns = [
     { key: 'user', label: 'User', render: (r: any) => <span className="font-medium text-gray-800">{r.user?.name || '-'}</span> },
@@ -45,7 +54,25 @@ export default function RatingsPage() {
         <StatsCard title="1-Star" value={stats.oneStarCount.toString()} icon={<Star className="w-5 h-5" />} color="red" />
       </div>
 
-      <DataTable columns={columns} data={ratings} loading={loading} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No ratings yet" emptyIcon={<Star className="w-10 h-10" />} />
+      <div className="flex gap-3 flex-wrap items-center">
+        <Filter className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-500">Rating:</span>
+        {[ '', '5', '4', '3', '2', '1' ].map(r => (
+          <button key={r} onClick={() => { setRatingFilter(r === '' ? '' : Number(r)); setPage(1); }}
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${ratingFilter === (r === '' ? '' : Number(r)) ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+            {r ? `${r} ★` : 'All'}
+          </button>
+        ))}
+        <input
+          type="text"
+          placeholder="Search product name..."
+          value={productSearch}
+          onChange={(e) => setProductSearch(e.target.value)}
+          className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 ml-2"
+        />
+      </div>
+
+      <DataTable columns={columns} data={filteredRatings} loading={loading} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No ratings yet" emptyIcon={<Star className="w-10 h-10" />} />
     </div>
   );
 }

@@ -109,7 +109,7 @@ export default function CategoriesPage() {
               <label className="text-sm text-gray-500">Name</label>
               <input
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value, slug: e.target.name.toLowerCase().replace(/\s+/g, '-') })}
+                onChange={(e) => setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') })}
                 required
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
               />

@@ -19,6 +19,11 @@ export default function DeliveryPartnerDetailPage() {
     catch { setPartner(null); } finally { setLoading(false); }
   };
 
+  const handleStatusChange = async (status: string) => {
+    try { await adminApi.updateDeliveryPartnerStatus(params.id as string, status); await loadPartner(); }
+    catch (err: any) { alert(err.message || 'Failed to update'); }
+  };
+
   if (loading) return <div className="space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}</div>;
   if (!partner) return <div className="text-center py-12"><Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" /><p className="text-gray-500">Partner not found</p><button onClick={() => router.back()} className="mt-4 text-emerald-600 text-sm hover:underline">Go back</button></div>;
 
@@ -74,9 +79,4 @@ export default function DeliveryPartnerDetailPage() {
       </div>
     </div>
   );
-
-  async function handleStatusChange(status: string) {
-    try { await adminApi.updateDeliveryPartnerStatus(params.id as string, status); await loadPartner(); }
-    catch (err: any) { alert(err.message || 'Failed to update'); }
-  }
 }

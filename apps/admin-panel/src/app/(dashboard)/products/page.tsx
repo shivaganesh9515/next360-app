@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Plus, Pencil, Trash2, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Eye, EyeOff, CheckCircle, Clock } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
@@ -16,9 +16,10 @@ export default function ProductsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [storeFilter, setStoreFilter] = useState('');
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'approved' | 'pending'>('all');
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: string; name: string } | null>(null);
 
-  useEffect(() => { loadProducts(); }, [page, statusFilter, storeFilter]);
+  useEffect(() => { loadProducts(); }, [page, statusFilter, storeFilter, approvalFilter]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -27,6 +28,7 @@ export default function ProductsPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       if (storeFilter) params.storeType = storeFilter;
+      if (approvalFilter !== 'all') params.isApproved = approvalFilter === 'approved';
       const res = await adminApi.getProducts(params);
       setProducts(res?.data || []);
       setTotalPages(res?.meta?.totalPages || 1);
@@ -70,6 +72,17 @@ export default function ProductsPage() {
           <button key={s} onClick={() => { setStoreFilter(s); setPage(1); }}
             className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${storeFilter === s ? 'bg-emerald-600 text-white border-emerald-600' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
             {s || 'All Stores'}
+          </button>
+        ))}
+        <span className="border-l border-gray-200 mx-1" />
+        {([
+          { key: 'all', label: 'All Status', icon: null },
+          { key: 'pending', label: 'Pending Approval', icon: <Clock className="w-3 h-3" /> },
+          { key: 'approved', label: 'Approved', icon: <CheckCircle className="w-3 h-3" /> },
+        ] as const).map(a => (
+          <button key={a.key} onClick={() => { setApprovalFilter(a.key); setPage(1); }}
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${approvalFilter === a.key ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+            {a.icon} {a.label}
           </button>
         ))}
       </div>
