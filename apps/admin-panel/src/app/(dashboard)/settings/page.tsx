@@ -93,16 +93,62 @@ export default function SettingsPage() {
       )}
 
       {activeTab === 'notifications' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">Notification Settings</h3>
-          <p className="text-sm text-gray-500">Push notification and email settings will be configured here.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800">Push Notifications</h3>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">New Order Alerts</p><p className="text-xs text-gray-500">Notify admin when a new order is placed</p></div>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">Vendor Registration</p><p className="text-xs text-gray-500">Notify when a new vendor signs up</p></div>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">Dispute Alerts</p><p className="text-xs text-gray-500">Notify when a return or refund is requested</p></div>
+            </label>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800">Email Notifications</h3>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">Daily Summary</p><p className="text-xs text-gray-500">Receive daily platform performance email</p></div>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={false} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">Weekly Report</p><p className="text-xs text-gray-500">Receive weekly analytics and revenue report</p></div>
+            </label>
+            <div><label className="text-sm text-gray-600 mb-1 block">Alert Email</label><input type="email" defaultValue="admin@next360.com" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /></div>
+          </div>
         </div>
       )}
 
       {activeTab === 'security' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">Security Settings</h3>
-          <p className="text-sm text-gray-500">RBAC, API keys, and session management settings will be configured here.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800">Session Management</h3>
+            <div><label className="text-sm text-gray-600 mb-1 block">Session Timeout (minutes)</label><input type="number" defaultValue={60} min={5} max={480} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /></div>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">Require re-auth for sensitive actions</p><p className="text-xs text-gray-500">Password confirmation for vendor approval, settings changes</p></div>
+            </label>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800">API Access</h3>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">Rate Limiting</p><p className="text-xs text-gray-500">10 requests/second default, 5/minute for auth endpoints</p></div>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <div><p className="text-sm font-medium">CORS Protection</p><p className="text-xs text-gray-500">Restrict API access to registered domains only</p></div>
+            </label>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm font-medium text-amber-700">Admin Roles</p>
+              <p className="text-xs text-gray-500 mt-1">Manage role-based access control for admin users in the Roles section.</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

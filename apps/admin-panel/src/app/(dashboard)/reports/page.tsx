@@ -31,7 +31,37 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h2 className="text-xl font-bold text-gray-800">Reports</h2><p className="text-sm text-gray-500">Detailed business analytics and reports</p></div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"><Download className="w-4 h-4" /> Export CSV</button>
+        <button
+          onClick={() => {
+            if (!report) return;
+            const rows: string[][] = [['Metric', 'Value']];
+            rows.push(['Revenue', `₹${(report.revenue || 0).toLocaleString()}`]);
+            rows.push(['Total Orders', String(report.totalOrders || 0)]);
+            rows.push(['Avg Order Value', `₹${(report.avgOrderValue || 0).toLocaleString()}`]);
+            rows.push(['Commission', `₹${(report.totalCommission || 0).toLocaleString()}`]);
+            rows.push([]);
+            rows.push(['Date', 'Orders', 'Revenue']);
+            (report.dailyBreakdown || []).forEach((d: any) => {
+              rows.push([d.date, String(d.orders), `₹${d.revenue.toLocaleString()}`]);
+            });
+            rows.push([]);
+            rows.push(['Rank', 'Vendor', 'Revenue']);
+            (report.topVendors || []).forEach((v: any, i: number) => {
+              rows.push([String(i + 1), v.storeName, `₹${v.revenue.toLocaleString()}`]);
+            });
+            const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `next360-report-${reportType}-${period}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors"
+        >
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
       </div>
 
       <div className="flex gap-3 flex-wrap">
