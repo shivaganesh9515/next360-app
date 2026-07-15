@@ -14,16 +14,27 @@ export default function StoreProfilePage() {
     vendorApi.getStore('me').then((res: any) => setVendor(res)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
-  if (!vendor) return <div className="text-center py-12 text-gray-500">Vendor profile not found</div>;
+  if (loading) return (
+    <div className="space-y-4" role="status" aria-label="Loading store profile">
+      <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
+      <div className="h-64 bg-slate-100 rounded-xl animate-pulse" />
+      <span className="sr-only">Loading store profile...</span>
+    </div>
+  );
+  if (!vendor) return (
+    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+      <Store className="w-12 h-12 mb-3 opacity-40" />
+      <p className="text-sm">Vendor profile not found</p>
+    </div>
+  );
 
   return (
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-6">
-        <div><h2 className="text-xl font-bold text-gray-800">Store Profile</h2><p className="text-sm text-gray-500">Your public store information</p></div>
-        <Link href="/store/edit" className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"><Edit3 className="w-4 h-4" /> Edit</Link>
+        <div><h2 className="text-xl font-bold text-slate-900">Store Profile</h2><p className="text-sm text-slate-500">Your public store information</p></div>
+        <Link href="/store/edit" className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"><Edit3 className="w-4 h-4" /> Edit</Link>
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="h-32 bg-gradient-to-r from-emerald-500 to-emerald-600 relative">
           {vendor.bannerUrl && <img src={vendor.bannerUrl} className="w-full h-full object-cover" />}
         </div>
@@ -36,15 +47,15 @@ export default function StoreProfilePage() {
             </div>
           </div>
           <div className="space-y-3">
-            <div><h3 className="text-lg font-bold text-gray-800">{vendor.storeName}</h3>
-              <p className="text-sm text-gray-500">@{vendor.storeSlug}</p></div>
+            <div><h3 className="text-lg font-bold text-slate-900">{vendor.storeName}</h3>
+              <p className="text-sm text-slate-500">@{vendor.storeSlug}</p></div>
             <div className="flex gap-2"><StatusBadge status={vendor.status} /><span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">{vendor.storeType}</span></div>
-            {vendor.description && <p className="text-sm text-gray-600">{vendor.description}</p>}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-              <div><p className="text-xs text-gray-500">Commission Rate</p><p className="text-sm font-medium">{vendor.commissionRate || 0}%</p></div>
-              <div><p className="text-xs text-gray-500">Rating</p><p className="text-sm font-medium">{'★'.repeat(Math.round(vendor.rating || 0))} ({vendor.rating || 0})</p></div>
-              <div><p className="text-xs text-gray-500">Total Products</p><p className="text-sm font-medium">{vendor.totalProducts || 0}</p></div>
-              <div><p className="text-xs text-gray-500">Total Orders</p><p className="text-sm font-medium">{vendor.totalOrders || 0}</p></div>
+            {vendor.description && <p className="text-sm text-slate-600">{vendor.description}</p>}
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+              <div><p className="text-xs text-slate-500">Commission Rate</p><p className="text-sm font-medium text-slate-900">{vendor.commissionRate || 0}%</p></div>
+              <div><p className="text-xs text-slate-500">Rating</p><p className="text-sm font-medium text-slate-900">{'★'.repeat(Math.round(vendor.rating || 0))} ({vendor.rating || 0})</p></div>
+              <div><p className="text-xs text-slate-500">Total Products</p><p className="text-sm font-medium text-slate-900">{vendor.totalProducts || 0}</p></div>
+              <div><p className="text-xs text-slate-500">Total Orders</p><p className="text-sm font-medium text-slate-900">{vendor.totalOrders || 0}</p></div>
             </div>
           </div>
         </div>

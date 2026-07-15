@@ -11,16 +11,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
 
   return (
-    <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+    <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="lg:hidden p-1 hover:bg-gray-100 rounded">
-          <Menu className="w-5 h-5 text-gray-600" />
+        <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+          <Menu className="w-5 h-5 text-slate-600" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-800">Dashboard</h1>
+        <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
       </div>
       <div className="flex items-center gap-3">
-        <button className="p-2 hover:bg-gray-100 rounded-full relative">
-          <Bell className="w-5 h-5 text-gray-600" />
+        <button className="p-2 hover:bg-slate-100 rounded-full relative transition-colors">
+          <Bell className="w-5 h-5 text-slate-600" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
         <div className="flex items-center gap-2">
@@ -30,12 +30,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </span>
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-gray-700">{user?.name || 'Vendor'}</p>
-            <p className="text-xs text-gray-500">{user?.email || ''}</p>
+            <p className="text-sm font-medium text-slate-700">{user?.name || 'Vendor'}</p>
+            <p className="text-xs text-slate-500">{user?.email || ''}</p>
           </div>
         </div>
-        <button onClick={logout} className="p-2 hover:bg-gray-100 rounded-full" title="Logout">
-          <LogOut className="w-4 h-4 text-gray-500" />
+        <button onClick={logout} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="Logout">
+          <LogOut className="w-4 h-4 text-slate-500" />
         </button>
       </div>
     </header>

@@ -22,12 +22,12 @@ export default function OrdersPage() {
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount).toLocaleString()}</span> },
     { key: 'status', label: 'Status', render: (item: any) => <StatusBadge status={item.status} /> },
     { key: 'paymentStatus', label: 'Payment', render: (item: any) => <StatusBadge status={item.paymentStatus} /> },
-    { key: 'createdAt', label: 'Date', render: (item: any) => <span className="text-sm text-gray-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
+    { key: 'createdAt', label: 'Date', render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
   ];
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-gray-800">Orders</h2><p className="text-sm text-gray-500">View and manage customer orders</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Orders</h2><p className="text-sm text-slate-500">View and manage customer orders</p></div>
       <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={(item) => router.push(`/orders/${item.id}`)} emptyMessage="No orders yet" />
     </div>
   );

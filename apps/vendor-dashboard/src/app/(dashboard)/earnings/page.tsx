@@ -24,15 +24,15 @@ export default function EarningsPage() {
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-gray-800">Earnings</h2><p className="text-sm text-gray-500">Track your revenue and payouts</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Earnings</h2><p className="text-sm text-slate-500">Track your revenue and payouts</p></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard icon={DollarSign} label="Total Earnings" value={earnings ? `₹${Number(earnings.totalEarnings || 0).toLocaleString()}` : '₹0'} accent="emerald" />
         <StatsCard icon={TrendingUp} label="This Month" value={earnings ? `₹${Number(earnings.thisMonth || 0).toLocaleString()}` : '₹0'} accent="blue" />
         <StatsCard icon={Clock} label="Pending" value={earnings ? `₹${Number(earnings.pending || 0).toLocaleString()}` : '₹0'} accent="amber" />
         <StatsCard icon={CheckCircle} label="Paid" value={earnings ? `₹${Number(earnings.paid || 0).toLocaleString()}` : '₹0'} accent="emerald" />
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="font-semibold text-gray-800 mb-4">Earnings History</h3>
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <h3 className="font-semibold text-slate-900 mb-4">Earnings History</h3>
         <DataTable columns={columns} data={earnings?.history || []} emptyMessage="No earnings history yet" />
       </div>
     </div>

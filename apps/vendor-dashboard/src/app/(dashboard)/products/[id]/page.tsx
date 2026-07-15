@@ -47,65 +47,71 @@ export default function EditProductPage() {
     catch (err: any) { setError(err.message); }
   };
 
-  if (fetching) return <div className="text-center py-12 text-gray-500">Loading...</div>;
+  if (fetching) return (
+    <div className="space-y-4" role="status" aria-label="Loading product">
+      <div className="h-8 w-64 bg-slate-200 rounded animate-pulse" />
+      <div className="h-96 bg-slate-100 rounded-xl animate-pulse" />
+      <span className="sr-only">Loading product...</span>
+    </div>
+  );
 
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/products" className="p-1.5 hover:bg-gray-100 rounded"><ArrowLeft className="w-5 h-5 text-gray-600" /></Link>
-          <div><h2 className="text-xl font-bold text-gray-800">Edit Product</h2><p className="text-sm text-gray-500">{form.name}</p></div>
+          <Link href="/products" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"><ArrowLeft className="w-5 h-5 text-slate-600" /></Link>
+          <div><h2 className="text-xl font-bold text-slate-900">Edit Product</h2><p className="text-sm text-slate-500">{form.name}</p></div>
         </div>
         <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100"><Trash2 className="w-4 h-4" /> Delete</button>
       </div>
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 space-y-6 shadow-sm">
         {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
-            <input value={form.name} onChange={updateForm('name')} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Product Name *</label>
+            <input value={form.name} onChange={updateForm('name')} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea value={form.description} onChange={updateForm('description')} rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <textarea value={form.description} onChange={updateForm('description')} rows={3} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select value={form.categoryId} onChange={updateForm('categoryId')} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+            <select value={form.categoryId} onChange={updateForm('categoryId')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
               <option value="">Select category</option>
               {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-            <select value={form.unit} onChange={updateForm('unit')} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+            <select value={form.unit} onChange={updateForm('unit')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
               <option value="kg">Kg</option><option value="g">Gram</option><option value="dozen">Dozen</option><option value="piece">Piece</option><option value="litre">Litre</option><option value="pack">Pack</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
-            <input type="number" step="0.01" min="0" value={form.price} onChange={updateForm('price')} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Price *</label>
+            <input type="number" step="0.01" min="0" value={form.price} onChange={updateForm('price')} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Compare-at Price</label>
-            <input type="number" step="0.01" min="0" value={form.compareAtPrice} onChange={updateForm('compareAtPrice')} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Compare-at Price</label>
+            <input type="number" step="0.01" min="0" value={form.compareAtPrice} onChange={updateForm('compareAtPrice')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stock *</label>
-            <input type="number" min="0" value={form.stock} onChange={updateForm('stock')} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Stock *</label>
+            <input type="number" min="0" value={form.stock} onChange={updateForm('stock')} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-            <input value={form.sku} onChange={updateForm('sku')} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">SKU</label>
+            <input value={form.sku} onChange={updateForm('sku')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <input type="checkbox" id="isActive" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded border-gray-300" />
-          <label htmlFor="isActive" className="text-sm text-gray-700">Active</label>
+          <input type="checkbox" id="isActive" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+          <label htmlFor="isActive" className="text-sm text-slate-700">Active</label>
         </div>
         <div className="flex gap-3">
           <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50"><Save className="w-4 h-4" /> {loading ? 'Saving...' : 'Update Product'}</button>
-          <Link href="/products" className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50">Cancel</Link>
+          <Link href="/products" className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors">Cancel</Link>
         </div>
       </form>
     </div>
