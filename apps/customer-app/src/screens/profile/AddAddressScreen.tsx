@@ -5,9 +5,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
-import { geocodeAddress } from '../../lib/geocode';
+import { geocodeAddress, ReverseGeocodeResult } from '../../lib/geocode';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import BigButton from '../../components/BigButton';
+import AddressMapPicker from '../../components/AddressMapPicker';
 
 const LABELS = ['Home', 'Work', 'Other'];
 
@@ -18,8 +19,27 @@ export default function AddAddressScreen({ navigation }: any) {
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mapVisible, setMapVisible] = useState(false);
+  // Set only by the map picker, cleared the moment the user hand-edits a
+  // field afterwards — a stale pin's coordinates shouldn't get attached to
+  // text the user then changed by hand.
+  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const isValid = fullAddress.trim() && city.trim() && state.trim() && pincode.trim().length === 6;
+
+  const withEditReset = (setter: (v: string) => void) => (v: string) => {
+    setPickedCoords(null);
+    setter(v);
+  };
+
+  const handleMapConfirm = (result: ReverseGeocodeResult & { lat: number; lng: number }) => {
+    setFullAddress(result.fullAddress);
+    if (result.city) setCity(result.city);
+    if (result.state) setState(result.state);
+    if (result.pincode) setPincode(result.pincode);
+    setPickedCoords({ lat: result.lat, lng: result.lng });
+    setMapVisible(false);
+  };
 
   const handleSave = async () => {
     if (!isValid) {
@@ -28,12 +48,12 @@ export default function AddAddressScreen({ navigation }: any) {
     }
     setLoading(true);
     try {
-      // Geocoded once here so every consumer of this address (Order Tracking's
-      // map, delivery ETA, etc.) has a real lat/lng instead of nothing — this
-      // was the actual gap: nothing in the app ever captured coordinates, so
-      // the tracking map always fell back to a fixed placeholder location.
-      // Best-effort — a failed/slow geocode still saves the address by text.
-      const coords = await geocodeAddress({
+      // Prefer the map pin's exact coordinates when available — falls back to
+      // forward-geocoding the typed text so every consumer of this address
+      // (Order Tracking's map, delivery ETA, etc.) still gets a real lat/lng
+      // even if the user never opened the map picker. Best-effort either way —
+      // a failed/slow geocode still saves the address by text.
+      const coords = pickedCoords || await geocodeAddress({
         fullAddress: fullAddress.trim(),
         city: city.trim(),
         state: state.trim(),
@@ -80,13 +100,21 @@ export default function AddAddressScreen({ navigation }: any) {
           ))}
         </View>
 
+        <TouchableOpacity style={s.mapPickerBtn} onPress={() => setMapVisible(true)}>
+          <Ionicons name="location" size={18} color={Colors.organic} />
+          <Text style={s.mapPickerText}>
+            {pickedCoords ? 'Location pinned — tap to change' : 'Set location on map'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+        </TouchableOpacity>
+
         <Text style={s.label}>Full Address *</Text>
         <TextInput
           style={[s.input, s.inputMultiline]}
           placeholder="House/flat no., building, street, area, landmark"
           placeholderTextColor={Colors.textSecondary}
           value={fullAddress}
-          onChangeText={setFullAddress}
+          onChangeText={withEditReset(setFullAddress)}
           multiline
           numberOfLines={3}
         />
@@ -97,7 +125,7 @@ export default function AddAddressScreen({ navigation }: any) {
           placeholder="City"
           placeholderTextColor={Colors.textSecondary}
           value={city}
-          onChangeText={setCity}
+          onChangeText={withEditReset(setCity)}
         />
 
         <Text style={s.label}>State *</Text>
@@ -106,7 +134,7 @@ export default function AddAddressScreen({ navigation }: any) {
           placeholder="State"
           placeholderTextColor={Colors.textSecondary}
           value={state}
-          onChangeText={setState}
+          onChangeText={withEditReset(setState)}
         />
 
         <Text style={s.label}>Pincode *</Text>
@@ -116,7 +144,7 @@ export default function AddAddressScreen({ navigation }: any) {
           placeholderTextColor={Colors.textSecondary}
           keyboardType="numeric"
           value={pincode}
-          onChangeText={setPincode}
+          onChangeText={withEditReset(setPincode)}
           maxLength={6}
         />
       </ScrollView>
@@ -124,6 +152,12 @@ export default function AddAddressScreen({ navigation }: any) {
       <View style={s.footer}>
         <BigButton label="Save Address" onPress={handleSave} loading={loading} disabled={!isValid} />
       </View>
+
+      <AddressMapPicker
+        visible={mapVisible}
+        onClose={() => setMapVisible(false)}
+        onConfirm={handleMapConfirm}
+      />
     </SafeAreaView>
   );
 }
@@ -154,6 +188,14 @@ const s = StyleSheet.create({
   typeChipActive: { backgroundColor: Colors.organic, borderColor: Colors.organic },
   typeText: { ...Typography.bodySmall, color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   typeTextActive: { color: Colors.white },
+
+  mapPickerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    marginTop: Spacing.lg, padding: Spacing.md,
+    backgroundColor: Colors.organicLight, borderRadius: BorderRadius.md,
+    borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  mapPickerText: { ...Typography.bodySmall, color: Colors.text, fontFamily: 'Inter_600SemiBold', flex: 1 },
 
   footer: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
 });

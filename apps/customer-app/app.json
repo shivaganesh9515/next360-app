@@ -26,7 +26,13 @@
     "plugins": [
       "expo-font",
       "expo-splash-screen",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Next360 uses your location to find your delivery address and show nearby stores."
+        }
+      ]
     ]
   }
 }
