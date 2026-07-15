@@ -18,7 +18,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.next360.customer",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,6 +37,12 @@
           "locationAlwaysAndWhenInUsePermission": "Next360 uses your location to find your delivery address and show nearby stores."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e3a6c35c-f79d-4f8c-ad08-53409f0efe5d"
+      }
+    },
+    "owner": "shivaganesh.gajavelli"
   }
 }
