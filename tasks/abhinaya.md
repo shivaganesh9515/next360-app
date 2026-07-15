@@ -4,12 +4,9 @@ Area: `apps/api`. Prisma models for all of these already exist in `prisma/schema
 
 ## Tasks
 
-- [ ] **Fix `apps/api/package.json`** — a fresh `npm install` + build currently fails. Add missing deps actually imported in `src/`:
-  - `@nestjs/jwt`, `@nestjs/mapped-types`, `@nestjs/passport`, `passport-jwt`
-  - `@supabase/supabase-js`
-  - `class-validator`, `class-transformer`
-  - `dotenv`, `multer`
-  - Do this first — it blocks everyone else's local builds too.
+- [x] ~~**Fix `apps/api/package.json`**~~ — done 2026-07-15 (closed opportunistically while wiring up phone-OTP auth, see below). `@nestjs/jwt`, `@nestjs/mapped-types`, `@nestjs/passport`, `passport`, `passport-jwt`, `@supabase/supabase-js`, `class-validator`, `class-transformer`, `dotenv`, `multer` + their `@types` all added, verified via `npx nest build`.
+
+- [x] ~~**Bonus, not originally yours: phone-OTP auth**~~ — done 2026-07-15. Customer-app's login is now Zomato-style phone+OTP (no email/password). Added `POST /auth/send-otp` + `POST /auth/verify-otp-login` in `apps/api/src/auth`, `User.phone` is now `@unique`, `User.email` is now optional. See `.claude/memory/STATUS.md` for full detail. Mentioning here so you don't duplicate it — vendor/admin's original email+password `login`/`signup` endpoints are untouched.
 
 - [ ] **`brands/` module** — DTOs already exist under `apps/api/src/brands/dto/`, but there's no controller/service/module, and it's not registered in `app.module.ts`. CRUD with `storeType` filter, per CLAUDE.md's module list.
 
