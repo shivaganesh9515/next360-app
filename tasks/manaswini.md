@@ -4,7 +4,7 @@ Broadest screen coverage of any app (all 10 required screens plus extras), but t
 
 ## Tasks
 
-- [ ] **Add missing dependencies** — same gap as vendor-dashboard: no `shadcn/ui`, no `@supabase/supabase-js` in `apps/admin-panel/package.json`.
+- [x] **Add missing dependencies** — `shadcn/ui`, `@supabase/supabase-js`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/react-slot` installed in `apps/admin-panel/package.json`. Components and Supabase client wired in.
 
 - [ ] **Delivery-partners pages** (`delivery-partners/`, `delivery-partners/approvals`, `delivery-partners/[id]`) — currently effectively static, blocked on Srinitha's `delivery-partners/` module. See [srinitha.md](./srinitha.md).
 
@@ -24,7 +24,7 @@ Broadest screen coverage of any app (all 10 required screens plus extras), but t
 
 ## Not blocked — can start now
 
-- shadcn/ui + Supabase client wiring.
+- ~~shadcn/ui + Supabase client wiring.~~ ✅ Done.
 - Products page (folded product-approvals in — no separate approvals route currently; confirm with the team whether that split is actually needed per CLAUDE.md's spec, which calls for a distinct "Product Approvals" queue with bulk-approve).
 - Vendor approvals, all-vendors, orders oversight, ai-logs pages — these hit modules that already exist on the backend (`vendors/`, `orders/`, `ai/`), so should be fully wireable now if not already.
 

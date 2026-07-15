@@ -23,6 +23,7 @@ const navItems = [
   ]},
   { href: '/products', label: 'Products', icon: Package, subItems: [
     { href: '/products', label: 'All Products' },
+    { href: '/products/approvals', label: 'Pending Approvals' },
     { href: '/products/add', label: 'Add Product' },
   ]},
   { href: '/categories', label: 'Categories', icon: Tag, subItems: [
