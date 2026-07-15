@@ -378,7 +378,7 @@ function MainTabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, animation: 'shift' }}
     >
       <Tab.Screen name="Home"        component={HomeStackNavigator} />
       <Tab.Screen name="AllProducts" component={ProductListScreen} />
