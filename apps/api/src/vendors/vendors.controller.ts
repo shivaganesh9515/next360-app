@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ForbiddenException } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -40,6 +40,16 @@ export class VendorsController {
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@CurrentUser('id') userId: string) {
     return this.vendorsService.getVendorByUserId(userId);
+  }
+
+  @Get('me/payouts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyPayouts(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getVendorPayouts(vendorId);
   }
 
   @Get(':id')
