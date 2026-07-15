@@ -222,7 +222,14 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+  const body = await response.json();
+  // apps/api wraps every response in { success, data, meta } (ResponseInterceptor).
+  // This was never unwrapped here — every caller got the raw envelope instead
+  // of its payload, silently masked in dev because DEMO_FALLBACK_ENABLED meant
+  // no code path ever actually hit a real backend. Individual callers below
+  // that defensively check `res.data || res` keep working fine against the
+  // now-unwrapped value too (it's just already the array/object they wanted).
+  return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
 export const api = {
@@ -253,7 +260,8 @@ export const api = {
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
-    return response.json();
+    const body = await response.json();
+    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
   },
 };
 
