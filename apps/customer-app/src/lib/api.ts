@@ -92,14 +92,15 @@ function demoDeleteAddress(id: string): void {
   demoAddresses = demoAddresses.filter((a) => a.id !== id);
 }
 
-// In-memory phone-OTP auth fallback — apps/api has no phone-OTP endpoint yet
-// (its auth module is still email+password only), so this is the only path
-// that works at all in dev right now, not just a nice-to-have like the other
-// demo fallbacks. Fixed OTP "123456" (shown in the UI's placeholder) mirrors
-// the fixed demo coupon codes below — a known code beats a random one nobody
-// could ever guess in a demo build. Keyed by phone so the same number always
-// resolves to the same account across a session (first verify = signup,
-// every one after = login), matching the Zomato-style "one phone flow" ask.
+// In-memory phone-OTP auth fallback — apps/api now has real send-otp/
+// verify-otp-login endpoints, but this still fires whenever they're
+// unreachable (no backend running locally, same as every other demo
+// fallback in this file). Fixed OTP "123456" mirrors the fixed demo coupon
+// codes below — a known code beats a random one nobody could ever guess in
+// a demo build. Keyed by phone so the same number always resolves to the
+// same account across a session (first verify = signup, every one after =
+// login), matching the Zomato-style "one phone flow" the real endpoint
+// implements too.
 const DEMO_OTP = '123456';
 let demoUsersByPhone: Record<string, { id: string; phone: string; name: string; role: string }> = {};
 let demoUserIdCounter = 0;
@@ -269,9 +270,10 @@ export const api = {
 export const customerApi = {
   // Auth — Zomato-style single phone-OTP flow: same call verifies and either
   // logs an existing account straight in or provisions a new one, no separate
-  // signup/password screens. apps/api's auth module doesn't have these two
-  // endpoints yet (still email+password only) — falls back to an in-memory
-  // demo login/signup so the flow works end-to-end in dev regardless.
+  // signup/password screens. Falls back to an in-memory demo login/signup
+  // whenever apps/api's real /auth/send-otp + /auth/verify-otp-login (see
+  // AuthService.verifyOtpLogin) aren't reachable, e.g. no backend running
+  // locally — same pattern as every other demo fallback in this file.
   sendOtp: async (phone: string): Promise<{ message: string }> => {
     try {
       return await api.post<{ message: string }>('/auth/send-otp', { phone });
