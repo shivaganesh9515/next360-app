@@ -4,7 +4,7 @@ Broadest screen coverage of any app (all 10 required screens plus extras), but t
 
 ## Tasks
 
-- [ ] **Add missing dependencies** — same gap as vendor-dashboard: no `shadcn/ui`, no `@supabase/supabase-js` in `apps/admin-panel/package.json`.
+- [ ] **Add missing dependencies** — same gap as vendor-dashboard: no `shadcn/ui`, no `@supabase/supabase-js` in `apps/admin-panel/package.json`. Skip zustand/axios — same reasoning as [soumya.md](./soumya.md).
 
 - [ ] **Delivery-partners pages** (`delivery-partners/`, `delivery-partners/approvals`, `delivery-partners/[id]`) — currently effectively static, blocked on Srinitha's `delivery-partners/` module. See [srinitha.md](./srinitha.md).
 
