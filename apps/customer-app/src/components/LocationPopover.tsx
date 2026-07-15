@@ -1,13 +1,16 @@
 import React, { useRef, useState, useMemo } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Modal, FlatList, TextInput, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, Dimensions,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useZone } from '../lib/zone';
 import { SERVICEABLE_ZONES, isServiceableCity } from '../constants/zones';
-import { Colors, Typography, Spacing, BorderRadius, SPRING_CONFIG } from '../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -33,7 +36,7 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState('');
   const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60, width: 120, height: 40 });
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useSharedValue(0);
 
   const topTarget = insets.top + Spacing.md;
   const leftTarget = Spacing.xl;
@@ -57,18 +60,19 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        Animated.spring(anim, { toValue: 1, useNativeDriver: false, ...SPRING_CONFIG }).start();
+        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
       });
     });
   };
 
   const close = () => {
-    Animated.spring(anim, { toValue: 0, useNativeDriver: false, ...SPRING_CONFIG }).start(({ finished }) => {
-      if (finished) {
-        setExpanded(false);
-        setVisible(false);
-        setQuery('');
-      }
+    const finishClose = () => {
+      setExpanded(false);
+      setVisible(false);
+      setQuery('');
+    };
+    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
+      if (finished) runOnJS(finishClose)();
     });
   };
 
@@ -77,16 +81,19 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
     close();
   };
 
-  const top = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.y, topTarget] });
-  const left = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.x, leftTarget] });
-  const width = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.width, PANEL_WIDTH] });
-  const height = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.height, PANEL_HEIGHT] });
-  const borderRadius = anim.interpolate({ inputRange: [0, 1], outputRange: [BorderRadius.md, BorderRadius.xl] });
-  const triggerOpacity = anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] });
-  const contentOpacity = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
-  // Transparent -> white in lockstep with growth, same fix as the other docks —
-  // a static color snap showed a flash of solid white for a frame on collapse.
-  const backgroundColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0)', Colors.white] });
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
+  const panelStyle = useAnimatedStyle(() => ({
+    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
+    width: interpolate(anim.value, [0, 1], [origin.width, PANEL_WIDTH]),
+    height: interpolate(anim.value, [0, 1], [origin.height, PANEL_HEIGHT]),
+    borderRadius: interpolate(anim.value, [0, 1], [BorderRadius.md, BorderRadius.xl]),
+    // Transparent -> white in lockstep with growth, same fix as the other docks —
+    // a static color snap showed a flash of solid white for a frame on collapse.
+    backgroundColor: interpolateColor(anim.value, [0, 1], ['rgba(255,255,255,0)', Colors.white]),
+  }));
+  const triggerStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
 
   const currentLabel = locality || city || 'Select location';
 
@@ -104,24 +111,24 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Animated.View style={[styles.backdrop, { opacity: anim }]}>
+        <Reanimated.View style={[styles.backdrop, backdropStyle]}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Animated.View>
+        </Reanimated.View>
 
-        <Animated.View
-          style={[styles.panel, styles.panelShadow, { top, left, width, height, borderRadius, backgroundColor }]}
+        <Reanimated.View
+          style={[styles.panel, styles.panelShadow, panelStyle]}
         >
-          <Animated.View style={[styles.triggerOnly, { opacity: triggerOpacity }]} pointerEvents="none">
+          <Reanimated.View style={[styles.triggerOnly, triggerStyle]} pointerEvents="none">
             <Text style={styles.triggerLabel}>Delivery to</Text>
             <View style={styles.triggerRow}>
               <Ionicons name="location" size={12} color={accent} />
               <Text style={styles.triggerName} numberOfLines={1}>{currentLabel}</Text>
               <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.6)" />
             </View>
-          </Animated.View>
+          </Reanimated.View>
 
-          <Animated.View style={[styles.content, { opacity: contentOpacity }]} pointerEvents={expanded ? 'auto' : 'none'}>
+          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Select Delivery Location</Text>
               <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={8}>
@@ -170,8 +177,8 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
                 )}
               />
             )}
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </Modal>
     </>
   );

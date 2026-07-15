@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Modal, FlatList, ActivityIndicator, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator, Dimensions,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +12,7 @@ import { customerApi } from '../lib/api';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Notification } from '../types';
-import { Colors, Typography, Spacing, BorderRadius, SPRING_CONFIG } from '../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -40,7 +43,7 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState({ x: SCREEN_WIDTH - Spacing.xl - DOCK_SIZE, y: 100 });
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useSharedValue(0);
 
   const topTarget = insets.top + Spacing.md;
   const leftTarget = SCREEN_WIDTH - Spacing.xl - PANEL_WIDTH;
@@ -64,17 +67,18 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
       setExpanded(true);
       load();
       requestAnimationFrame(() => {
-        Animated.spring(anim, { toValue: 1, useNativeDriver: false, ...SPRING_CONFIG }).start();
+        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
       });
     });
   };
 
   const close = () => {
-    Animated.spring(anim, { toValue: 0, useNativeDriver: false, ...SPRING_CONFIG }).start(({ finished }) => {
-      if (finished) {
-        setExpanded(false);
-        setVisible(false);
-      }
+    const finishClose = () => {
+      setExpanded(false);
+      setVisible(false);
+    };
+    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
+      if (finished) runOnJS(finishClose)();
     });
   };
 
@@ -117,17 +121,20 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
     return () => { getSupabase().removeChannel(channel); };
   }, [user?.id]);
 
-  const top = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.y, topTarget] });
-  const left = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.x, leftTarget] });
-  const width = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE, PANEL_WIDTH] });
-  const height = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE, PANEL_HEIGHT] });
-  const borderRadius = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE / 2, BorderRadius.xl] });
-  const iconOnlyOpacity = anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] });
-  const contentOpacity = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
-  // Interpolated in lockstep with the size instead of a static white fill —
-  // the static color made the collapsed/collapsing panel show a plain white
-  // circle at small sizes instead of matching the translucent dock button.
-  const backgroundColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.12)', Colors.white] });
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
+  const panelStyle = useAnimatedStyle(() => ({
+    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
+    width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
+    height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
+    borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
+    // Interpolated in lockstep with the size instead of a static white fill —
+    // the static color made the collapsed/collapsing panel show a plain white
+    // circle at small sizes instead of matching the translucent dock button.
+    backgroundColor: interpolateColor(anim.value, [0, 1], ['rgba(255,255,255,0.12)', Colors.white]),
+  }));
+  const iconOnlyStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
   const unreadCount = items.filter((i) => !i.isRead).length;
 
   return (
@@ -140,21 +147,21 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Animated.View style={[styles.backdrop, { opacity: anim }]}>
+        <Reanimated.View style={[styles.backdrop, backdropStyle]}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Animated.View>
+        </Reanimated.View>
 
-        <Animated.View
+        <Reanimated.View
           // Deep-shadow card — deliberately heavier than the app's normal
           // Shadows.raised so it reads as popping forward off the blurred backdrop.
-          style={[styles.panel, styles.panelShadow, { top, left, width, height, borderRadius, backgroundColor }]}
+          style={[styles.panel, styles.panelShadow, panelStyle]}
         >
-          <Animated.View style={[styles.iconOnly, { opacity: iconOnlyOpacity }]} pointerEvents="none">
+          <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">
             <Ionicons name="notifications-outline" size={18} color={Colors.white} />
-          </Animated.View>
+          </Reanimated.View>
 
-          <Animated.View style={[styles.content, { opacity: contentOpacity }]} pointerEvents={expanded ? 'auto' : 'none'}>
+          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Notifications</Text>
               <View style={styles.headerActions}>
@@ -200,8 +207,8 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
                 )}
               />
             )}
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </Modal>
     </>
   );

@@ -1,11 +1,15 @@
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Modal, ScrollView, Alert, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, Alert, Dimensions,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
-import { Colors, Typography, Spacing, BorderRadius, SPRING_CONFIG } from '../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -28,14 +32,19 @@ interface Props {
 // depth — left-anchored instead of right-anchored since the trigger lives at
 // the top-left of the hero, not the top-right icon cluster.
 export default function ProfileAvatarPopover({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60 });
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useSharedValue(0);
 
-  const topTarget = Spacing.xl + 44;
+  // Was a hardcoded Spacing.xl + 44 — didn't match the actual device status
+  // bar height the way LocationPopover/NotificationsPopover's insets.top-based
+  // math does, so this panel landed at a visibly different height than its
+  // siblings on real devices (only matched by coincidence in the simulator).
+  const topTarget = insets.top + Spacing.md;
   const leftTarget = Spacing.xl;
 
   const open = () => {
@@ -44,17 +53,18 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        Animated.spring(anim, { toValue: 1, useNativeDriver: false, ...SPRING_CONFIG }).start();
+        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
       });
     });
   };
 
   const close = () => {
-    Animated.spring(anim, { toValue: 0, useNativeDriver: false, ...SPRING_CONFIG }).start(({ finished }) => {
-      if (finished) {
-        setExpanded(false);
-        setVisible(false);
-      }
+    const finishClose = () => {
+      setExpanded(false);
+      setVisible(false);
+    };
+    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
+      if (finished) runOnJS(finishClose)();
     });
   };
 
@@ -80,16 +90,19 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
     ]);
   };
 
-  const top = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.y, topTarget] });
-  const left = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.x, leftTarget] });
-  const width = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE, PANEL_WIDTH] });
-  const height = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE, PANEL_HEIGHT] });
-  const borderRadius = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE / 2, BorderRadius.xl] });
-  const iconOnlyOpacity = anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] });
-  const contentOpacity = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
-  // Interpolated in lockstep with the size instead of a static white fill —
-  // a static color snap showed a flash of solid white for a frame on collapse.
-  const backgroundColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.14)', Colors.white] });
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
+  const panelStyle = useAnimatedStyle(() => ({
+    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
+    width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
+    height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
+    borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
+    // Interpolated in lockstep with the size instead of a static white fill —
+    // a static color snap showed a flash of solid white for a frame on collapse.
+    backgroundColor: interpolateColor(anim.value, [0, 1], ['rgba(255,255,255,0.14)', Colors.white]),
+  }));
+  const iconOnlyStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
 
   return (
     <>
@@ -100,17 +113,17 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Animated.View style={[styles.backdrop, { opacity: anim }]}>
+        <Reanimated.View style={[styles.backdrop, backdropStyle]}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Animated.View>
+        </Reanimated.View>
 
-        <Animated.View style={[styles.panel, styles.panelShadow, { top, left, width, height, borderRadius, backgroundColor }]}>
-          <Animated.View style={[styles.iconOnly, { opacity: iconOnlyOpacity }]} pointerEvents="none">
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
+          <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">
             <Text style={styles.iconOnlyText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
-          </Animated.View>
+          </Reanimated.View>
 
-          <Animated.View style={[styles.content, { opacity: contentOpacity }]} pointerEvents={expanded ? 'auto' : 'none'}>
+          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Profile</Text>
               <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={8}>
@@ -152,8 +165,8 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
 
               <Text style={styles.version}>Next360 v1.0.0</Text>
             </ScrollView>
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </Modal>
     </>
   );
