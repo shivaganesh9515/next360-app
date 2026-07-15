@@ -138,7 +138,7 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.userName}>{user?.name || 'User'}</Text>
-                  <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
+                  <Text style={styles.userEmail}>{user?.phone ? `+91 ${user.phone}` : user?.email}</Text>
                 </View>
               </View>
 
