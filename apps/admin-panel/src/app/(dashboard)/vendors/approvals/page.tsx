@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
@@ -12,6 +12,7 @@ export default function VendorApprovalsPage() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: string; name: string } | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => { loadPendingVendors(); }, []);
 
@@ -24,8 +25,16 @@ export default function VendorApprovalsPage() {
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    try { await adminApi.updateVendorStatus(id, status); loadPendingVendors(); setConfirmAction(null); }
-    catch (err: any) { alert(err.message || 'Failed to update vendor'); }
+    setProcessing(true);
+    try {
+      await adminApi.updateVendorStatus(id, status);
+      await loadPendingVendors();
+      setConfirmAction(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update vendor');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const columns = [
@@ -61,7 +70,16 @@ export default function VendorApprovalsPage() {
             <p className="text-sm text-gray-600 mb-6">{confirmAction.action === 'APPROVED' ? `Approve "${confirmAction.name}"? They will be able to list products.` : `Reject "${confirmAction.name}"? They will be notified.`}</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmAction(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={() => handleStatusChange(confirmAction.id, confirmAction.action)} className={`px-4 py-2 text-sm text-white rounded-lg ${confirmAction.action === 'APPROVED' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>{confirmAction.action === 'APPROVED' ? 'Approve' : 'Reject'}</button>
+              <button
+                onClick={() => handleStatusChange(confirmAction.id, confirmAction.action)}
+                disabled={processing}
+                className={`px-4 py-2 text-sm text-white rounded-lg flex items-center gap-2 disabled:opacity-60 ${
+                  confirmAction.action === 'APPROVED' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {processing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {processing ? `${confirmAction.action === 'APPROVED' ? 'Approving...' : 'Rejecting...'}` : (confirmAction.action === 'APPROVED' ? 'Approve' : 'Reject')}
+              </button>
             </div>
           </div>
         </div>

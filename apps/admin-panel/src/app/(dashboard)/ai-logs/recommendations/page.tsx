@@ -63,9 +63,20 @@ export default function AiRecommendationsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={3} className="py-12 text-center text-slate-400">Loading...</td></tr>
+                <>
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={3} className="px-4 py-3">
+                        <div className="h-8 bg-slate-100 rounded animate-pulse" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ) : recommendations.length === 0 ? (
-                <tr><td colSpan={3} className="py-12 text-center text-slate-400">No recommendations found</td></tr>
+                <tr><td colSpan={3} className="py-12 text-center text-slate-400">
+                  <div className="text-sm">No recommendations found</div>
+                  <div className="text-xs text-slate-400 mt-1">AI-generated recommendations will appear here after user activity.</div>
+                </td></tr>
               ) : (
                 recommendations.map((rec) => (
                   <tr key={rec.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
