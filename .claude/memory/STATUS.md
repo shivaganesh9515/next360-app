@@ -1,8 +1,15 @@
 # Current Status
 
-**Last updated:** 2026-07-04  
-**Latest commit:** `52c045b` — safe patch updates (supabase-js, react-navigation, tailwindcss)  
+**Last updated:** 2026-07-15
+**Latest commit:** `2854032` — gitignore .planning/.github/workflows, customer-app gap-audit fixes
 **Git remote:** `https://github.com/shivaganesh9515/next360-app.git` (branch: main)
+
+## Team & Task Division (2026-07-15)
+While mobile (customer-app + delivery-app) stays with the primary dev, the rest of the project is now split across a 6-person team. Full assignment detail lives in the root `CLAUDE.md` under "Current Task Division" — **update that section (and this file) whenever an item below closes**, so the whole team's AI stays in sync instead of re-discovering the same gaps.
+
+- **Backend (apps/api)**: Abhinaya (brands/kyc/sub-categories/roles/cms modules + package.json dependency fixes), Srinitha (delivery-partners/zones/disputes modules + vendor analytics/earnings/payouts endpoints), Harshitha (Razorpay Route split-payout automation + inventory module).
+- **Frontend (web)**: Soumya (apps/vendor-dashboard — shadcn/ui + Supabase client wiring, then live-data swap once backend lands), Manaswini (apps/admin-panel — same pattern for delivery-partners/zones/disputes/roles/cms/brands/sub-categories pages).
+- **Coordinator**: Ashwanth — tracks handoffs between backend module completion and the frontend pages blocked on them.
 
 ## What's Done ✅
 - All 12 phases complete (foundation → auth → APIs → vendor → customer → admin → delivery → AI → polish)

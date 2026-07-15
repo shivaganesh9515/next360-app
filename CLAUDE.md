@@ -7,8 +7,25 @@ Multi-vendor organic/natural/eco-friendly marketplace with 3 storefronts (Organi
 | Person | Responsibility | Platform | Tech | Screens |
 |--------|--------------|----------|------|---------|
 | **You** | Customer App + Delivery App | **Mobile** | Expo (React Native) | **69 screens** |
-| Person 2 | Vendor Dashboard | **Web** | Next.js 14+ (App Router) | **32 screens** |
-| Person 3 | Admin Panel | **Web** | Next.js 14+ (App Router) | **35 screens** |
+| Soumya, Manaswini | Vendor Dashboard + Admin Panel | **Web** | Next.js 14+ (App Router) | **32 + 35 screens** |
+| Abhinaya, Srinitha, Harshitha | Backend API | — | NestJS + Prisma | 25 modules |
+| Ashwanth | PM / coordinator | — | tracks progress, unblocks the above three tracks | — |
+
+### Current Task Division (as of 2026-07-15)
+Backend audit (apps/api, apps/vendor-dashboard, apps/admin-panel) found the two web apps are structurally complete (all required screens exist, real implementations) but blocked on missing backend modules/endpoints.
+
+**Backend (Abhinaya, Srinitha, Harshitha)** — split by owner:
+- **Abhinaya**: build `brands/`, `kyc/`, `sub-categories/`, `roles/`, `cms/` modules (dirs missing or unregistered in `app.module.ts`; Prisma models already exist). Fix `apps/api/package.json` — missing `@nestjs/jwt`, `@nestjs/mapped-types`, `@nestjs/passport`, `passport-jwt`, `@supabase/supabase-js`, `class-validator`, `class-transformer`, `dotenv`, `multer` (build currently breaks on a fresh install).
+- **Srinitha**: build `delivery-partners/`, `zones/`, `disputes/` modules (zero backend support today despite admin-panel screens existing for all three) + vendor analytics/earnings/payouts endpoints (`/vendors/me/analytics`, `/vendors/me/earnings`, `/vendors/me/payouts`, `/vendors/me/transactions`, `/vendors/me/customers`, `/vendors/:id/stats` — called by vendor-dashboard, not implemented).
+- **Harshitha**: Razorpay Route multi-vendor payout automation (split payout logic doesn't exist yet — order/webhook/refund flow is otherwise real) + `inventory/` module (dedicated stock endpoints beyond raw product fields).
+
+**Frontend (Soumya, Manaswini)** — both apps are missing `shadcn/ui`, `@supabase/supabase-js`, and (per CLAUDE.md's intended stack) zustand/axios from `package.json`:
+- **Soumya**: `apps/vendor-dashboard` — wire up shadcn/ui + Supabase client; once Srinitha's endpoints land, replace the empty-state payouts/analytics/earnings pages with live data.
+- **Manaswini**: `apps/admin-panel` — wire up shadcn/ui + Supabase client; once backend lands, replace empty-state delivery-partners/zones/disputes/roles/cms/brands/sub-categories pages with live data.
+
+**Ashwanth (PM/coordinator)**: track the backend module handoffs above against the frontend pages waiting on them, keep `.claude/memory/STATUS.md` and this section current as items close, unblock whoever's stuck.
+
+Not in this pass (still just you, on customer-app): map-based address picker, crash reporting tool choice, hero-banner CMS wiring — see `.claude/memory/` for detail. AI screens are explicitly on hold.
 
 ## Tech Stack
 ### Backend (NestJS + TypeScript)
