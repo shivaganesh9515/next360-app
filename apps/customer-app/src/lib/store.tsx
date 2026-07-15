@@ -12,6 +12,9 @@ interface StoreContextType {
   cartItems: CartItem[];
   cartCount: number;
   subtotal: number;
+  // The product just added via addToCart — lets the mini-cart bar show
+  // "X added" for the specific item that triggered it, not just a count.
+  lastAddedProductId: string | null;
   fetchCart: () => Promise<void>;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
   updateCartItem: (itemId: string, quantity: number) => Promise<void>;
@@ -29,6 +32,7 @@ function unwrap<T>(res: any): T[] {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [storeType, setStoreTypeState] = useState<StoreType>(StoreType.ORGANIC);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
 
   useEffect(() => { loadStoreType(); fetchCart(); }, []);
 
@@ -58,6 +62,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addToCart = useCallback(async (productId: string, quantity = 1) => {
+    setLastAddedProductId(productId);
     await customerApi.addToCart(productId, quantity);
     await fetchCart();
   }, [fetchCart]);
@@ -92,7 +97,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <StoreContext.Provider value={{
       storeType, setStoreType,
-      cartItems, cartCount, subtotal,
+      cartItems, cartCount, subtotal, lastAddedProductId,
       fetchCart, addToCart, updateCartItem, removeCartItem, clearCart, incrementCart,
     }}>
       {children}

@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.pill,
     padding: 3,
     marginHorizontal: Spacing.lg,
+    gap: 4,
   },
   pill: {
     flex: 1,

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next360 — Home</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg class="icon-sprite" aria-hidden="true">
+  <defs>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.6 7-12a7 7 0 1 0-14 0c0 5.4 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="icon-filter" viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="11" cy="17" r="2" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-sprig" viewBox="0 0 40 40"><path d="M20 38V14" stroke-width="2"/><path d="M20 22c-6 0-10-4-10-10 6 0 10 4 10 10Z" stroke-width="1.6"/><path d="M20 16c6 0 10-4 10-10-6 0-10 4-10 10Z" stroke-width="1.6"/><path d="M20 28c-5 0-8-3-8-8 5 0 8 3 8 8Z" stroke-width="1.6"/></symbol>
+    <symbol id="icon-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13c0-6 5-11 11-11 0 6-3 9-4 11a7 7 0 0 1 0 7Z"/><path d="M4 13c3.5 0 7 1 7 7"/></symbol>
+    <symbol id="icon-sprout" viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c0-4.4-2-6-5-6 0 3.3 1.7 6 5 6Z"/><path d="M14 20c0-6 3-8 7-8 0 4.4-2.7 8-7 8Z"/><path d="M12 20V10"/></symbol>
+    <symbol id="icon-recycle" viewBox="0 0 24 24"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 12 3a1.83 1.83 0 0 1 1.563.918l3.056 5.313"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/><path d="M17.7 15.5 20 19.5H12.6"/></symbol>
+    <symbol id="icon-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+    <symbol id="icon-chevron-right" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></symbol>
+    <symbol id="icon-burger" viewBox="0 0 24 24"><path d="M4 10h16"/><path d="M4 14h16"/><path d="M3 10c0-4 4-6 9-6s9 2 9 6"/><path d="M3 14c0 3 4 5 9 5s9-2 9-5"/></symbol>
+    <symbol id="icon-shrimp" viewBox="0 0 24 24"><path d="M4 15c0-6 4-11 10-11 4 0 6 3 6 6"/><circle cx="17" cy="7" r="1.2" fill="currentColor" stroke="none"/><path d="M6 13c4 4 10 4 14 0"/><path d="M8 16c1 2 2 3 3 5"/><path d="M12 16c.6 2 1.4 3 2 5"/><path d="M16 15c.4 2 1 3 1.6 4.6"/></symbol>
+    <symbol id="icon-cake" viewBox="0 0 24 24"><path d="M4 21V11l8-6 8 6v10Z"/><path d="M4 15h16"/><path d="M12 5V3"/></symbol>
+    <symbol id="icon-steak" viewBox="0 0 24 24"><path d="M12 3c-5 0-9 4-9 9s4 9 9 9 9-4 9-9-4-9-9-9Z"/><path d="M8 9c1.5 1.5 1.5 4 0 6"/><path d="M12 8c1.8 2 1.8 6 0 8"/><path d="M16 9c1.5 1.5 1.5 4 0 6"/></symbol>
+    <symbol id="icon-pizza" viewBox="0 0 24 24"><path d="M3 5h18L12 21 3 5Z"/><path d="M3 5c4-2 14-2 18 0"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="11" cy="15" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></symbol>
+    <symbol id="icon-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></symbol>
+    <symbol id="icon-shopping-bag" viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+    <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+  </defs>
+</svg>
+
+<div class="device">
+  <div class="screen">
+
+    <div class="status-bar">
+      <span class="status-time">9:41</span>
+      <div class="status-icons">
+        <svg width="18" height="11" viewBox="0 0 18 11" fill="none"><rect x="0" y="6" width="3" height="5" rx="0.5" fill="currentColor"/><rect x="4.5" y="4" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="9" y="2" width="3" height="9" rx="0.5" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="0.5" fill="currentColor"/></svg>
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="none"><path d="M8 2.5c2.4 0 4.6.9 6.3 2.5l-6.3 6-6.3-6C3.4 3.4 5.6 2.5 8 2.5Z" fill="currentColor"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-width="1"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.2" fill="currentColor"/><rect x="22" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="hero-topbar">
+        <button class="icon-btn icon-btn--ghost" aria-label="Menu"><svg class="icon"><use href="#icon-menu"/></svg></button>
+        <div class="hero-location">
+          <span class="hero-location__label">Delivery to</span>
+          <span class="hero-location__value"><svg class="icon icon--pin"><use href="#icon-pin"/></svg>Hyderabad, Telangana <svg class="icon icon--sm"><use href="#icon-chevron-down"/></svg></span>
+        </div>
+        <button class="icon-btn icon-btn--ghost" aria-label="Notifications">
+          <svg class="icon"><use href="#icon-bell"/></svg>
+          <span class="badge">3</span>
+        </button>
+      </div>
+
+      <div class="hero-content">
+        <div class="hero-copy">
+          <p class="hero-offer">
+            <span class="hero-offer__value">27%</span>
+            <span class="hero-offer__label">EXTRA<br>DISCOUNT</span>
+          </p>
+          <p class="hero-desc">Enjoy your first order with a<br>special discount!</p>
+        </div>
+      </div>
+
+      <div class="hero-photo">
+        <img src="assets/hero-plate.png" alt="" />
+      </div>
+
+      <svg class="hero-leaf" viewBox="0 0 40 40" fill="none" stroke="currentColor"><use href="#icon-sprig"/></svg>
+    </section>
+
+    <div class="search-float">
+      <div class="search-bar">
+        <svg class="icon search-bar__icon"><use href="#icon-search"/></svg>
+        <input class="search-bar__input" type="text" placeholder="Search 1000+ cuisines or restaurants…" />
+        <button class="search-bar__filter" aria-label="Filter">
+          <svg class="icon"><use href="#icon-filter"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <main class="content">
+
+      <section class="type-row">
+        <article class="type-card">
+          <span class="type-card__icon-wrap"><svg class="icon type-card__icon"><use href="#icon-sprout"/></svg></span>
+          <span class="type-card__label">Organic<br>Products</span>
+          <button class="type-card__arrow" aria-label="Explore Organic Products"><svg class="icon icon--sm"><use href="#icon-arrow-right"/></svg></button>
+        </article>
+        <article class="type-card">
+          <span class="type-card__icon-wrap"><svg class="icon type-card__icon"><use href="#icon-leaf"/></svg></span>
+          <span class="type-card__label">Natural<br>Products</span>
+          <button class="type-card__arrow" aria-label="Explore Natural Products"><svg class="icon icon--sm"><use href="#icon-arrow-right"/></svg></button>
+        </article>
+        <article class="type-card">
+          <span class="type-card__icon-wrap"><svg class="icon type-card__icon"><use href="#icon-recycle"/></svg></span>
+          <span class="type-card__label">Eco-Friendly<br>Living</span>
+          <button class="type-card__arrow" aria-label="Explore Eco-Friendly Living"><svg class="icon icon--sm"><use href="#icon-arrow-right"/></svg></button>
+        </article>
+      </section>
+
+      <section class="category-row">
+        <button class="category-chip"><span class="category-chip__icon"><svg class="icon"><use href="#icon-burger"/></svg></span><span class="category-chip__label">Burger</span></button>
+        <button class="category-chip"><span class="category-chip__icon"><svg class="icon"><use href="#icon-shrimp"/></svg></span><span class="category-chip__label">Sea Food</span></button>
+        <button class="category-chip"><span class="category-chip__icon"><svg class="icon"><use href="#icon-cake"/></svg></span><span class="category-chip__label">Dessert</span></button>
+        <button class="category-chip"><span class="category-chip__icon"><svg class="icon"><use href="#icon-steak"/></svg></span><span class="category-chip__label">Steak</span></button>
+        <button class="category-chip"><span class="category-chip__icon"><svg class="icon"><use href="#icon-pizza"/></svg></span><span class="category-chip__label">Pizza</span></button>
+        <button class="category-chip"><span class="category-chip__icon"><svg class="icon"><use href="#icon-grid"/></svg></span><span class="category-chip__label">More</span></button>
+      </section>
+
+      <section class="promo-card">
+        <div class="promo-card__copy">
+          <span class="promo-card__tag">LIMITED TIME OFFER</span>
+          <span class="promo-card__offer">50% OFF</span>
+          <span class="promo-card__desc">On your first order</span>
+          <span class="promo-card__code">CODE: NEXT50</span>
+        </div>
+        <div class="promo-card__art"><img src="assets/promo-pasta.png" alt="" /></div>
+        <button class="promo-card__cta" aria-label="Shop the offer"><svg class="icon"><use href="#icon-arrow-right"/></svg></button>
+      </section>
+
+      <section class="trending">
+        <div class="section-head">
+          <h2 class="section-title">Popular Restaurant</h2>
+          <a class="section-link" href="#">See All <svg class="icon icon--sm"><use href="#icon-chevron-right"/></svg></a>
+        </div>
+
+        <div class="product-scroll">
+
+          <article class="product-card">
+            <div class="product-card__media">
+              <span class="badge badge--discount">50% OFF</span>
+              <button class="icon-btn icon-btn--wishlist" aria-label="Add to wishlist"><svg class="icon icon--sm"><use href="#icon-heart"/></svg></button>
+              <img class="product-photo" src="assets/restaurant-1.png" alt="Spice Craft" />
+            </div>
+            <div class="product-card__body">
+              <div class="product-card__head-row">
+                <h3 class="product-card__title">Spice Craft</h3>
+                <span class="product-card__rating"><svg class="icon icon--xs"><use href="#icon-star"/></svg>4.8</span>
+              </div>
+              <p class="product-card__subtitle">North Indian, Chinese</p>
+              <p class="product-card__meta">30–40 min</p>
+            </div>
+          </article>
+
+          <article class="product-card">
+            <div class="product-card__media">
+              <button class="icon-btn icon-btn--wishlist" aria-label="Add to wishlist"><svg class="icon icon--sm"><use href="#icon-heart"/></svg></button>
+              <img class="product-photo" src="assets/restaurant-2.png" alt="Byte Bistro" />
+            </div>
+            <div class="product-card__body">
+              <div class="product-card__head-row">
+                <h3 class="product-card__title">Byte Bistro</h3>
+                <span class="product-card__rating"><svg class="icon icon--xs"><use href="#icon-star"/></svg>4.7</span>
+              </div>
+              <p class="product-card__subtitle">Burger, Fast Food</p>
+              <p class="product-card__meta">20–30 min</p>
+            </div>
+          </article>
+
+          <article class="product-card">
+            <div class="product-card__media">
+              <button class="icon-btn icon-btn--wishlist" aria-label="Add to wishlist"><svg class="icon icon--sm"><use href="#icon-heart"/></svg></button>
+              <img class="product-photo" src="assets/restaurant-3.png" alt="The Grill House" />
+            </div>
+            <div class="product-card__body">
+              <div class="product-card__head-row">
+                <h3 class="product-card__title">The Grill House</h3>
+                <span class="product-card__rating"><svg class="icon icon--xs"><use href="#icon-star"/></svg>4.6</span>
+              </div>
+              <p class="product-card__subtitle">Steak, BBQ</p>
+              <p class="product-card__meta">25–35 min</p>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <div class="content-spacer"></div>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="bottom-nav__item bottom-nav__item--active">
+        <svg class="icon"><use href="#icon-home"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="bottom-nav__item">
+        <svg class="icon"><use href="#icon-grid"/></svg>
+        <span>Explore</span>
+      </button>
+      <button class="bottom-nav__item">
+        <svg class="icon"><use href="#icon-search"/></svg>
+        <span>Search</span>
+      </button>
+      <button class="bottom-nav__item">
+        <svg class="icon"><use href="#icon-shopping-bag"/></svg>
+        <span>Cart</span>
+        <span class="badge badge--nav">3</span>
+      </button>
+      <button class="bottom-nav__item">
+        <svg class="icon"><use href="#icon-user"/></svg>
+        <span>Profile</span>
+      </button>
+    </nav>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -40,14 +40,14 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.trackButton}
-          onPress={() => navigation.navigate('OrderDetail', { orderId })}
+          onPress={() => navigation.navigate('OrderTracking', { orderId })}
         >
           <Text style={styles.trackButtonText}>Track Order</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.ordersButton}
-          onPress={() => navigation.navigate('Main', { screen: 'Orders' })}
+          onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { screen: 'OrderHistory' } })}
         >
           <Text style={styles.ordersButtonText}>View Orders</Text>
         </TouchableOpacity>

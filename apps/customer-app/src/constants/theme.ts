@@ -1,5 +1,5 @@
 export const Colors = {
-  background: '#F7F3EA',
+  background: '#FFFFFF',
   text: '#1C1B17',
   textSecondary: '#6B6A63',
   brass: '#C9A66B',
@@ -96,6 +96,15 @@ export const BorderRadius = {
   lg: 18,
   xl: 24,
   pill: 999,
+};
+
+// House spring physics — every expand-in-place overlay (search dock, notifications,
+// location popover) and any future one should use this exact feel so the app reads as
+// one consistent motion language rather than several hand-tuned animations that are
+// each subtly different. Pass to Animated.spring's config: { toValue, ...SPRING_CONFIG }.
+export const SPRING_CONFIG = {
+  friction: 11,
+  tension: 80,
 };
 
 // Soft, warm-tinted shadows (not pure black) — the depth cue that reads as "premium"

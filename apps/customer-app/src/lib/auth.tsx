@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { customerApi, setToken, removeToken } from './api';
+import { registerForPushNotifications, unregisterPushToken } from './notifications';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -22,6 +23,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => { checkAuth(); }, []);
+
+  // Registers the device for push once there's an authenticated user — covers
+  // fresh sign-in/sign-up and a restored session on app relaunch alike. This
+  // was previously built (src/lib/notifications.ts) but never called from
+  // anywhere, so the app never actually requested permission or registered a
+  // token — no push notification could ever reach a real device.
+  useEffect(() => {
+    if (!user) return;
+    registerForPushNotifications().catch(() => {});
+  }, [user?.id]);
 
   async function checkAuth() {
     try {
@@ -59,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    await unregisterPushToken().catch(() => {});
     await removeToken();
     setUser(null);
   }, []);

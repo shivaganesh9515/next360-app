@@ -8,18 +8,22 @@ import { useFocusEffect } from '@react-navigation/native';
 import { customerApi } from '../../lib/api';
 import { Address } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import ErrorState from '../../components/ErrorState';
 
 export default function AddressListScreen({ navigation, route }: any) {
   const onSelect = route.params?.onSelect as ((address: Address) => void) | undefined;
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res: any = await customerApi.getAddresses();
       setAddresses(Array.isArray(res) ? res : res?.data || []);
+      setError(false);
     } catch {
       setAddresses([]);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -74,7 +78,9 @@ export default function AddressListScreen({ navigation, route }: any) {
         </TouchableOpacity>
       </View>
 
-      {addresses.length === 0 ? (
+      {error ? (
+        <ErrorState message="Couldn't load your addresses" onRetry={load} />
+      ) : addresses.length === 0 ? (
         <View style={s.center}>
           <Ionicons name="location-outline" size={64} color={Colors.border} />
           <Text style={s.emptyTitle}>No addresses yet</Text>

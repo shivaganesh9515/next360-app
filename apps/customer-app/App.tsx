@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreenNative from 'expo-splash-screen';
 import { useFonts, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
@@ -11,7 +11,19 @@ import { AuthProvider } from './src/lib/auth';
 import { StoreProvider } from './src/lib/store';
 import { ZoneProvider } from './src/lib/zone';
 import { ProductSheetProvider } from './src/lib/productSheet';
+import { CartSheetProvider } from './src/lib/cartSheet';
+import { FlyToCartProvider } from './src/lib/flyToCart';
+import { navigationRef } from './src/lib/navigationRef';
+import { setupNotificationListeners } from './src/lib/notifications';
 import AppNavigator from './src/navigation/AppNavigator';
+import { Colors } from './src/constants/theme';
+
+// React Navigation's DefaultTheme background is '#f6f6f6' — swap in the app's
+// own white token so it never peeks through at screen edges/transitions.
+const NavTheme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: Colors.background },
+};
 
 SplashScreenNative.preventAutoHideAsync().catch(() => {});
 
@@ -29,6 +41,13 @@ export default function App() {
     }
   }, [fontsLoaded]);
 
+  // Wired once at the root — this was previously dead code (built, never
+  // called), so a tapped push notification never navigated anywhere.
+  React.useEffect(() => {
+    const subscription = setupNotificationListeners(navigationRef);
+    return () => subscription.remove();
+  }, []);
+
   if (!fontsLoaded) {
     return null;
   }
@@ -36,14 +55,18 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider onLayout={onLayoutRootView}>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef} theme={NavTheme}>
           <AuthProvider>
             <ZoneProvider>
               <StoreProvider>
-                <ProductSheetProvider>
-                  <StatusBar style="dark" />
-                  <AppNavigator />
-                </ProductSheetProvider>
+                <FlyToCartProvider>
+                  <ProductSheetProvider>
+                    <CartSheetProvider>
+                      <StatusBar style="dark" />
+                      <AppNavigator />
+                    </CartSheetProvider>
+                  </ProductSheetProvider>
+                </FlyToCartProvider>
               </StoreProvider>
             </ZoneProvider>
           </AuthProvider>

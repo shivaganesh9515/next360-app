@@ -13,3 +13,7 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# Local-only planning/CI files (not shared via git)
+.github/workflows/
+.planning/

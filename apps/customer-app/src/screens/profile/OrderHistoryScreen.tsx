@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
 import { Colors } from '../../constants/theme';
+import ErrorState from '../../components/ErrorState';
 
 const GREEN = Colors.organic;
 
@@ -25,6 +26,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -34,8 +36,10 @@ export default function OrderHistoryScreen({ navigation }: any) {
     try {
       const res = await customerApi.getOrders();
       setOrders(res?.data || res || []);
+      setError(false);
     } catch (err) {
       console.error('Failed to load orders:', err);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -81,7 +85,9 @@ export default function OrderHistoryScreen({ navigation }: any) {
         <View style={{ width: 24 }} />
       </View>
 
-      {orders.length === 0 ? (
+      {error ? (
+        <ErrorState message="Couldn't load your orders" onRetry={loadOrders} />
+      ) : orders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
           <Text style={styles.emptyTitle}>No orders yet</Text>

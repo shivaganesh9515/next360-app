@@ -176,7 +176,7 @@ export const categoryThemes = {
 } as const;
 
 export const baseTokens = {
-  background: '#F7F3EA', // Raw Cotton — fixed across all categories
+  background: '#FFFFFF', // White — fixed across all categories (was Raw Cotton #F7F3EA, revised for a cleaner hero/card contrast)
   text:       '#1C1B17', // Near-black bark — fixed
   brass:      '#C9A66B', // Prices, premium badges — fixed
 };
@@ -308,7 +308,7 @@ next360-home-preview.html → FINAL UI/UX reference — Customer App Home screen
 ## UI Reference
 `next360-home-preview.html` is the **final, locked visual reference** for the Customer App. Open it in a browser to see:
 - Live category re-theming (All / Organic / Natural / Eco-Friendly swatch toggle)
-- Exact design tokens in action (Raw Cotton bg, Fraunces serif, JetBrains Mono, brass prices)
+- Exact design tokens in action (white bg, Fraunces serif, JetBrains Mono, brass prices)
 - Floating pill nav, herbarium product cards, banner layout, curated bundle cards
 
 All UI decisions for the Customer App must match or extend this reference. Do not deviate from the token values, font choices, or layout patterns without explicit instruction.

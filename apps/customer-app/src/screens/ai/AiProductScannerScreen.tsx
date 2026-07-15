@@ -175,7 +175,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
                 style={styles.searchButton}
                 onPress={() => {
                   setResult(null);
-                  navigation.navigate('ProductList', { search: result.productName });
+                  navigation.navigate('AllProducts', { search: result.productName });
                 }}
               >
                 <Text style={styles.searchButtonText}>Search Manually</Text>

@@ -6,18 +6,22 @@ import { customerApi } from '../../lib/api';
 import { useStore } from '../../lib/store';
 import { Offer } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius, getStoreAccent, getStoreLabel } from '../../constants/theme';
+import ErrorState from '../../components/ErrorState';
 
 export default function PromosScreen() {
   const { storeType } = useStore();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await customerApi.getActiveOffers(storeType);
       setOffers(Array.isArray(res) ? res : (res as any)?.data || []);
+      setError(false);
     } catch {
       setOffers([]);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -40,7 +44,9 @@ export default function PromosScreen() {
         <Text style={s.headerSub}>Active in {getStoreLabel(storeType)}</Text>
       </View>
 
-      {offers.length === 0 ? (
+      {error ? (
+        <ErrorState message="Couldn't load offers" onRetry={load} />
+      ) : offers.length === 0 ? (
         <View style={s.center}>
           <Text style={s.emptyEmoji}>🏷️</Text>
           <Text style={s.emptyTitle}>No active offers right now</Text>

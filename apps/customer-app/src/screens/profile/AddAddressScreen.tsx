@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
+import { geocodeAddress } from '../../lib/geocode';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import BigButton from '../../components/BigButton';
 
@@ -27,12 +28,25 @@ export default function AddAddressScreen({ navigation }: any) {
     }
     setLoading(true);
     try {
+      // Geocoded once here so every consumer of this address (Order Tracking's
+      // map, delivery ETA, etc.) has a real lat/lng instead of nothing — this
+      // was the actual gap: nothing in the app ever captured coordinates, so
+      // the tracking map always fell back to a fixed placeholder location.
+      // Best-effort — a failed/slow geocode still saves the address by text.
+      const coords = await geocodeAddress({
+        fullAddress: fullAddress.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        pincode: pincode.trim(),
+      });
       await customerApi.createAddress({
         label,
         fullAddress: fullAddress.trim(),
         city: city.trim(),
         state: state.trim(),
         pincode: pincode.trim(),
+        lat: coords?.lat,
+        lng: coords?.lng,
       });
       navigation.goBack();
     } catch (err: any) {

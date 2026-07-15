@@ -96,6 +96,7 @@ model User {
   reviews           Review[]
   notifications     Notification[]
   aiLogs            AI_Log[]
+  aiRecommendations AI_Recommendation[]
   pushTokens        PushToken[]
 }
 
@@ -228,6 +229,7 @@ model Product {
   orderItems      OrderItem[]
   wishlistItems   WishlistItem[]
   reviews         Review[]
+  aiRecommendations AI_Recommendation[]
 }
 
 model ProductVariant {
@@ -493,7 +495,9 @@ model AI_Log {
 model AI_Recommendation {
   id        String   @id @default(uuid())
   userId    String
+  user      User     @relation(fields: [userId], references: [id])
   productId String?
+  product   Product? @relation(fields: [productId], references: [id])
   type      String   // PERSONALIZED, SIMILAR, TRENDING
   score     Float?
   createdAt DateTime @default(now())

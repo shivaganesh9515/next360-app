@@ -6,8 +6,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../lib/store';
+import { getDeliveryFee } from '../../lib/pricing';
 import { CartItem as CartItemType } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import QuantityStepper from '../../components/QuantityStepper';
 
 function CartItemRow({ item, onQuantityChange, onRemove }: {
   item: CartItemType;
@@ -37,23 +39,12 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
         <Text style={styles.itemUnit}>{item.product?.unit || 'per unit'}</Text>
         <Text style={styles.itemPrice}>₹{Number(item.product?.price || 0).toFixed(0)}</Text>
       </View>
-      <View style={styles.quantityContainer}>
-        <TouchableOpacity
-          style={styles.quantityButton}
-          onPress={() => handleQuantityChange(item.quantity - 1)}
-          disabled={updating}
-        >
-          <Ionicons name="remove" size={16} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.quantityText}>{item.quantity}</Text>
-        <TouchableOpacity
-          style={styles.quantityButton}
-          onPress={() => handleQuantityChange(item.quantity + 1)}
-          disabled={updating}
-        >
-          <Ionicons name="add" size={16} color={Colors.text} />
-        </TouchableOpacity>
-      </View>
+      <QuantityStepper
+        value={item.quantity}
+        onDecrement={() => handleQuantityChange(item.quantity - 1)}
+        onIncrement={() => handleQuantityChange(item.quantity + 1)}
+        disabled={updating}
+      />
       <TouchableOpacity
         style={styles.removeButton}
         onPress={() => onRemove(item.id)}
@@ -116,7 +107,7 @@ export default function CartScreen({ navigation }: any) {
     ]);
   };
 
-  const DELIVERY_FEE = 40;
+  const DELIVERY_FEE = getDeliveryFee(subtotal);
   const formatCurrency = (amount: number) => `₹${amount.toFixed(0)}`;
 
   if (loading) {
@@ -182,7 +173,9 @@ export default function CartScreen({ navigation }: any) {
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Delivery</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(DELIVERY_FEE)}</Text>
+          <Text style={[styles.summaryValue, DELIVERY_FEE === 0 && styles.summaryValueFree]}>
+            {DELIVERY_FEE === 0 ? 'FREE' : formatCurrency(DELIVERY_FEE)}
+          </Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total</Text>
@@ -267,26 +260,6 @@ const styles = StyleSheet.create({
     color: Colors.brass,
     marginTop: 4,
   },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: 2,
-  },
-  quantityButton: {
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quantityText: {
-    ...Typography.bodySmall,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    minWidth: 20,
-    textAlign: 'center',
-  },
   removeButton: {
     padding: Spacing.xs,
     marginLeft: Spacing.sm,
@@ -337,6 +310,10 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...Typography.bodySmall,
     color: Colors.text,
+  },
+  summaryValueFree: {
+    color: Colors.organic,
+    fontFamily: 'Inter_600SemiBold',
   },
   totalRow: {
     borderTopWidth: 1,

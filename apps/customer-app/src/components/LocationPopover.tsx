@@ -1,0 +1,234 @@
+import React, { useRef, useState, useMemo } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, Animated, Modal, FlatList, TextInput, Dimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { useZone } from '../lib/zone';
+import { SERVICEABLE_ZONES, isServiceableCity } from '../constants/zones';
+import { Colors, Typography, Spacing, BorderRadius, SPRING_CONFIG } from '../constants/theme';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const PANEL_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
+const PANEL_HEIGHT = SCREEN_HEIGHT * 0.6;
+
+type Row = { city: string; locality: string };
+
+interface Props {
+  accent?: string;
+}
+
+// Same expand-in-place language as ExpandingSearchDock / NotificationsPopover —
+// measured origin, spring-grows into a blurred-backdrop panel with real depth
+// — except the "dock" here is the existing text trigger ("Delivery to" +
+// locality), not a fixed icon circle, so origin size is measured live instead
+// of a constant. Replaces navigating to a separate SelectLocation page.
+export default function LocationPopover({ accent = Colors.organic }: Props) {
+  const insets = useSafeAreaInsets();
+  const { city, locality, setZone } = useZone();
+  const dockRef = useRef<View>(null);
+  const [visible, setVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState('');
+  const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60, width: 120, height: 40 });
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const topTarget = insets.top + Spacing.md;
+  const leftTarget = Spacing.xl;
+
+  const allRows: Row[] = useMemo(
+    () => SERVICEABLE_ZONES.flatMap((zone) => zone.localities.map((loc) => ({ city: zone.city, locality: loc }))),
+    [],
+  );
+
+  const results = useMemo(() => {
+    if (!query.trim()) return allRows;
+    const q = query.trim().toLowerCase();
+    return allRows.filter((r) => r.city.toLowerCase().includes(q) || r.locality.toLowerCase().includes(q));
+  }, [query, allRows]);
+
+  const showOutOfZoneNotice = query.trim().length > 2 && results.length === 0 && !isServiceableCity(query);
+
+  const open = () => {
+    dockRef.current?.measureInWindow((x, y, width, height) => {
+      setOrigin({ x, y, width, height });
+      setVisible(true);
+      setExpanded(true);
+      requestAnimationFrame(() => {
+        Animated.spring(anim, { toValue: 1, useNativeDriver: false, ...SPRING_CONFIG }).start();
+      });
+    });
+  };
+
+  const close = () => {
+    Animated.spring(anim, { toValue: 0, useNativeDriver: false, ...SPRING_CONFIG }).start(({ finished }) => {
+      if (finished) {
+        setExpanded(false);
+        setVisible(false);
+        setQuery('');
+      }
+    });
+  };
+
+  const handleSelect = async (row: Row) => {
+    await setZone(row.city, row.locality);
+    close();
+  };
+
+  const top = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.y, topTarget] });
+  const left = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.x, leftTarget] });
+  const width = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.width, PANEL_WIDTH] });
+  const height = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.height, PANEL_HEIGHT] });
+  const borderRadius = anim.interpolate({ inputRange: [0, 1], outputRange: [BorderRadius.md, BorderRadius.xl] });
+  const triggerOpacity = anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] });
+  const contentOpacity = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
+  // Transparent -> white in lockstep with growth, same fix as the other docks —
+  // a static color snap showed a flash of solid white for a frame on collapse.
+  const backgroundColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0)', Colors.white] });
+
+  const currentLabel = locality || city || 'Select location';
+
+  return (
+    <>
+      <View ref={dockRef} collapsable={false}>
+        <TouchableOpacity style={styles.trigger} activeOpacity={0.7} onPress={open}>
+          <Text style={styles.triggerLabel}>Delivery to</Text>
+          <View style={styles.triggerRow}>
+            <Ionicons name="location" size={12} color={accent} />
+            <Text style={styles.triggerName} numberOfLines={1}>{currentLabel}</Text>
+            <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.6)" />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
+        <Animated.View style={[styles.backdrop, { opacity: anim }]}>
+          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
+        </Animated.View>
+
+        <Animated.View
+          style={[styles.panel, styles.panelShadow, { top, left, width, height, borderRadius, backgroundColor }]}
+        >
+          <Animated.View style={[styles.triggerOnly, { opacity: triggerOpacity }]} pointerEvents="none">
+            <Text style={styles.triggerLabel}>Delivery to</Text>
+            <View style={styles.triggerRow}>
+              <Ionicons name="location" size={12} color={accent} />
+              <Text style={styles.triggerName} numberOfLines={1}>{currentLabel}</Text>
+              <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.6)" />
+            </View>
+          </Animated.View>
+
+          <Animated.View style={[styles.content, { opacity: contentOpacity }]} pointerEvents={expanded ? 'auto' : 'none'}>
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Select Delivery Location</Text>
+              <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={8}>
+                <Ionicons name="close" size={18} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={16} color={Colors.textSecondary} />
+              <TextInput
+                style={styles.input}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search city or area..."
+                placeholderTextColor={Colors.textSecondary}
+                underlineColorAndroid="transparent"
+                autoFocus={expanded}
+              />
+            </View>
+
+            {showOutOfZoneNotice ? (
+              <View style={styles.blockCard}>
+                <Ionicons name="alert-circle-outline" size={32} color={Colors.textSecondary} />
+                <Text style={styles.blockTitle}>We're not in your area yet</Text>
+                <Text style={styles.blockText}>
+                  Next360 currently delivers only in Hyderabad and Vijayawada. We're working on
+                  expanding to more cities soon.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={results}
+                keyExtractor={(item) => `${item.city}-${item.locality}`}
+                contentContainerStyle={styles.list}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                ListHeaderComponent={!query.trim() ? <Text style={styles.sectionLabel}>Serviceable areas</Text> : null}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
+                    <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowLocality}>{item.locality}</Text>
+                      <Text style={styles.rowCity}>{item.city}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  trigger: { alignItems: 'center', gap: 3 },
+  triggerLabel: { ...Typography.caption, color: 'rgba(255,255,255,0.6)' },
+  triggerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  triggerName: { ...Typography.bodySmall, color: Colors.white, fontFamily: 'Inter_600SemiBold', maxWidth: 160 },
+
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,10,8,0.35)' },
+  panel: { position: 'absolute', overflow: 'hidden' },
+  panelShadow: {
+    shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,
+  },
+  triggerOnly: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center', gap: 3,
+  },
+  content: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.md,
+  },
+  headerTitle: { ...Typography.h3, color: Colors.text },
+  closeBtn: {
+    width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
+
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
+    backgroundColor: Colors.background, borderRadius: BorderRadius.md,
+    height: 44, paddingHorizontal: Spacing.md,
+  },
+  // outlineStyle/outlineWidth are web-only (react-native-web) — without them the
+  // browser draws its own default black focus ring around the <input>.
+  input: {
+    flex: 1, ...Typography.body, color: Colors.text, padding: 0,
+    borderWidth: 0, outlineStyle: 'none' as any, outlineWidth: 0,
+  },
+
+  list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
+  sectionLabel: { ...Typography.caption, color: Colors.textSecondary, marginBottom: Spacing.sm, textTransform: 'uppercase' },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  rowLocality: { ...Typography.body, color: Colors.text },
+  rowCity: { ...Typography.caption, color: Colors.textSecondary },
+
+  blockCard: {
+    marginHorizontal: Spacing.lg, alignItems: 'center', paddingVertical: Spacing.xxxl, gap: Spacing.sm,
+  },
+  blockTitle: { ...Typography.h3, color: Colors.text },
+  blockText: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: Spacing.xl },
+});

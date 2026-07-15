@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { customerApi } from '../../lib/api';
 import { Notification } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import ErrorState from '../../components/ErrorState';
 
 const ICONS: Record<string, string> = {
   ORDER: '📦',
@@ -15,13 +16,16 @@ const ICONS: Record<string, string> = {
 export default function NotificationsScreen() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await customerApi.getNotifications();
       setItems(Array.isArray(res) ? res : (res as any)?.data || []);
+      setError(false);
     } catch {
       setItems([]);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -59,7 +63,9 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      {items.length === 0 ? (
+      {error ? (
+        <ErrorState message="Couldn't load notifications" onRetry={load} />
+      ) : items.length === 0 ? (
         <View style={s.center}>
           <Text style={s.emptyEmoji}>🔔</Text>
           <Text style={s.emptyTitle}>You're all caught up</Text>

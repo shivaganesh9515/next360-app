@@ -82,6 +82,17 @@ export interface Address {
   isDefault: boolean;
 }
 
+// One order splits into one independently-tracked group per vendor (the
+// Swiggy/Zomato cart-split model per CLAUDE.md) — each group has its own
+// fulfilment status distinct from the top-level Order.status.
+export interface OrderVendorGroup {
+  id: string;
+  vendorId: string;
+  vendor?: { storeName: string };
+  status: string;
+  items: OrderItem[];
+}
+
 export interface Order {
   id: string;
   orderNo: string;
@@ -92,8 +103,36 @@ export interface Order {
   addressId: string;
   address?: Address;
   items: OrderItem[];
+  vendorGroups?: OrderVendorGroup[];
   createdAt: string;
   updatedAt: string;
+  estimatedDeliveryAt?: string;
+  deliveryAssignment?: DeliveryAssignment;
+}
+
+// Per CLAUDE.md: delivery partner pushes lat/lng periodically → Supabase
+// Realtime relays it to the customer app (no polling). currentLat/currentLng
+// arrive live via a `postgres_changes` subscription on this row, not fetched
+// once and left static.
+export interface DeliveryPartner {
+  id: string;
+  name: string;
+  phone: string;
+  currentLat?: number;
+  currentLng?: number;
+  vehicleType?: string;
+  rating?: number;
+}
+
+export interface DeliveryAssignment {
+  id: string;
+  orderId: string;
+  deliveryPartnerId: string;
+  deliveryPartner?: DeliveryPartner;
+  otp: string;
+  status: 'ASSIGNED' | 'PICKED_UP' | 'OUT_FOR_DELIVERY' | 'DELIVERED';
+  pickedUpAt?: string;
+  deliveredAt?: string;
 }
 
 export interface OrderItem {
