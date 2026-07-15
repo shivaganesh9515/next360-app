@@ -20,6 +20,11 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CommissionModule } from './commission/commission.module';
+import { BrandsModule } from './brands/brands.module';
+import { KycModule } from './kyc/kyc.module';
+import { SubCategoriesModule } from './sub-categories/sub-categories.module';
+import { RolesModule } from './roles/roles.module';
+import { CmsModule } from './cms/cms.module';
 import { AiModule } from './ai/ai.module';
 import { SeedModule } from './seed/seed.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -59,6 +64,11 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     OrdersModule,
     PaymentsModule,
     CommissionModule,
+    BrandsModule,
+    KycModule,
+    SubCategoriesModule,
+    RolesModule,
+    CmsModule,
     AiModule,
     SeedModule,
   ],
