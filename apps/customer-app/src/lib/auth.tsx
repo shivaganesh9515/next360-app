@@ -7,11 +7,8 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (data: { email: string; password: string; name: string; phone?: string }) => Promise<void>;
-  verifyOtp: (email: string, otp: string) => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
-  resetPassword: (token: string, newPassword: string) => Promise<void>;
+  sendOtp: (phone: string) => Promise<void>;
+  verifyOtpAndAuth: (phone: string, otp: string) => Promise<{ isNewUser: boolean }>;
   signOut: () => Promise<void>;
   skipAuth: () => void;
 }
@@ -45,28 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const res = await customerApi.login(email, password);
+  const sendOtp = useCallback(async (phone: string) => {
+    await customerApi.sendOtp(phone);
+  }, []);
+
+  // One call for both login and signup — the backend (or its demo fallback)
+  // decides which based on whether the phone number already has an account.
+  const verifyOtpAndAuth = useCallback(async (phone: string, otp: string) => {
+    const res = await customerApi.verifyOtpLogin(phone, otp);
     await setToken(res.access_token);
     setUser(res.user);
-  }, []);
-
-  const signUp = useCallback(async (data: { email: string; password: string; name: string; phone?: string }) => {
-    const res = await customerApi.signup(data);
-    await setToken(res.access_token);
-    setUser(res.user);
-  }, []);
-
-  const verifyOtp = useCallback(async (email: string, otp: string) => {
-    await customerApi.verifyOtp(email, otp);
-  }, []);
-
-  const forgotPassword = useCallback(async (email: string) => {
-    await customerApi.forgotPassword(email);
-  }, []);
-
-  const resetPassword = useCallback(async (token: string, newPassword: string) => {
-    await customerApi.resetPassword(token, newPassword);
+    return { isNewUser: !!res.isNewUser };
   }, []);
 
   const signOut = useCallback(async () => {
@@ -76,13 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const skipAuth = useCallback(() => {
-    setUser({ id: 'dev-user-id', email: 'dev@skip.com', name: 'Dev User', role: 'CUSTOMER' });
+    setUser({ id: 'dev-user-id', phone: '9999999999', name: 'Dev User', role: 'CUSTOMER' });
   }, []);
 
   return (
     <AuthContext.Provider value={{
       user, isLoading, isAuthenticated: !!user,
-      signIn, signUp, verifyOtp, forgotPassword, resetPassword, signOut, skipAuth,
+      sendOtp, verifyOtpAndAuth, signOut, skipAuth,
     }}>
       {children}
     </AuthContext.Provider>

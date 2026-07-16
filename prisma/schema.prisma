@@ -76,8 +76,13 @@ enum CouponType {
 
 model User {
   id        String   @id @default(uuid())
-  email     String   @unique
-  phone     String?
+  // Both optional (not both-required) since the two signup paths only ever
+  // populate one at creation time: customer-app's phone-OTP flow (phone) vs.
+  // vendor/admin's email+password flow (email). @unique still enforces
+  // uniqueness when a value IS set — Postgres doesn't apply unique
+  // constraints across NULLs, so either can be freely absent.
+  email     String?  @unique
+  phone     String?  @unique
   name      String?
   role      UserRole @default(CUSTOMER)
   avatarUrl String?
@@ -106,7 +111,8 @@ model Zone {
   name      String
   city      String
   isActive  Boolean  @default(true)
-
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   vendors          Vendor[]
   deliveryPartners DeliveryPartner[]
 }

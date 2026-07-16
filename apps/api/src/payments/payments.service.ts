@@ -4,8 +4,10 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../commission/commission.service';
 import {
   CreateRazorpayOrderDto,
   VerifyPaymentDto,
@@ -18,9 +20,13 @@ const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
   private razorpay: any;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commissionService: CommissionService,
+  ) {
     if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
       const Razorpay = require('razorpay');
       this.razorpay = new Razorpay({
@@ -166,6 +172,159 @@ export class PaymentsService {
             data: { paymentStatus: 'PAID' },
           }),
         ]);
+
+        await this.commissionService.calculateCommissions(order.id);
+
+        const fullOrder = await this.prisma.order.findUnique({
+          where: { id: order.id },
+          include: {
+            vendorGroups: {
+              include: {
+                vendor: {
+                  select: {
+                    id: true,
+                    razorpayAccountId: true,
+                    commissionPct: true,
+                  },
+                },
+              },
+            },
+            commissions: true,
+          },
+        });
+
+        if (!fullOrder) {
+          this.logger.error(
+            `Order ${order.id} not found after payment capture — aborting Route transfers`,
+          );
+          return { received: true, status: 'captured', transfersSkipped: true };
+        }
+
+        if (!this.isConfigured()) {
+          this.logger.warn(
+            `Razorpay not configured — skipping Route transfers for order ${order.id}`,
+          );
+          return { received: true, status: 'captured', transfersSkipped: true };
+        }
+
+        /*
+         * IDEMPOTENCY NOTE — SCHEMA LIMITATION
+         *
+         * Exact duplicate detection is impossible without an `orderId` column on the
+         * Payout model.  The current Payout schema stores only (vendorId, amount,
+         * status, createdAt) — there is no way to query "has this specific order's
+         * payout for this vendor already been created?"
+         *
+         * The 5-minute time-window heuristic below is the best available application-level
+         * check.  It protects against Razorpay's typical retry interval (seconds to
+         * minutes).  It does NOT protect against retries that arrive after the window
+         * expires, and it carries a small false-positive risk for consecutive orders
+         * from the same vendor with identical subtotals.
+         *
+         * To achieve exact idempotency the Payout model requires:
+         *   - an `orderId` column (to link payout → order)
+         *   - a unique constraint on `(orderId, vendorId)` (database-level dedup)
+         *
+         * Until that schema change lands, every webhook retry beyond the window will
+         * create a duplicate transfer and a duplicate Payout record.  This is an
+         * accepted risk tracked in the project risk register.
+         */
+        const DEDUP_WINDOW_MS = 5 * 60 * 1000;
+        const cutoff = new Date(Date.now() - DEDUP_WINDOW_MS);
+
+        for (const group of fullOrder.vendorGroups) {
+          const commission = fullOrder.commissions.find(
+            (c: any) => c.vendorId === group.vendorId,
+          );
+          if (!commission) {
+            this.logger.warn(
+              `Skipping vendor ${group.vendorId} — no commission record for order ${order.id}`,
+            );
+            continue;
+          }
+
+          if (!group.vendor.razorpayAccountId) {
+            this.logger.warn(
+              `Skipping vendor ${group.vendorId} — no razorpayAccountId linked`,
+            );
+            continue;
+          }
+
+          const subtotal = Number(group.subtotal);
+          const commissionAmount = Number(commission.commissionAmount);
+
+          if (subtotal < commissionAmount) {
+            this.logger.warn(
+              `Skipping vendor ${group.vendorId} — subtotal ${subtotal} < commission ${commissionAmount} for order ${order.id}`,
+            );
+            continue;
+          }
+
+          const payoutAmount = subtotal - commissionAmount;
+          const payoutAmountPaise = Math.round(payoutAmount * 100);
+
+          if (payoutAmountPaise <= 0) {
+            this.logger.warn(
+              `Skipping vendor ${group.vendorId} — payout ${payoutAmount} rounds to 0 paise for order ${order.id}`,
+            );
+            continue;
+          }
+
+          const existingPayout = await this.prisma.payout.findFirst({
+            where: {
+              vendorId: group.vendorId,
+              amount: payoutAmount,
+              createdAt: { gte: cutoff },
+            },
+          });
+          if (existingPayout) {
+            this.logger.log(
+              `Skipping vendor ${group.vendorId} — dedup: existing Payout ${existingPayout.id} found within window for order ${order.id}`,
+            );
+            continue;
+          }
+
+          let payoutStatus = 'PENDING';
+
+          try {
+            await this.razorpay.transfers.create({
+              account: group.vendor.razorpayAccountId,
+              amount: payoutAmountPaise,
+              currency: 'INR',
+              notes: {
+                orderId: order.id,
+                vendorId: group.vendorId,
+                orderNo: fullOrder.orderNo,
+              },
+            });
+            payoutStatus = 'PROCESSED';
+            this.logger.log(
+              `Route transfer PROCESSED — order: ${order.id}, vendor: ${group.vendorId}, amount: ₹${payoutAmount}`,
+            );
+          } catch (error: any) {
+            payoutStatus = 'FAILED';
+            this.logger.error(
+              `Route transfer FAILED — order: ${order.id}, vendor: ${group.vendorId}, amount: ₹${payoutAmount}, error: ${error?.message || error}`,
+            );
+          }
+
+          try {
+            await this.prisma.payout.create({
+              data: {
+                vendorId: group.vendorId,
+                amount: payoutAmount,
+                status: payoutStatus,
+              },
+            });
+            this.logger.log(
+              `Payout record created — vendor: ${group.vendorId}, order: ${order.id}, status: ${payoutStatus}`,
+            );
+          } catch (dbError: any) {
+            this.logger.error(
+              `Payout DB write failed — vendor: ${group.vendorId}, order: ${order.id}, error: ${dbError?.message || dbError}`,
+            );
+          }
+        }
 
         return { received: true, status: 'captured' };
       }

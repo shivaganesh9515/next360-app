@@ -5,6 +5,8 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpLoginDto } from './dto/verify-otp-login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -54,5 +56,20 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  // Zomato-style phone-OTP flow — customer-app's only auth path. One call to
+  // verify-otp-login both logs an existing account in and provisions a new
+  // one on first verify (see AuthService.verifyOtpLogin), no separate signup.
+  @Post('send-otp')
+  @HttpCode(HttpStatus.OK)
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
+  }
+
+  @Post('verify-otp-login')
+  @HttpCode(HttpStatus.OK)
+  async verifyOtpLogin(@Body() dto: VerifyOtpLoginDto) {
+    return this.authService.verifyOtpLogin(dto);
   }
 }

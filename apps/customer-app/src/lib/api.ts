@@ -92,6 +92,30 @@ function demoDeleteAddress(id: string): void {
   demoAddresses = demoAddresses.filter((a) => a.id !== id);
 }
 
+// In-memory phone-OTP auth fallback — apps/api now has real send-otp/
+// verify-otp-login endpoints, but this still fires whenever they're
+// unreachable (no backend running locally, same as every other demo
+// fallback in this file). Fixed OTP "123456" mirrors the fixed demo coupon
+// codes below — a known code beats a random one nobody could ever guess in
+// a demo build. Keyed by phone so the same number always resolves to the
+// same account across a session (first verify = signup, every one after =
+// login), matching the Zomato-style "one phone flow" the real endpoint
+// implements too.
+const DEMO_OTP = '123456';
+let demoUsersByPhone: Record<string, { id: string; phone: string; name: string; role: string }> = {};
+let demoUserIdCounter = 0;
+
+function demoVerifyOtpLogin(phone: string, otp: string): { access_token: string; user: any; isNewUser: boolean } {
+  if (otp !== DEMO_OTP) throw new Error(`Incorrect code. In demo mode, use ${DEMO_OTP}.`);
+  const existing = demoUsersByPhone[phone];
+  if (existing) {
+    return { access_token: `demo-token-${existing.id}`, user: existing, isNewUser: false };
+  }
+  const user = { id: `demo-user-${(demoUserIdCounter += 1)}`, phone, name: '', role: 'CUSTOMER' };
+  demoUsersByPhone[phone] = user;
+  return { access_token: `demo-token-${user.id}`, user, isNewUser: true };
+}
+
 // Fixed demo coupon catalog — just enough to exercise the checkout "Apply
 // Coupon" flow end-to-end with no live backend.
 const DEMO_COUPONS: Record<string, { type: 'PERCENTAGE' | 'FIXED'; value: number; maxDiscount?: number; minOrderAmount?: number }> = {
@@ -199,7 +223,14 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+  const body = await response.json();
+  // apps/api wraps every response in { success, data, meta } (ResponseInterceptor).
+  // This was never unwrapped here — every caller got the raw envelope instead
+  // of its payload, silently masked in dev because DEMO_FALLBACK_ENABLED meant
+  // no code path ever actually hit a real backend. Individual callers below
+  // that defensively check `res.data || res` keep working fine against the
+  // now-unwrapped value too (it's just already the array/object they wanted).
+  return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
 export const api = {
@@ -230,28 +261,38 @@ export const api = {
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
-    return response.json();
+    const body = await response.json();
+    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
   },
 };
 
 // Customer-specific API methods
 export const customerApi = {
-  // Auth
-  login: (email: string, password: string) =>
-    api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
-  signup: (data: { email: string; password: string; name: string; phone?: string }) =>
-    api.post<{ access_token: string; user: any }>('/auth/signup', { ...data, role: 'CUSTOMER' }),
+  // Auth — Zomato-style single phone-OTP flow: same call verifies and either
+  // logs an existing account straight in or provisions a new one, no separate
+  // signup/password screens. Falls back to an in-memory demo login/signup
+  // whenever apps/api's real /auth/send-otp + /auth/verify-otp-login (see
+  // AuthService.verifyOtpLogin) aren't reachable, e.g. no backend running
+  // locally — same pattern as every other demo fallback in this file.
+  sendOtp: async (phone: string): Promise<{ message: string }> => {
+    try {
+      return await api.post<{ message: string }>('/auth/send-otp', { phone });
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return { message: `OTP sent (demo mode — use ${DEMO_OTP})` };
+    }
+  },
+  verifyOtpLogin: async (phone: string, otp: string): Promise<{ access_token: string; user: any; isNewUser: boolean }> => {
+    try {
+      return await api.post('/auth/verify-otp-login', { phone, otp });
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return demoVerifyOtpLogin(phone, otp);
+    }
+  },
   getProfile: () => api.get<any>('/users/me'),
-  updateProfile: (data: { name?: string; phone?: string }) =>
+  updateProfile: (data: { name?: string; email?: string }) =>
     api.patch<any>('/users/me', data),
-
-  // Email verification / password recovery
-  verifyOtp: (email: string, otp: string) =>
-    api.post<{ message: string }>('/auth/verify-otp', { email, otp }),
-  forgotPassword: (email: string) =>
-    api.post<{ message: string }>('/auth/forgot-password', { email }),
-  resetPassword: (token: string, newPassword: string) =>
-    api.post<{ message: string }>('/auth/reset-password', { token, newPassword }),
 
   // Products — falls back to local demo data when the real API returns
   // nothing (no backend/DB wired up yet), so screens can be checked visually

@@ -1,7 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Inbox } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Column<T> {
   key: string;
@@ -36,10 +45,10 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+            <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
       </div>
@@ -47,72 +56,75 @@ export default function DataTable<T extends Record<string, any>>({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
       {searchable && (
-        <div className="p-4 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="p-4 border-b border-slate-100">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-100">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {columns.map((col) => (
-                <th key={col.key} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <TableHead key={col.key} className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                   {col.label}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-gray-500">
-                  {emptyMessage}
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={columns.length} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <Inbox className="w-10 h-10 text-slate-300" />
+                    <p className="text-sm text-slate-400">{emptyMessage}</p>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : (
               data.map((item, idx) => (
-                <tr
+                <TableRow
                   key={item.id || idx}
                   onClick={() => onRowClick?.(item)}
-                  className={`border-b border-gray-50 last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                  className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : ''}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-sm text-gray-700">
+                    <TableCell key={col.key} className="text-sm text-slate-700">
                       {col.render ? col.render(item) : item[col.key]}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-          <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+          <span className="text-sm text-slate-500">Page {page} of {totalPages}</span>
           <div className="flex gap-1">
             <button
               onClick={() => onPageChange?.(page - 1)}
               disabled={page <= 1}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30"
+              className="p-1 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => onPageChange?.(page + 1)}
               disabled={page >= totalPages}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30"
+              className="p-1 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

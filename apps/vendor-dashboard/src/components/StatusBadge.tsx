@@ -15,17 +15,17 @@ const statusStyles: Record<string, string> = {
   OUT_FOR_DELIVERY: 'bg-orange-100 text-orange-700',
   DELIVERED: 'bg-emerald-100 text-emerald-700',
   CANCELLED: 'bg-red-100 text-red-700',
-  REFUNDED: 'bg-gray-100 text-gray-700',
+  REFUNDED: 'bg-slate-100 text-slate-700',
   PAID: 'bg-emerald-100 text-emerald-700',
   FAILED: 'bg-red-100 text-red-700',
   ACTIVE: 'bg-emerald-100 text-emerald-700',
-  INACTIVE: 'bg-gray-100 text-gray-500',
+  INACTIVE: 'bg-slate-100 text-slate-500',
   true: 'bg-emerald-100 text-emerald-700',
-  false: 'bg-gray-100 text-gray-500',
+  false: 'bg-slate-100 text-slate-500',
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  const style = statusStyles[status] || 'bg-gray-100 text-gray-600';
+  const style = statusStyles[status] || 'bg-slate-100 text-slate-600';
   return (
     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${style}`}>
       {status.replace(/_/g, ' ')}

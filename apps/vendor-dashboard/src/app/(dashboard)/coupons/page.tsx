@@ -44,7 +44,7 @@ export default function CouponsPage() {
   };
 
   const columns = [
-    { key: 'code', label: 'Code', render: (item: any) => <span className="font-mono font-bold text-sm bg-gray-100 px-2 py-1 rounded">{item.code}</span> },
+    { key: 'code', label: 'Code', render: (item: any) => <span className="font-mono font-bold text-sm bg-slate-100 text-slate-700 px-2 py-1 rounded">{item.code}</span> },
     { key: 'discountType', label: 'Type', render: (item: any) => <span className="text-xs">{item.discountType === 'PERCENTAGE' ? '% Off' : '₹ Off'}</span> },
     { key: 'discountValue', label: 'Value', render: (item: any) => <span>{item.discountType === 'PERCENTAGE' ? `${item.discountValue}%` : `₹${item.discountValue}`}</span> },
     { key: 'minOrderAmount', label: 'Min Order', render: (item: any) => <span>₹{Number(item.minOrderAmount || 0).toLocaleString()}</span> },
@@ -60,31 +60,31 @@ export default function CouponsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">Coupons</h2><p className="text-sm text-gray-500">Create and manage discount coupons</p></div>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"><Plus className="w-4 h-4" /> Create Coupon</button>
+        <div><h2 className="text-xl font-bold text-slate-900">Coupons</h2><p className="text-sm text-slate-500">Create and manage discount coupons</p></div>
+        <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"><Plus className="w-4 h-4" /> Create Coupon</button>
       </div>
       {showForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-800">New Coupon</h3>
-            <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+            <h3 className="font-semibold text-slate-900">New Coupon</h3>
+            <button onClick={() => setShowForm(false)} className="p-1 hover:bg-slate-100 rounded-md"><X className="w-4 h-4 text-slate-400" /></button>
           </div>
           <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Code *</label>
-              <input value={form.code} onChange={(e) => setForm({...form, code: e.target.value.toUpperCase()})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="SAVE20" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
-              <select value={form.discountType} onChange={(e) => setForm({...form, discountType: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Code *</label>
+              <input value={form.code} onChange={(e) => setForm({...form, code: e.target.value.toUpperCase()})} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="SAVE20" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Type</label>
+              <select value={form.discountType} onChange={(e) => setForm({...form, discountType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                 <option value="PERCENTAGE">Percentage</option><option value="FIXED">Fixed Amount</option></select></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Value *</label>
-              <input type="number" min="0" value={form.discountValue} onChange={(e) => setForm({...form, discountValue: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="20" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Min Order Amount</label>
-              <input type="number" min="0" value={form.minOrderAmount} onChange={(e) => setForm({...form, minOrderAmount: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="500" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Max Discount</label>
-              <input type="number" min="0" value={form.maxDiscount} onChange={(e) => setForm({...form, maxDiscount: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="100" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Usage Limit</label>
-              <input type="number" min="0" value={form.usageLimit} onChange={(e) => setForm({...form, usageLimit: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="100" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Expires At</label>
-              <input type="date" value={form.expiresAt} onChange={(e) => setForm({...form, expiresAt: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Value *</label>
+              <input type="number" min="0" value={form.discountValue} onChange={(e) => setForm({...form, discountValue: e.target.value})} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="20" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Min Order Amount</label>
+              <input type="number" min="0" value={form.minOrderAmount} onChange={(e) => setForm({...form, minOrderAmount: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="500" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Max Discount</label>
+              <input type="number" min="0" value={form.maxDiscount} onChange={(e) => setForm({...form, maxDiscount: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="100" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Usage Limit</label>
+              <input type="number" min="0" value={form.usageLimit} onChange={(e) => setForm({...form, usageLimit: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="100" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Expires At</label>
+              <input type="date" value={form.expiresAt} onChange={(e) => setForm({...form, expiresAt: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" /></div>
             <div className="flex items-end">
               <button type="submit" disabled={saving} className="w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">{saving ? 'Saving...' : 'Save Coupon'}</button>
             </div>

@@ -104,15 +104,15 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6" role="status" aria-label="Loading dashboard">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+        <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-gray-200 rounded-xl animate-pulse" />
+            <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-72 bg-gray-200 rounded-xl animate-pulse" />
-          <div className="h-72 bg-gray-200 rounded-xl animate-pulse" />
+          <div className="h-72 bg-slate-100 rounded-xl animate-pulse" />
+          <div className="h-72 bg-slate-100 rounded-xl animate-pulse" />
         </div>
         <span className="sr-only">Loading dashboard data...</span>
       </div>
@@ -156,14 +156,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">          {/* Revenue Chart */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900">Revenue (Last 7 Days)</h3>
             <Link
               href="/analytics"
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150"
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
             >
               View details
             </Link>
@@ -194,15 +193,13 @@ export default function DashboardPage() {
               <p className="text-sm">No revenue data yet</p>
             </div>
           )}
-        </div>
-
-        {/* Orders by Status */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
+        </div>          {/* Orders by Status */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900">Orders by Status</h3>
             <Link
               href="/orders"
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150"
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
             >
               View all
             </Link>
@@ -242,12 +239,12 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 card-hover">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900">Recent Orders</h3>
             <Link
               href="/orders"
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150"
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
             >
               View all
             </Link>
@@ -300,7 +297,7 @@ export default function DashboardPage() {
         {/* Quick Actions + Top Products */}
         <div className="space-y-6">
           {/* Quick Actions */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
             <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
             <div className="space-y-1" role="list" aria-label="Quick actions">
               {[
@@ -329,12 +326,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Products */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">Top Products</h3>
               <Link
                 href="/products"
-                className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150"
+                className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
               >
                 View all
               </Link>

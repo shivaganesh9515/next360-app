@@ -37,6 +37,11 @@ export class ReturnsController {
     return this.returnsService.findAll(user.id, 'ADMIN'); // Admins see all, vendors see all
   }
 
+  @Get('refunds')
+  findRefunds() {
+    return this.returnsService.findRefunds();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.returnsService.findOne(id);

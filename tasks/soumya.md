@@ -4,12 +4,13 @@ Screens are structurally complete (all 8 sidebar sections exist under `src/app/(
 
 ## Tasks
 
-- [ ] **Add missing dependencies** — `apps/vendor-dashboard/package.json` currently has Tailwind v4 + recharts + lucide, but is missing what CLAUDE.md's stack calls for:
+- [ ] **Add missing dependencies** — `apps/vendor-dashboard/package.json` currently has Tailwind v4 + recharts + lucide, but is missing:
   - `@supabase/supabase-js`
   - `shadcn/ui` (component setup, not just a dep — run their CLI init)
-  - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them.
+  - **Skip zustand/axios** — the existing `useState`/`useEffect` + fetch-based `lib/api.ts` pattern already works and there's no shared cross-component state that would justify zustand. Don't add either unless a real need shows up.
 
-- [ ] **Payouts page** (`earnings/` route) — currently renders empty since `GET /vendors/me/payouts` doesn't exist yet. Blocked on Srinitha — see [srinitha.md](./srinitha.md). Once live, wire it up.
+- [ ] **Payouts page** (`earnings/` route) — currently renders empty since `GET /vendors/me/payouts` doesn't exist yet. Blocked on Srinitha — see [s
+rinitha.md](./srinitha.md). Once live, wire it up.
 
 - [ ] **Analytics/earnings pages** — same story, blocked on `GET /vendors/me/analytics`, `GET /vendors/me/earnings`, `GET /vendors/me/transactions`, `GET /vendors/me/customers` (Srinitha).
 

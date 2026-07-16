@@ -10,6 +10,7 @@ Multi-vendor organic/natural/eco-friendly marketplace with 3 storefronts (Organi
 | Soumya, Manaswini | Vendor Dashboard + Admin Panel | **Web** | Next.js 14+ (App Router) | **32 + 35 screens** |
 | Abhinaya, Srinitha, Harshitha | Backend API | — | NestJS + Prisma | 25 modules |
 | Ashwanth | PM / coordinator | — | tracks progress, unblocks the above three tracks | — |
+| **Designer (TBD)** | Visual assets — banners, posters, video content, loyalty tier illustrations | — | Figma / Canva / motion tools | — |
 
 ### Current Task Division (as of 2026-07-15)
 Backend audit (apps/api, apps/vendor-dashboard, apps/admin-panel) found the two web apps are structurally complete (all required screens exist, real implementations) but blocked on missing backend modules/endpoints.
@@ -24,6 +25,13 @@ Backend audit (apps/api, apps/vendor-dashboard, apps/admin-panel) found the two 
 - **Manaswini**: `apps/admin-panel` — wire up shadcn/ui + Supabase client; once backend lands, replace empty-state delivery-partners/zones/disputes/roles/cms/brands/sub-categories pages with live data.
 
 **Ashwanth (PM/coordinator)**: track the backend module handoffs above against the frontend pages waiting on them, keep `.claude/memory/STATUS.md` and this section current as items close, unblock whoever's stuck.
+
+**Designer (TBD — role open, needs hire/assignment)**: no code, deliverables only — hand off finished assets to the app owners for wiring:
+- Home-screen banner creatives (`CMS_Page`/`Banner` model already exists — admin panel has a banner-upload screen, needs real creative content, not just the upload mechanism)
+- Category-storefront hero imagery (Organic / Natural / Eco-friendly — 3 sets, matching the swatch theming in `categoryThemes`)
+- **Loyalty tier illustrations (new, Phase 12):** 8 tree-growth stage graphics — Seed → Seedling → Sapling → Plant → Young Tree → Tree → Mature Tree → Forest — for the Customer App loyalty screen tier badge/progress bar
+- Onboarding carousel illustrations (3 slides, one per category — listed as open decision #6 in Risk Register)
+- Short promo/video content for in-app placement (format/length TBD once a designer is assigned)
 
 Not in this pass (still just you, on customer-app): map-based address picker, crash reporting tool choice, hero-banner CMS wiring — see `.claude/memory/` for detail. AI screens are explicitly on hold.
 

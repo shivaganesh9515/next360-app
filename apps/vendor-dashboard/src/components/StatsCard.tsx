@@ -18,7 +18,7 @@ export default function StatsCard({ icon: Icon, label, value, trend, accent = 'e
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+    <div className="bg-white rounded-xl border border-slate-200 p-5 card-hover hover:border-slate-300">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-slate-500 mb-1">{label}</p>
