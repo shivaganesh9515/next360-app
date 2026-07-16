@@ -25,6 +25,7 @@ import { KycModule } from './kyc/kyc.module';
 import { SubCategoriesModule } from './sub-categories/sub-categories.module';
 import { RolesModule } from './roles/roles.module';
 import { CmsModule } from './cms/cms.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { AiModule } from './ai/ai.module';
 import { SeedModule } from './seed/seed.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -69,6 +70,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     SubCategoriesModule,
     RolesModule,
     CmsModule,
+    InventoryModule,
     AiModule,
     SeedModule,
   ],

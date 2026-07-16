@@ -140,4 +140,21 @@ export class VendorsService {
       include: { zone: true },
     });
   }
+
+  async getVendorPayouts(vendorId: string) {
+    const payouts = await this.prisma.payout.findMany({
+      where: { vendorId },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        periodStart: true,
+        periodEnd: true,
+        paidAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return payouts.map((p) => ({ ...p, initiatedAt: p.createdAt }));
+  }
 }
