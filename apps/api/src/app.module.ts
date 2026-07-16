@@ -20,6 +20,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CommissionModule } from './commission/commission.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { AiModule } from './ai/ai.module';
 import { SeedModule } from './seed/seed.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -59,6 +60,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     OrdersModule,
     PaymentsModule,
     CommissionModule,
+    InventoryModule,
     AiModule,
     SeedModule,
   ],
