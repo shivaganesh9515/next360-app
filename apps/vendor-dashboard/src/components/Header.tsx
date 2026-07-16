@@ -2,6 +2,7 @@
 
 import { Bell, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -24,11 +25,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-            <span className="text-emerald-700 font-medium text-sm">
+          <Avatar className="w-8 h-8">
+            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm font-medium">
               {user?.name?.charAt(0)?.toUpperCase() || 'V'}
-            </span>
-          </div>
+            </AvatarFallback>
+          </Avatar>
           <div className="hidden sm:block">
             <p className="text-sm font-medium text-slate-700">{user?.name || 'Vendor'}</p>
             <p className="text-xs text-slate-500">{user?.email || ''}</p>

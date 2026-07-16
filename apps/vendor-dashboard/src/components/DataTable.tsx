@@ -1,7 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Inbox } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Column<T> {
   key: string;
@@ -39,7 +48,7 @@ export default function DataTable<T extends Record<string, any>>({
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />
+            <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
       </div>
@@ -63,40 +72,43 @@ export default function DataTable<T extends Record<string, any>>({
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {columns.map((col) => (
-                <th key={col.key} className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <TableHead key={col.key} className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                   {col.label}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-slate-500">
-                  {emptyMessage}
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={columns.length} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <Inbox className="w-10 h-10 text-slate-300" />
+                    <p className="text-sm text-slate-400">{emptyMessage}</p>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : (
               data.map((item, idx) => (
-                <tr
+                <TableRow
                   key={item.id || idx}
                   onClick={() => onRowClick?.(item)}
-                  className={`border-b border-slate-50 last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                  className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : ''}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-sm text-slate-700">
+                    <TableCell key={col.key} className="text-sm text-slate-700">
                       {col.render ? col.render(item) : item[col.key]}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
