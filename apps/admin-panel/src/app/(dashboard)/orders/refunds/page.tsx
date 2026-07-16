@@ -35,7 +35,7 @@ export default function RefundsPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await adminApi.getRefunds(params);
-      setRefunds(res?.data || []);
+      setRefunds(Array.isArray(res) ? res : []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setRefunds([]); } finally { setLoading(false); }
   };

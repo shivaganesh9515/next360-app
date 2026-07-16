@@ -40,7 +40,7 @@ export default function VendorsPage() {
       if (statusFilter !== 'ALL') params.status = statusFilter;
       if (search) params.search = search;
       const res = await adminApi.getVendors(params);
-      setVendors(res?.data || []);
+      setVendors((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch {
       setVendors([]);

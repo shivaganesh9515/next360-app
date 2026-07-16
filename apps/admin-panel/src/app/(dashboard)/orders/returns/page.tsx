@@ -33,7 +33,7 @@ export default function ReturnsPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await adminApi.getReturns(params);
-      setReturns(res?.data || []);
+      setReturns(Array.isArray(res) ? res : []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setReturns([]); } finally { setLoading(false); }
   };

@@ -35,11 +35,15 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     if (response.status === 204) return undefined as T;
 
     const text = await response.text();
+    let body: any;
     try {
-      return JSON.parse(text) as T;
+      body = JSON.parse(text);
     } catch {
       throw new Error('API returned invalid response. Is the server running?');
     }
+    // apps/api wraps every response in { success, data, meta } (ResponseInterceptor)
+    // — unwrap it here so callers get the payload directly instead of the envelope.
+    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
   } catch (e) {
     if (e instanceof TypeError && e.message.includes('fetch')) {
       throw new Error('Unable to connect to server. Please check your connection.');
@@ -72,11 +76,13 @@ export const api = {
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
     const text = await response.text();
+    let body: any;
     try {
-      return JSON.parse(text) as T;
+      body = JSON.parse(text);
     } catch {
       throw new Error('Upload returned invalid response');
     }
+    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
   },
 };
 
@@ -87,11 +93,16 @@ export const adminApi = {
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
   getProfile: () => api.get<any>('/users/me'),
 
-  // Dashboard
+  // Dashboard — no aggregate dashboard endpoint exists on the backend yet
+  // (no /admin/* routes at all besides the two AI ones below). Real gap, not
+  // a path typo — needs a backend endpoint before this can work.
   getDashboard: () => api.get<any>('/admin/dashboard'),
 
   // Users
   getUsers: (params?: any) => api.get<any>('/users', params),
+  // Neither of these exist on the backend — UsersController only has GET
+  // (list), GET me, PATCH me, and PATCH :id/role. No single-user GET, no
+  // status field/endpoint. Real gaps.
   getUser: (id: string) => api.get<any>(`/users/${id}`),
   updateUserStatus: (id: string, status: string) =>
     api.patch<any>(`/users/${id}/status`, { status }),
@@ -99,10 +110,14 @@ export const adminApi = {
   // Vendors
   getVendors: (params?: any) => api.get<any>('/vendors', params),
   getVendor: (id: string) => api.get<any>(`/vendors/${id}`),
+  // No generic status endpoint or DTO field — VendorsController only exposes
+  // one-way /:id/approve. Real gap for reject/suspend specifically.
   updateVendorStatus: (id: string, status: string) =>
     api.patch<any>(`/vendors/${id}/status`, { status }),
-  updateVendorCommission: (id: string, commissionPct: number) =>
-    api.patch<any>(`/vendors/${id}/commission`, { commissionPct }),
+  // Was /vendors/:id/commission (doesn't exist) — actual route is
+  // /commission/rate/:vendorId.
+  updateVendorCommission: (vendorId: string, commissionPct: number) =>
+    api.patch<any>(`/commission/rate/${vendorId}`, { commissionPct }),
 
   // Delivery Partners
   getDeliveryPartners: (params?: any) => api.get<any>('/delivery-partners', params),
@@ -116,6 +131,9 @@ export const adminApi = {
   createProduct: (data: any) => api.post<any>('/products', data),
   updateProduct: (id: string, data: any) => api.patch<any>(`/products/${id}`, data),
   deleteProduct: (id: string) => api.delete<any>(`/products/${id}`),
+  // No approve endpoint and UpdateProductDto has no isApproved field either
+  // (ValidationPipe's forbidNonWhitelisted would reject it even via the
+  // generic PATCH /products/:id) — real gap, not a path typo.
   approveProduct: (id: string) => api.patch<any>(`/products/${id}/approve`, {}),
 
   // Categories
@@ -162,14 +180,24 @@ export const adminApi = {
   deleteOffer: (id: string) => api.delete<any>(`/offers/${id}`),
 
   // Payments & Commission
+  // No bare GET /payments list route exists (only /payments/:orderId and the
+  // razorpay/refund action routes) — real gap.
   getPayments: (params?: any) => api.get<any>('/payments', params),
   getCommissionSummary: (params?: any) => api.get<any>('/commission/summary', params),
+  // Real route needs the Commission record's own id (PATCH /commission/:id/pay),
+  // not a vendorId — there's no "mark all of this vendor's commission paid"
+  // endpoint. Unused today; leaving path as-is rather than guessing a lookup.
   markCommissionPaid: (vendorId: string) =>
     api.patch<any>(`/commission/pay`, { vendorId }),
+  // Was /commission/rate (no vendorId in path) — actual route is
+  // /commission/rate/:vendorId. See updateVendorCommission above, which is
+  // the one actually wired to a page; this one is currently unused.
   updateCommissionRate: (vendorId: string, rate: number) =>
-    api.patch<any>(`/commission/rate`, { vendorId, rate }),
+    api.patch<any>(`/commission/rate/${vendorId}`, { commissionPct: rate }),
 
-  // Payouts
+  // Payouts — no /payouts/* routes exist on the backend at all yet. Only
+  // GET /vendors/me/payouts exists, and that's a vendor's own payouts, not
+  // an admin cross-vendor oversight view. Real gap.
   getVendorPayouts: (params?: any) => api.get<any>('/payouts/vendors', params),
   getDeliveryPayouts: (params?: any) => api.get<any>('/payouts/delivery', params),
 
@@ -183,12 +211,12 @@ export const adminApi = {
   getReviews: (params?: any) => api.get<any>('/reviews', params),
   deleteReview: (id: string) => api.delete<any>(`/reviews/${id}`),
 
-  // AI Logs
-  getAILogs: (params?: any) => api.get<any>('/ai/logs', params),
+  // AI Logs — real routes are nested under /ai/admin/*, not bare /ai/*.
+  getAILogs: (params?: any) => api.get<any>('/ai/admin/logs', params),
   getAIRecommendations: (params?: any) => api.get<any>('/ai/recommendations', params),
-  getAIAnalytics: (params?: any) => api.get<any>('/ai/analytics', params),
+  getAIAnalytics: (params?: any) => api.get<any>('/ai/admin/analytics', params),
 
-  // Reports
+  // Reports — no /reports/* routes exist on the backend at all. Real gap.
   getSalesReport: (params?: any) => api.get<any>('/reports/sales', params),
   getRevenueReport: (params?: any) => api.get<any>('/reports/revenue', params),
 
@@ -202,6 +230,9 @@ export const adminApi = {
   updateBanner: (id: string, data: any) => api.patch<any>(`/cms/banners/${id}`, data),
   deleteBanner: (id: string) => api.delete<any>(`/cms/banners/${id}`),
   getNotifications: (params?: any) => api.get<any>('/notifications', params),
+  // No POST /notifications route — NotificationsController only has GET,
+  // read-all, register/unregister (device tokens). No "admin sends a
+  // notification" endpoint. Real gap.
   sendNotification: (data: any) => api.post<any>('/notifications', data),
 
   // Roles & Permissions
@@ -209,11 +240,15 @@ export const adminApi = {
   createRole: (data: any) => api.post<any>('/roles', data),
   updateRole: (id: string, data: any) => api.patch<any>(`/roles/${id}`, data),
   deleteRole: (id: string) => api.delete<any>(`/roles/${id}`),
+  // Was /roles/permissions — actual route is the bare /permissions (a
+  // sibling resource on the same controller, not nested under roles).
   getPermissions: (params?: any) => api.get<any>('/permissions', params),
   createPermission: (data: any) => api.post<any>('/permissions', data),
   deletePermission: (id: string) => api.delete<any>(`/permissions/${id}`),
+  // Permissions live on the Role record (CreateRoleDto.permissions: string[]),
+  // updated through the same PATCH /roles/:id updateRole already uses.
   updatePermissions: (roleId: string, permissions: string[]) =>
-    api.patch<any>(`/roles/${roleId}/permissions`, { permissions }),
+    api.patch<any>(`/roles/${roleId}`, { permissions }),
 
   // Zones
   getZones: (params?: any) => api.get<any>('/zones', params),
@@ -221,35 +256,46 @@ export const adminApi = {
   updateZone: (id: string, data: any) => api.patch<any>(`/zones/${id}`, data),
   deleteZone: (id: string) => api.delete<any>(`/zones/${id}`),
 
-  // Analytics (alias for AI analytics)
+  // Analytics — no /admin/analytics route exists. The closest real endpoint
+  // is /ai/admin/analytics (AI-usage analytics specifically, not general
+  // sales/GMV analytics) — not a true substitute, so left pointing at the
+  // nonexistent route rather than silently serving the wrong data.
   getAnalytics: (params?: any) => api.get<any>('/admin/analytics', params),
 
-  // Commissions
-  getCommissions: (params?: any) => api.get<any>('/commission', params),
+  // Commissions — no bare GET /commission list route exists. Closest real
+  // endpoint is /commission/summary (see getCommissionSummary above): when
+  // called by an ADMIN it returns commission data across all vendors,
+  // including a recentCommissions list — not truly paginated the way this
+  // page's page/limit params imply, but the only backend data that exists.
+  getCommissions: (params?: any) => api.get<any>('/commission/summary', params),
 
-  // Payouts (generic)
+  // Payouts (generic) — same gap as getVendorPayouts/getDeliveryPayouts above.
   getPayouts: (params?: any) => api.get<any>('/payouts', params),
 
-  // Reports (generic)
+  // Reports (generic) — same gap as getSalesReport/getRevenueReport above.
   getReports: (params?: any) => api.get<any>('/reports', params),
 
   // CMS (alias)
   getCMS: (params?: any) => api.get<any>('/cms/pages', params),
 
-  // Product approval
+  // Product approval — same gap as approveProduct above (no backend support
+  // for either path).
   updateProductApproval: (id: string, isApproved: boolean) =>
     api.patch<any>(`/products/${id}/approval`, { isApproved }),
 
-  // Returns status update
+  // Returns status update — was /returns/:id/status (doesn't exist); actual
+  // route is the bare /returns/:id, same one processReturn above already
+  // uses correctly. Kept as a separate method since call sites differ.
   updateReturnStatus: (id: string, status: string) =>
-    api.patch<any>(`/returns/${id}/status`, { status }),
+    api.patch<any>(`/returns/${id}`, { status }),
 
   // Refunds
   getRefunds: (params?: any) => api.get<any>('/returns/refunds', params),
 
-  // Ratings
+  // Ratings — no /reviews/ratings aggregate route exists (ReviewsController
+  // only has POST, my/product listings, and delete). Real gap.
   getRatings: (params?: any) => api.get<any>('/reviews/ratings', params),
 
-  // Settings
+  // Settings — no /admin/settings route exists. Real gap.
   updateSettings: (settings: any) => api.patch<any>('/admin/settings', settings),
 };

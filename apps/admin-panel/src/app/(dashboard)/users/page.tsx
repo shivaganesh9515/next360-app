@@ -26,7 +26,7 @@ export default function UsersPage() {
       if (roleFilter !== 'ALL') params.role = roleFilter;
       if (search) params.search = search;
       const res = await adminApi.getUsers(params);
-      setUsers(res?.data || []);
+      setUsers((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch {
       setUsers([]);

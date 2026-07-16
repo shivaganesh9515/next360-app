@@ -39,7 +39,7 @@ export default function OrdersPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await adminApi.getOrders(params);
-      setOrders(res?.data || []);
+      setOrders((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setOrders([]); } finally { setLoading(false); }
   };
