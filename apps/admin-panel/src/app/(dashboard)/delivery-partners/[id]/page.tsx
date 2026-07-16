@@ -15,7 +15,7 @@ export default function DeliveryPartnerDetailPage() {
   useEffect(() => { loadPartner(); }, [params.id]);
 
   const loadPartner = async () => {
-    try { const res = await adminApi.getDeliveryPartner(params.id as string); setPartner(res); }
+    try { const res = await adminApi.getDeliveryPartner(params.id as string); setPartner(res?.data || res); }
     catch { setPartner(null); } finally { setLoading(false); }
   };
 

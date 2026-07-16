@@ -22,8 +22,8 @@ export default function DeliveryPartnersPage() {
     setLoading(true);
     try {
       const res = await adminApi.getDeliveryPartners({ page, limit: 20, search });
-      setPartners(res?.data || []);
-      setTotalPages(res?.meta?.totalPages || 1);
+      setPartners(res?.data?.items || []);
+      setTotalPages(res?.data?.totalPages || 1);
     } catch { setPartners([]); } finally { setLoading(false); }
   };
 

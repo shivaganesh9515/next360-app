@@ -17,7 +17,7 @@ export default function DeliveryPartnerApprovalsPage() {
 
   const loadPending = async () => {
     setLoading(true);
-    try { const res = await adminApi.getDeliveryPartners({ status: 'PENDING', limit: 50 }); setPartners(res?.data || []); }
+    try { const res = await adminApi.getDeliveryPartners({ status: 'PENDING', limit: 50 }); setPartners(res?.data?.items || []); }
     catch { setPartners([]); } finally { setLoading(false); }
   };
 
