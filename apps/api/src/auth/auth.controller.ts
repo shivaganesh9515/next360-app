@@ -26,6 +26,14 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Get('login')
+  @HttpCode(HttpStatus.OK)
+  async testLogin() {
+    return {
+      message: 'GET /auth/login endpoint is working',
+    };
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser('id') userId: string) {
