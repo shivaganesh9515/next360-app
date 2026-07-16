@@ -41,7 +41,12 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
 
   const text = await response.text();
   try {
-    return JSON.parse(text) as T;
+    const parsed = JSON.parse(text) as T & { success?: boolean; data?: T };
+    // Auto-unwrap standard API envelope { success, data, meta }
+    if (parsed && typeof parsed === 'object' && 'success' in parsed && 'data' in parsed) {
+      return parsed.data as T;
+    }
+    return parsed as T;
   } catch {
     throw new Error('API returned invalid response. Is the server running?');
   }
@@ -70,7 +75,12 @@ export const api = {
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
-    return response.json();
+    const result = await response.json();
+    // Auto-unwrap standard API envelope
+    if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
+      return result.data;
+    }
+    return result;
   },
 };
 
