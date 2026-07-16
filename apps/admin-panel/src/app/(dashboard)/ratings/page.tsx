@@ -23,7 +23,7 @@ export default function RatingsPage() {
       const params: any = { page, limit: 20 };
       if (ratingFilter !== '') params.rating = ratingFilter;
       const res = await adminApi.getRatings(params);
-      setRatings(res?.data || []);
+      setRatings((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
       if (res?.summary) setStats(res.summary);
     } catch { setRatings([]); } finally { setLoading(false); }

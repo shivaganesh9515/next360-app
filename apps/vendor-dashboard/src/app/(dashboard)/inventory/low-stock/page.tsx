@@ -12,7 +12,7 @@ export default function LowStockPage() {
     setLoading(true);
     try {
       const res = await vendorApi.getProducts({ limit: 100 });
-      const all = res.data || [];
+      const all = (Array.isArray(res) ? res : (res as any)?.data) || [];
       setProducts(all.filter((p: any) => p.stock <= 5 && p.isActive));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }

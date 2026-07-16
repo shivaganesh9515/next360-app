@@ -20,7 +20,7 @@ export default function ReturnsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getReturns({ page, limit: 20 });
-      setReturns(res?.data || []);
+      setReturns((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setReturns([]); } finally { setLoading(false); }
   };

@@ -20,7 +20,7 @@ export default function BrandsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getBrands();
-      setBrands(res?.data || []);
+      setBrands((Array.isArray(res) ? res : (res as any)?.data) || []);
     } catch { setBrands([]); } finally { setLoading(false); }
   };
 
