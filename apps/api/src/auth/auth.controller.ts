@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -33,7 +33,21 @@ export class AuthController {
       message: 'GET /auth/login endpoint is working',
     };
   }
+  @Put('login')
+  @HttpCode(HttpStatus.OK)
+  async testPutLogin() {
+    return {
+      message: 'PUT /auth/login endpoint is working',
+    };
+  }
 
+  @Delete('login')
+  @HttpCode(HttpStatus.OK)
+  async testDeleteLogin() {
+    return {
+      message: 'DELETE /auth/login endpoint is working',
+    };
+  }
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser('id') userId: string) {
