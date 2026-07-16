@@ -19,7 +19,6 @@ Both fixed and pushed. If you pull latest, all 7 pages below should now show rea
 - [ ] **Payouts oversight** (`payments/vendor-payouts`, `delivery-payouts`) — no backend support at all yet (`/payouts/*` routes don't exist; only `/vendors/me/payouts` for a vendor's own view, not admin cross-vendor oversight). Blocked on backend work, not a frontend task right now.
 - [ ] **Add missing dependencies** — `shadcn/ui`, `@supabase/supabase-js` still not in `apps/admin-panel/package.json` per the original ask, if that still matters to you (vendor-dashboard has both set up already as a reference).
 - [ ] Several other `adminApi.*` calls have zero backend support (admin dashboard aggregate, `/reports/*`, `/admin/settings`, single-user GET/status, product approval, ratings aggregate, notification sending) — all flagged with comments in `lib/api.ts`. Not your task to build the backend for these, just know the pages touching them will show errors/empty until someone does.
->>>>>>> main
 
 ## Reference
 
