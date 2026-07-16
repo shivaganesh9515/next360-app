@@ -19,12 +19,12 @@ export default function TransactionsPage() {
     { key: 'type', label: 'Type', render: (item: any) => (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.type === 'SALE' ? 'bg-emerald-100 text-emerald-700' : item.type === 'REFUND' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{item.type}</span>
     )},
-    { key: 'date', label: 'Date', render: (item: any) => <span className="text-sm text-gray-400">{new Date(item.date).toLocaleDateString()}</span> },
+    { key: 'date', label: 'Date', render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.date).toLocaleDateString()}</span> },
   ];
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-gray-800">Transactions</h2><p className="text-sm text-gray-500">Complete transaction log</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Transactions</h2><p className="text-sm text-slate-500">Complete transaction log</p></div>
       <DataTable columns={columns} data={transactions} loading={loading} searchable emptyMessage="No transactions yet" />
     </div>
   );

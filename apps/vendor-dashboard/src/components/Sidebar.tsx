@@ -59,13 +59,13 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
-      <div className="p-4 border-b border-gray-200">
+    <aside className="w-64 bg-white border-r border-slate-200 min-h-screen flex flex-col">
+      <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">N</span>
           </div>
-          <span className="font-semibold text-gray-800">Next360 Vendor</span>
+          <span className="font-semibold text-slate-900">Next360 Vendor</span>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -76,7 +76,7 @@ export default function Sidebar() {
                 <button
                   onClick={() => toggleExpand(item.label)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive(item.href) ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
+                    isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
@@ -90,7 +90,7 @@ export default function Sidebar() {
                         key={sub.href}
                         href={sub.href}
                         className={`block px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          pathname === sub.href ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-gray-500 hover:text-gray-700'
+                          pathname === sub.href ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
                         {sub.label}
@@ -103,7 +103,7 @@ export default function Sidebar() {
               <Link
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                  isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
