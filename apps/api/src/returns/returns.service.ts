@@ -74,6 +74,17 @@ export class ReturnsService {
     return ret;
   }
 
+  async findRefunds() {
+    return this.prisma.returnRequest.findMany({
+      where: { status: { in: ['PENDING', 'APPROVED', 'REFUNDED'] } },
+      include: {
+        order: { select: { id: true, orderNo: true, totalAmount: true, status: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async process(id: string, dto: ProcessReturnDto) {
     const ret = await this.findOne(id);
 
