@@ -6,11 +6,11 @@ import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../lib/api';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import PopoverBackdrop from './PopoverBackdrop';
 import { Notification } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
 
@@ -147,10 +147,7 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Reanimated.View style={[styles.backdrop, backdropStyle]}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Reanimated.View>
+        <PopoverBackdrop style={[styles.backdrop, backdropStyle]} onPress={close} />
 
         <Reanimated.View
           // Deep-shadow card — deliberately heavier than the app's normal
