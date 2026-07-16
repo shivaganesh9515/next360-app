@@ -23,6 +23,7 @@ import { CommissionModule } from './commission/commission.module';
 import { AiModule } from './ai/ai.module';
 import { SeedModule } from './seed/seed.module';
 import { DeliveryPartnersModule } from './delivery-partners/delivery-partners.module';
+import { ZonesModule } from './zones/zones.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -63,6 +64,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     AiModule,
     SeedModule,
     DeliveryPartnersModule,
+    ZonesModule,
   ],
   providers: [
     {
