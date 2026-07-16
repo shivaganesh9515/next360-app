@@ -7,7 +7,9 @@ export class DeliveryPartnersService {
   constructor(private prisma: PrismaService) {}
 
   private readonly statusMap: Record<string, DeliveryPartnerStatus> = {
+    PENDING: DeliveryPartnerStatus.OFFLINE,
     SUSPENDED: DeliveryPartnerStatus.OFFLINE,
+    REJECTED: DeliveryPartnerStatus.OFFLINE,
     OFFLINE: DeliveryPartnerStatus.OFFLINE,
     AVAILABLE: DeliveryPartnerStatus.AVAILABLE,
     ON_DELIVERY: DeliveryPartnerStatus.ON_DELIVERY,
@@ -74,6 +76,9 @@ export class DeliveryPartnersService {
     const mapped = partners.map((p) => ({
       id: p.id,
       userId: p.userId,
+      name: p.user.name,
+      email: p.user.email,
+      phone: p.user.phone,
       user: p.user,
       vehicleType: p.vehicleType,
       zone: p.zone,
@@ -130,6 +135,9 @@ export class DeliveryPartnersService {
     return {
       id: partner.id,
       userId: partner.userId,
+      name: partner.user.name,
+      email: partner.user.email,
+      phone: partner.user.phone,
       user: partner.user,
       vehicleType: partner.vehicleType,
       zone: partner.zone,
