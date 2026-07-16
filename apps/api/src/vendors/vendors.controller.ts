@@ -8,6 +8,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole, StoreType } from '@prisma/client';
 
+interface TransactionQueryDto {
+  page?: string;
+  limit?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 @Controller('vendors')
 export class VendorsController {
   constructor(private readonly vendorsService: VendorsService) {}
@@ -50,6 +57,34 @@ export class VendorsController {
       throw new ForbiddenException('You do not have a vendor profile');
     }
     return this.vendorsService.getVendorPayouts(vendorId);
+  }
+
+  @Get('me/earnings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyEarnings(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getVendorEarnings(vendorId);
+  }
+
+  @Get('me/transactions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyTransactions(
+    @CurrentUser('vendorId') vendorId: string,
+    @Query() query: TransactionQueryDto,
+  ) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getVendorTransactions(vendorId, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+      startDate: query.startDate,
+      endDate: query.endDate,
+    });
   }
 
   @Get(':id')
