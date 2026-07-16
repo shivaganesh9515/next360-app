@@ -162,6 +162,11 @@ export const adminApi = {
   cancelOrder: (id: string, reason: string) =>
     api.post<any>(`/orders/${id}/cancel`, { reason }),
 
+  // Disputes — dedicated disputes endpoints
+  getDisputes: () => api.get<any>('/disputes'),
+  resolveDispute: (id: string, payload: { status: string; resolution?: string }) =>
+    api.patch<any>(`/disputes/${id}/resolve`, payload),
+
   // Returns
   getReturns: (params?: any) => api.get<any>('/returns', params),
   processReturn: (id: string, status: string, reason?: string) =>

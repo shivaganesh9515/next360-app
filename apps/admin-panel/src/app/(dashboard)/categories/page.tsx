@@ -34,6 +34,16 @@ export default function CategoriesPage() {
     }
   };
 
+  const filteredCategories = categories.filter((c) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      c.name?.toLowerCase().includes(q) ||
+      c.slug?.toLowerCase().includes(q) ||
+      c.storeType?.toLowerCase().includes(q)
+    );
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -163,7 +173,7 @@ export default function CategoriesPage() {
 
       <DataTable
         columns={columns}
-        data={categories}
+        data={filteredCategories}
         loading={loading}
         searchable
         searchPlaceholder="Search categories..."

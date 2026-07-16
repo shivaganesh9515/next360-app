@@ -12,6 +12,16 @@ export default function ZonesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editZone, setEditZone] = useState<any>(null);
   const [form, setForm] = useState({ name: '', deliveryRadius: 10, codCap: 2000, isActive: true });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredZones = zones.filter((z) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      z.name?.toLowerCase().includes(q) ||
+      z.city?.toLowerCase().includes(q)
+    );
+  });
 
   useEffect(() => { loadZones(); }, []);
 
@@ -57,7 +67,7 @@ export default function ZonesPage() {
         <button onClick={() => { setEditZone(null); setForm({ name: '', deliveryRadius: 10, codCap: 2000, isActive: true }); setShowModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"><Plus className="w-4 h-4" /> Add Zone</button>
       </div>
 
-      <DataTable columns={columns} data={zones} loading={loading} emptyMessage="No zones configured" emptyIcon={<MapPin className="w-10 h-10" />} />
+      <DataTable columns={columns} data={filteredZones} loading={loading} searchable searchPlaceholder="Search zones..." onSearch={setSearchQuery} emptyMessage="No zones configured" emptyIcon={<MapPin className="w-10 h-10" />} />
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
