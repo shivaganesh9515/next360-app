@@ -209,7 +209,9 @@ export const adminApi = {
   createRole: (data: any) => api.post<any>('/roles', data),
   updateRole: (id: string, data: any) => api.patch<any>(`/roles/${id}`, data),
   deleteRole: (id: string) => api.delete<any>(`/roles/${id}`),
-  getPermissions: (params?: any) => api.get<any>('/roles/permissions', params),
+  getPermissions: (params?: any) => api.get<any>('/permissions', params),
+  createPermission: (data: any) => api.post<any>('/permissions', data),
+  deletePermission: (id: string) => api.delete<any>(`/permissions/${id}`),
   updatePermissions: (roleId: string, permissions: string[]) =>
     api.patch<any>(`/roles/${roleId}/permissions`, { permissions }),
 

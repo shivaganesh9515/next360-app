@@ -30,7 +30,6 @@ const navItems = [
     { href: '/categories', label: 'Categories' },
     { href: '/categories/sub-categories', label: 'Sub-Categories' },
   ]},
-  { href: '/brands', label: 'Brands', icon: Star },
   { href: '/orders', label: 'Orders', icon: ShoppingCart, subItems: [
     { href: '/orders', label: 'All Orders' },
     { href: '/orders/returns', label: 'Returns' },
