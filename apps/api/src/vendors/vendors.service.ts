@@ -345,7 +345,7 @@ export class VendorsService {
       {
         id: string;
         name: string | null;
-        email: string;
+        email: string | null;
         phone: string | null;
         totalOrders: number;
         totalSpent: number;
