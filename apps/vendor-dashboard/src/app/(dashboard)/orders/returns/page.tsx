@@ -24,7 +24,7 @@ export default function ReturnsPage() {
     { key: 'orderNo', label: 'Order', render: (item: any) => <span className="font-mono text-sm">{item.orderNo || item.orderId?.slice(0, 8)}</span> },
     { key: 'customerName', label: 'Customer', render: (item: any) => <span>{item.customerName || item.user?.name || 'N/A'}</span> },
     { key: 'itemName', label: 'Item', render: (item: any) => <span>{item.itemName || item.product?.name || 'N/A'}</span> },
-    { key: 'reason', label: 'Reason', render: (item: any) => <span className="text-sm text-gray-500 truncate max-w-[200px] inline-block">{item.reason}</span> },
+    { key: 'reason', label: 'Reason', render: (item: any) => <span className="text-sm text-slate-500 truncate max-w-[200px] inline-block">{item.reason}</span> },
     { key: 'status', label: 'Status', render: (item: any) => <StatusBadge status={item.status} /> },
     { key: 'actions', label: '', render: (item: any) => item.status === 'PENDING' ? (
       <div className="flex gap-2">
@@ -36,7 +36,7 @@ export default function ReturnsPage() {
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-gray-800">Returns</h2><p className="text-sm text-gray-500">Manage return requests</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Returns</h2><p className="text-sm text-slate-500">Manage return requests</p></div>
       <DataTable columns={columns} data={returns} loading={loading} emptyMessage="No return requests" />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ParseIntPipe, ForbiddenException } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -52,6 +52,54 @@ export class VendorsController {
     return this.vendorsService.getVendorPayouts(vendorId);
   }
 
+  @Get('me/analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyAnalytics(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getAnalytics(vendorId);
+  }
+
+  @Get('me/earnings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyEarnings(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getEarnings(vendorId);
+  }
+
+  @Get('me/transactions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyTransactions(
+    @CurrentUser('vendorId') vendorId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getTransactions(
+      vendorId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
+  }
+
+  @Get('me/customers')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyCustomers(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) {
+      throw new ForbiddenException('You do not have a vendor profile');
+    }
+    return this.vendorsService.getCustomers(vendorId);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.vendorsService.findOne(id);
@@ -72,6 +120,13 @@ export class VendorsController {
   @Roles(UserRole.ADMIN)
   async approve(@Param('id') id: string) {
     return this.vendorsService.approve(id);
+  }
+
+  @Get(':id/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getVendorStats(@Param('id') id: string) {
+    return this.vendorsService.getVendorStats(id);
   }
 
   @Get(':id/products')
