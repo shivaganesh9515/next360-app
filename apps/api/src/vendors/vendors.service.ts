@@ -34,9 +34,8 @@ export class VendorsService {
       }
     }
 
-    // Update user role to VENDOR
-    await this.prisma.user.update({
-      where: { id: userId },
+    await this.prisma.user.updateMany({
+      where: { id: userId, role: { not: 'ADMIN' } },
       data: { role: 'VENDOR' },
     });
 
@@ -98,6 +97,9 @@ export class VendorsService {
 
   async approve(id: string) {
     const vendor = await this.findOne(id);
+    if (vendor.status === 'APPROVED') {
+      throw new ConflictException('Vendor is already approved');
+    }
     return this.prisma.vendor.update({
       where: { id },
       data: { status: 'APPROVED' },
@@ -115,6 +117,9 @@ export class VendorsService {
   }
 
   async getVendorProducts(vendorId: string, page = 1, limit = 20) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
