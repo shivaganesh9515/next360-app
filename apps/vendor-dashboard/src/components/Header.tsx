@@ -1,15 +1,15 @@
 'use client';
 
-import { Bell, LogOut, Menu } from 'lucide-react';
+import { Bell, LogOut, Menu, Store } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, vendorProfile, logout } = useAuth();
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
@@ -26,12 +26,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </button>
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
-            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm font-medium">
-              {user?.name?.charAt(0)?.toUpperCase() || 'V'}
-            </AvatarFallback>
+            {vendorProfile?.logoUrl ? (
+              <AvatarImage src={vendorProfile.logoUrl} alt={vendorProfile.storeName} />
+            ) : (
+              <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm font-medium">
+                {user?.name?.charAt(0)?.toUpperCase() || vendorProfile?.storeName?.charAt(0)?.toUpperCase() || 'V'}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-slate-700">{user?.name || 'Vendor'}</p>
+            <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+              {vendorProfile?.storeName || user?.name || 'Vendor'}
+              {vendorProfile && <Store className="w-3 h-3 text-slate-400" />}
+            </p>
             <p className="text-xs text-slate-500">{user?.email || ''}</p>
           </div>
         </div>
