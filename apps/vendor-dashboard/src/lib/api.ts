@@ -4,6 +4,12 @@ interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(handler: () => void) {
+  onUnauthorized = handler;
+}
+
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   let url = `${API_BASE}${path}`;
   if (options.params) {
@@ -30,6 +36,15 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   } catch (err: any) {
     // Network error (API not running, CORS, etc.)
     throw new Error('Unable to connect to server. Please try again later.');
+  }
+
+  // Handle 401 Unauthorized — session expired or invalid token
+  if (response.status === 401) {
+    localStorage.removeItem('vendor_token');
+    if (onUnauthorized) {
+      onUnauthorized();
+    }
+    throw new Error('Session expired. Please sign in again.');
   }
 
   if (!response.ok) {
@@ -90,7 +105,12 @@ export const vendorApi = {
   signup: (data: any) => api.post<any>('/auth/signup', { ...data, role: 'VENDOR' }),
   verifyOtp: (email: string, otp: string) =>
     api.post<any>('/auth/verify-otp', { email, otp }),
-  getProfile: () => api.get<any>('/users/me'),
+  forgotPassword: (email: string) =>
+    api.post<any>('/auth/forgot-password', { email }),
+  getProfile: () => api.get<any>('/auth/me'),
+
+  // Vendor profile — always uses authenticated identity, never a client-supplied ID
+  getMyProfile: () => api.get<any>('/vendors/my-profile'),
 
   // Dashboard
   getDashboard: (vendorId: string) =>
@@ -142,7 +162,9 @@ export const vendorApi = {
   getTransactions: (params?: any) =>
     api.get<any[]>('/vendors/me/transactions', params),
 
-  // Store
+  // Store — uses authenticated vendor identity (PATCH /vendors/my-profile)
+  // The backend's PATCH /vendors/:id checks ownership via @CurrentUser, so the
+  // authenticated user can only update their own store.
   getStore: (vendorId: string) => api.get<any>(`/vendors/${vendorId}`),
   updateStore: (vendorId: string, data: any) =>
     api.patch<any>(`/vendors/${vendorId}`, data),
