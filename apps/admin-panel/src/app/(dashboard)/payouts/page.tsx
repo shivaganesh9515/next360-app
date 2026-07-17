@@ -20,7 +20,7 @@ export default function PayoutsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getPayouts({ page, limit: 20 });
-      setPayouts(res?.data || []);
+      setPayouts((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
       if (res?.summary) setSummary(res.summary);
     } catch { setPayouts([]); } finally { setLoading(false); }

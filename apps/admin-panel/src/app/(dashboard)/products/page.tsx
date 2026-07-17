@@ -30,7 +30,7 @@ export default function ProductsPage() {
       if (storeFilter) params.storeType = storeFilter;
       if (approvalFilter !== 'all') params.isApproved = approvalFilter === 'approved';
       const res = await adminApi.getProducts(params);
-      setProducts(res?.data || []);
+      setProducts((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setProducts([]); } finally { setLoading(false); }
   };

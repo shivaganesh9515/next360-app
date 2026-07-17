@@ -40,11 +40,15 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   if (response.status === 204) return undefined as T;
 
   const text = await response.text();
+  let body: any;
   try {
-    return JSON.parse(text) as T;
+    body = JSON.parse(text);
   } catch {
     throw new Error('API returned invalid response. Is the server running?');
   }
+  // apps/api wraps every response in { success, data, meta } (ResponseInterceptor)
+  // — unwrap it here so callers get the payload directly instead of the envelope.
+  return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
 export const api = {
@@ -70,7 +74,8 @@ export const api = {
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
-    return response.json();
+    const body = await response.json();
+    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
   },
 };
 
@@ -79,7 +84,10 @@ export const vendorApi = {
   // Auth
   login: (email: string, password: string) =>
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
-  signup: (data: any) => api.post<any>('/auth/register', data),
+  // Was posting to /auth/register (doesn't exist — only /auth/signup does) and
+  // never sent a role, which the backend defaults to CUSTOMER — every vendor
+  // signup would've silently created a customer account instead.
+  signup: (data: any) => api.post<any>('/auth/signup', { ...data, role: 'VENDOR' }),
   verifyOtp: (email: string, otp: string) =>
     api.post<any>('/auth/verify-otp', { email, otp }),
   getProfile: () => api.get<any>('/users/me'),

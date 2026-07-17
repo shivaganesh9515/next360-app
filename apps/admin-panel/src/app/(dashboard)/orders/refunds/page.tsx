@@ -21,7 +21,7 @@ export default function RefundsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getRefunds({ page, limit: 20 });
-      setRefunds(res?.data || []);
+      setRefunds((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setRefunds([]); } finally { setLoading(false); }
   };
