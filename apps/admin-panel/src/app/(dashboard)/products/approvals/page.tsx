@@ -40,8 +40,12 @@ export default function ProductApprovalsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getProducts({ page, limit: 20, isApproved: false });
-      setProducts(res?.data || []);
-      setTotalPages(res?.meta?.totalPages || 1);
+      // api.ts's request() already unwraps the backend's {success, data, meta} envelope
+      // and returns body.data directly — so `res` is the data array, not the envelope.
+      // Using res?.data would be undefined (array has no .data property).
+      setProducts(Array.isArray(res) ? res : []);
+      // Pagination meta is lost after the unwrap — totalPages defaults to 1.
+      // See note in api.ts about this limitation across the whole admin panel.
     } catch {
       setProducts([]);
     } finally {
