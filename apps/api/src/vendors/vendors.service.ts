@@ -159,7 +159,7 @@ export class VendorsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const mapped = payouts.map((p) => ({
+    return payouts.map((p) => ({
       period:
         p.periodStart && p.periodEnd
           ? `${p.periodStart.toISOString().split('T')[0]} – ${p.periodEnd.toISOString().split('T')[0]}`
@@ -169,178 +169,6 @@ export class VendorsService {
       initiatedAt: p.createdAt.toISOString(),
       paidAt: p.paidAt ? p.paidAt.toISOString() : null,
     }));
-
-    return mapped;
-  }
-
-  async getVendorEarnings(vendorId: string) {
-    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
-    if (!vendor) throw new NotFoundException('Vendor not found');
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const wherePaidNonCancelled = {
-      vendorId,
-      order: {
-        paymentStatus: 'PAID' as const,
-        status: { notIn: ['CANCELLED', 'REFUNDED'] as const },
-      },
-    };
-
-    const [todayAgg, monthAgg, lifetimeAgg, paidAgg, unpaidAgg, recentCommissions] =
-      await this.prisma.$transaction([
-        this.prisma.commission.aggregate({
-          where: {
-            ...wherePaidNonCancelled,
-            createdAt: { gte: startOfToday, lte: now },
-          },
-          _sum: { orderAmount: true, commissionAmount: true },
-          _count: true,
-        }),
-        this.prisma.commission.aggregate({
-          where: {
-            ...wherePaidNonCancelled,
-            createdAt: { gte: startOfMonth, lte: now },
-          },
-          _sum: { orderAmount: true, commissionAmount: true },
-        }),
-        this.prisma.commission.aggregate({
-          where: wherePaidNonCancelled,
-          _sum: { orderAmount: true, commissionAmount: true },
-        }),
-        this.prisma.commission.aggregate({
-          where: { ...wherePaidNonCancelled, isPaid: true },
-          _sum: { orderAmount: true, commissionAmount: true },
-        }),
-        this.prisma.commission.aggregate({
-          where: { ...wherePaidNonCancelled, isPaid: false },
-          _sum: { orderAmount: true, commissionAmount: true },
-        }),
-        this.prisma.commission.findMany({
-          where: wherePaidNonCancelled,
-          select: {
-            orderAmount: true,
-            commissionAmount: true,
-            isPaid: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-        }),
-      ]);
-
-    const toNet = (agg: { orderAmount: any; commissionAmount: any }) =>
-      Number(agg.orderAmount || 0) - Number(agg.commissionAmount || 0);
-
-    const historyMap = new Map<string, { amount: number; isPaid: boolean }>();
-    for (const c of recentCommissions) {
-      const dateStr = c.createdAt.toISOString().split('T')[0];
-      const existing = historyMap.get(dateStr);
-      const net = Number(c.orderAmount) - Number(c.commissionAmount);
-      if (existing) {
-        existing.amount += net;
-        existing.isPaid = existing.isPaid && c.isPaid;
-      } else {
-        historyMap.set(dateStr, { amount: net, isPaid: c.isPaid });
-      }
-    }
-    const history = Array.from(historyMap.entries()).map(([date, data]) => ({
-      period: date,
-      amount: data.amount,
-      status: data.isPaid ? 'PAID' : 'PENDING',
-    }));
-
-    return {
-      todayEarnings: toNet(todayAgg._sum),
-      totalEarnings: toNet(lifetimeAgg._sum),
-      thisMonth: toNet(monthAgg._sum),
-      pending: toNet(unpaidAgg._sum),
-      paid: toNet(paidAgg._sum),
-      pendingPayout: toNet(unpaidAgg._sum),
-      history,
-    };
-  }
-
-  /**
-   * Get vendor transactions — one entry per completed order's vendor group.
-   * Each transaction shows only the vendor's net amount (never commission details).
-   *
-   * Filtered by vendorId for security. Supports pagination and date range.
-   * Defaults to today's date range when no dates are provided.
-   */
-  async getVendorTransactions(
-    vendorId: string,
-    query: { page?: number; limit?: number; startDate?: string; endDate?: string },
-  ) {
-    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
-    if (!vendor) throw new NotFoundException('Vendor not found');
-
-    const page = query.page || 1;
-    const limit = query.limit || 20;
-    const skip = (page - 1) * limit;
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    let startFilter: Date;
-    let endFilter: Date;
-
-    if (query.startDate || query.endDate) {
-      startFilter = query.startDate ? new Date(query.startDate) : startOfToday;
-      endFilter = query.endDate ? new Date(query.endDate) : now;
-      if (query.endDate) {
-        endFilter.setHours(23, 59, 59, 999);
-      }
-    } else {
-      startFilter = startOfToday;
-      endFilter = now;
-    }
-
-    const where: any = {
-      vendorId,
-      createdAt: { gte: startFilter, lte: endFilter },
-      order: {
-        paymentStatus: 'PAID',
-        status: { notIn: ['CANCELLED', 'REFUNDED'] },
-      },
-    };
-
-    const [commissions, total] = await this.prisma.$transaction([
-      this.prisma.commission.findMany({
-        where,
-        include: {
-          order: {
-            select: {
-              id: true,
-              orderNo: true,
-              status: true,
-              paymentStatus: true,
-              paymentMethod: true,
-              createdAt: true,
-              user: {
-                select: { name: true, phone: true },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.commission.count({ where }),
-    ]);
-
-    const transactions = commissions.map((c) => ({
-      orderNo: c.order.orderNo,
-      customer: c.order.user?.name || 'Customer',
-      amount: Number(c.orderAmount) - Number(c.commissionAmount),
-      type: c.order.status === 'REFUNDED' ? 'REFUND' : 'SALE',
-      date: c.createdAt,
-    }));
-
-    return { success: true, data: transactions, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getAnalytics(vendorId: string) {
@@ -433,6 +261,173 @@ export class VendorsService {
         .map(([month, data]) => ({ month, ...data }))
         .sort((a, b) => a.month.localeCompare(b.month)),
     };
+  }
+
+  async getVendorEarnings(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const wherePaidNonCancelled = {
+      vendorId,
+      order: {
+        paymentStatus: 'PAID' as const,
+        status: { notIn: ['CANCELLED', 'REFUNDED'] as ('CANCELLED' | 'REFUNDED')[] },
+      },
+    };
+
+    const [todayAgg, monthAgg, lifetimeAgg, paidAgg, unpaidAgg, recentCommissions] =
+      await this.prisma.$transaction([
+        this.prisma.commission.aggregate({
+          where: {
+            ...wherePaidNonCancelled,
+            createdAt: { gte: startOfToday, lte: now },
+          },
+          _sum: { orderAmount: true, commissionAmount: true },
+          _count: true,
+        }),
+        this.prisma.commission.aggregate({
+          where: {
+            ...wherePaidNonCancelled,
+            createdAt: { gte: startOfMonth, lte: now },
+          },
+          _sum: { orderAmount: true, commissionAmount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: wherePaidNonCancelled,
+          _sum: { orderAmount: true, commissionAmount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: { ...wherePaidNonCancelled, isPaid: true },
+          _sum: { orderAmount: true, commissionAmount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: { ...wherePaidNonCancelled, isPaid: false },
+          _sum: { orderAmount: true, commissionAmount: true },
+        }),
+        this.prisma.commission.findMany({
+          where: wherePaidNonCancelled,
+          select: {
+            orderAmount: true,
+            commissionAmount: true,
+            isPaid: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+      ]);
+
+    const toNet = (agg: { orderAmount: any; commissionAmount: any }) =>
+      Number(agg.orderAmount || 0) - Number(agg.commissionAmount || 0);
+
+    const historyMap = new Map<string, { amount: number; isPaid: boolean }>();
+    for (const c of recentCommissions) {
+      const dateStr = c.createdAt.toISOString().split('T')[0];
+      const existing = historyMap.get(dateStr);
+      const net = Number(c.orderAmount) - Number(c.commissionAmount);
+      if (existing) {
+        existing.amount += net;
+        existing.isPaid = existing.isPaid && c.isPaid;
+      } else {
+        historyMap.set(dateStr, { amount: net, isPaid: c.isPaid });
+      }
+    }
+    const history = Array.from(historyMap.entries()).map(([date, data]) => ({
+      period: date,
+      amount: data.amount,
+      status: data.isPaid ? 'PAID' : 'PENDING',
+    }));
+
+    return {
+      todayEarnings: toNet(todayAgg._sum),
+      totalEarnings: toNet(lifetimeAgg._sum),
+      thisMonth: toNet(monthAgg._sum),
+      pending: toNet(unpaidAgg._sum),
+      paid: toNet(paidAgg._sum),
+      pendingPayout: toNet(unpaidAgg._sum),
+      history,
+    };
+  }
+
+  /**
+   * One entry per commission record, showing only the vendor's net amount (never the platform's cut).
+   * Defaults to today's date range when no dates are provided.
+   */
+  async getVendorTransactions(
+    vendorId: string,
+    query: { page?: number; limit?: number; startDate?: string; endDate?: string },
+  ) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let startFilter: Date;
+    let endFilter: Date;
+
+    if (query.startDate || query.endDate) {
+      startFilter = query.startDate ? new Date(query.startDate) : startOfToday;
+      endFilter = query.endDate ? new Date(query.endDate) : now;
+      if (query.endDate) {
+        endFilter.setHours(23, 59, 59, 999);
+      }
+    } else {
+      startFilter = startOfToday;
+      endFilter = now;
+    }
+
+    const where: any = {
+      vendorId,
+      createdAt: { gte: startFilter, lte: endFilter },
+      order: {
+        paymentStatus: 'PAID',
+        status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      },
+    };
+
+    const [commissions, total] = await this.prisma.$transaction([
+      this.prisma.commission.findMany({
+        where,
+        include: {
+          order: {
+            select: {
+              id: true,
+              orderNo: true,
+              status: true,
+              paymentStatus: true,
+              paymentMethod: true,
+              createdAt: true,
+              user: {
+                select: { name: true, phone: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.commission.count({ where }),
+    ]);
+
+    const transactions = commissions.map((c) => ({
+      orderNo: c.order.orderNo,
+      customer: c.order.user?.name || 'Customer',
+      amount: Number(c.orderAmount) - Number(c.commissionAmount),
+      type: c.order.status === 'REFUNDED' ? 'REFUND' : 'SALE',
+      date: c.createdAt,
+    }));
+
+    return { success: true, data: transactions, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getCustomers(vendorId: string) {
