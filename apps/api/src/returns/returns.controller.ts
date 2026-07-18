@@ -38,20 +38,25 @@ export class ReturnsController {
   }
 
   @Get('refunds')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   findRefunds() {
     return this.returnsService.findRefunds();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  @UseGuards(RolesGuard)
+  findOne(
+    @CurrentUser() user: { id: string; role: string },
+    @Param('id') id: string,
+  ) {
     return this.returnsService.findOne(id);
   }
 
   @Patch(':id')
-  process(@Param('id') id: string, @Body() dto: any) {
-    return this.returnsService.process(id, {
-      status: dto.status,
-      rejectionReason: dto.reason,
-    });
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  process(@Param('id') id: string, @Body() dto: ProcessReturnDto) {
+    return this.returnsService.process(id, dto);
   }
 }
