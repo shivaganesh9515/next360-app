@@ -8,10 +8,10 @@ Screens are structurally complete (all 8 sidebar sections exist under `src/app/(
 
 - [x] **Verify store profile edit** — calls `GET/PATCH /vendors/me` with literal `"me"` as vendor ID. Backend may 404. Test against live backend, report if broken (backend owns the fix). ✅ Fixed — `store/page.tsx` uses `getMyProfile()`, `store/edit/page.tsx` uses `getMyProfile()` + `updateMyProfile()` which hit `GET/PATCH /vendors/my-profile` (resolves via `@CurrentUser`).
 
-- [ ] **Add missing dependencies** — `apps/vendor-dashboard/package.json` currently has Tailwind v4 + recharts + lucide, but is missing what CLAUDE.md's stack calls for:
-  - `@supabase/supabase-js`
-  - `shadcn/ui` (component setup, not just a dep — run their CLI init)
-  - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them.
+- [x] **Add missing dependencies** — `apps/vendor-dashboard/package.json` currently has Tailwind v4 + recharts + lucide, but is missing what CLAUDE.md's stack calls for:
+  - `@supabase/supabase-js` ✅ already in package.json (`^2.110.5`)
+  - `shadcn/ui` ✅ CLI installed, `components.json` configured, 13 components in `src/components/ui/`
+  - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them. ✅ Confirmed — neither zustand nor axios are imported anywhere; fetch-based `lib/api.ts` pattern is sufficient.
 
 - [ ] **Payouts page** (`earnings/` route) — currently renders empty since `GET /vendors/me/payouts` doesn't exist yet. Blocked on Srinitha — see [srinitha.md](./srinitha.md). Once live, wire it up.
 
