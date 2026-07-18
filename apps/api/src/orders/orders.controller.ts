@@ -114,19 +114,13 @@ export class OrdersController {
   }
 
   @Post(':id/assign')
-  @Roles(UserRole.ADMIN, UserRole.DELIVERY_PARTNER)
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  async assignDelivery(
-    @CurrentUser() user: { id: string; role: string },
+  assignDelivery(
     @Param('id') id: string,
     @Body() dto: AssignDeliveryDto,
   ) {
-    let partnerId = dto.deliveryPartnerId;
-    if (!partnerId && user.role === UserRole.DELIVERY_PARTNER) {
-      const partner = await this.deliveryService.getPartnerByUserId(user.id);
-      partnerId = partner.id;
-    }
-    return this.deliveryService.assignOrder(id, partnerId);
+    return this.deliveryService.assignOrder(id, dto.deliveryPartnerId);
   }
 
   @Post(':id/reject')
