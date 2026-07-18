@@ -15,6 +15,7 @@ import { DeliveryService } from '../delivery/delivery.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { VerifyPickupDto } from '../delivery/dto/verify-pickup.dto';
+import { AssignDeliveryDto } from '../delivery/dto/assign-delivery.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -113,13 +114,13 @@ export class OrdersController {
   }
 
   @Post(':id/assign')
-  @Roles(UserRole.DELIVERY_PARTNER)
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   assignDelivery(
-    @CurrentUser('id') userId: string,
     @Param('id') id: string,
+    @Body() dto: AssignDeliveryDto,
   ) {
-    return this.deliveryService.assignOrder(userId, id);
+    return this.deliveryService.assignOrder(id, dto.deliveryPartnerId);
   }
 
   @Post(':id/reject')

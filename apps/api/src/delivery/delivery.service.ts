@@ -397,11 +397,20 @@ export class DeliveryService {
 
   /**
    * POST /orders/:id/assign
-   * Accept a delivery assignment. Creates a DeliveryAssignment for the first
+   * Admin assigns a delivery partner to an OrderVendorGroup. Finds the first
    * unassigned vendor group in the order that falls within the partner's zone.
    */
-  async assignOrder(userId: string, orderId: string) {
-    const partner = await this.getPartnerByUserId(userId);
+  async assignOrder(orderId: string, deliveryPartnerId: string) {
+    // Find the delivery partner
+    const partner = await this.prisma.deliveryPartner.findUnique({
+      where: { id: deliveryPartnerId },
+      include: {
+        zone: { select: { id: true, name: true, city: true } },
+      },
+    });
+    if (!partner) {
+      throw new NotFoundException('Delivery partner not found');
+    }
 
     // Find the order
     const order = await this.prisma.order.findUnique({
