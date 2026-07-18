@@ -36,7 +36,8 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+  const body = await response.json();
+  return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
 export const api = {
@@ -115,4 +116,10 @@ export const deliveryApi = {
   // Location
   updateLocation: (lat: number, lng: number) =>
     api.patch<any>('/delivery/location', { lat, lng }),
+
+  // KYC
+  getKycStatus: () => api.get<any>('/kyc/status'),
+
+  submitKyc: (data: { documentType: string; documentNumber?: string; documentUrl?: string }) =>
+    api.post<any>('/kyc/submit', data),
 };

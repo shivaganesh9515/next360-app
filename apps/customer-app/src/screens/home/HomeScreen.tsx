@@ -23,6 +23,7 @@ import LocationPopover from '../../components/LocationPopover';
 import Shimmer from '../../components/Shimmer';
 import StaggerFadeIn from '../../components/StaggerFadeIn';
 import ErrorState from '../../components/ErrorState';
+import { useTranslation } from 'react-i18next';
 
 function SkeletonCard() {
   return (
@@ -46,27 +47,27 @@ const HERO_PLACEHOLDER_IMAGE = require('../../../assets/images/hero-plate.png');
 
 interface HeroBanner {
   id: string;
-  imageUrl?: string; // set once the CMS Banner endpoint is wired up; falls back to local art when absent
+  imageUrl?: string;
   offerValue: string;
   offerLabel: string;
   desc: string;
 }
 
-// Placeholder promo slides — swap for real data once a banners endpoint
-// (CLAUDE.md's admin-managed CMS Banner model) is wired up on the customer API.
-const HERO_SLIDES: HeroBanner[] = [
+const FALLBACK_HERO_SLIDES: HeroBanner[] = [
   { id: 'placeholder-1', offerValue: '27%', offerLabel: 'EXTRA\nDISCOUNT', desc: 'Enjoy your first order with a\nspecial discount!' },
   { id: 'placeholder-2', offerValue: '15%', offerLabel: 'FRESH\nARRIVALS', desc: 'New organic harvest,\njust landed this week!' },
   { id: 'placeholder-3', offerValue: 'FREE', offerLabel: 'DELIVERY\nOVER ₹499', desc: 'Fast, reliable delivery\nright to your doorstep.' },
 ];
 
 export default function HomeScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const { storeType, setStoreType, addToCart, incrementCart } = useStore();
   const { open: openProduct } = useProductSheet();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
+  const [banners, setBanners] = useState<HeroBanner[]>(FALLBACK_HERO_SLIDES);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -80,17 +81,27 @@ export default function HomeScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const [catRes, prodRes] = await Promise.all([
+      const [catRes, prodRes, bannerRes] = await Promise.all([
         customerApi.getCategories({ storeType }),
         customerApi.getProducts({ storeType, categoryId: activeCategoryId, limit: 10 }),
+        customerApi.getBanners({ storeType, isActive: true }).catch(() => null),
       ]);
       setCategories(Array.isArray(catRes) ? catRes : (catRes as any)?.data || []);
       setProducts(Array.isArray(prodRes) ? prodRes : (prodRes as any)?.data || []);
+
+      const bannerList = Array.isArray(bannerRes) ? bannerRes : (bannerRes as any)?.data;
+      if (bannerList && bannerList.length > 0) {
+        const mapped: HeroBanner[] = bannerList.map((b: any) => ({
+          id: b.id,
+          imageUrl: b.imageUrl || b.image,
+          offerValue: b.title || b.offerValue || '',
+          offerLabel: b.subtitle || b.offerLabel || '',
+          desc: b.description || b.desc || '',
+        }));
+        setBanners(mapped);
+      }
       setError(false);
     } catch {
-      // Previously this silently cleared the grid to an empty array, which
-      // rendered the exact same "No products yet" message as a genuinely
-      // empty catalog — a real outage looked identical to "nothing here."
       setProducts([]);
       setError(true);
     } finally {
@@ -182,7 +193,7 @@ export default function HomeScreen({ navigation }: any) {
                     setActiveSlide(idx);
                   }}
                 >
-                  {HERO_SLIDES.map((slide) => (
+                  {banners.map((slide) => (
                     <View key={slide.id} style={[s.heroSlide, { width: SCREEN_WIDTH }]}>
                       <View style={s.heroCopy}>
                         <Ionicons name="leaf-outline" size={22} color="rgba(150,185,140,0.5)" style={s.heroLeaf} />
@@ -202,7 +213,7 @@ export default function HomeScreen({ navigation }: any) {
                   ))}
                 </ScrollView>
                 <View style={s.heroDots}>
-                  {HERO_SLIDES.map((slide, i) => (
+                  {banners.map((slide, i) => (
                     <View
                       key={slide.id}
                       style={[s.heroDot, i === activeSlide && [s.heroDotActive, { backgroundColor: accent }]]}
@@ -224,11 +235,11 @@ export default function HomeScreen({ navigation }: any) {
           {categories.length > 0 && (
             <>
               <View style={s.sectionRow}>
-                <Text style={s.sectionTitle}>Shop by Category</Text>
+                <Text style={s.sectionTitle}>{t('home.section.categories')}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catScroll}>
                 <CategoryBadge
-                  label="All"
+                  label={t('common.all')}
                   icon="grid"
                   accent={accent}
                   accentTint={accentTint}
@@ -252,13 +263,13 @@ export default function HomeScreen({ navigation }: any) {
 
           {/* Product grid */}
           <View style={s.sectionRow}>
-            <Text style={s.sectionTitle}>Popular in {storeLabel}</Text>
+            <Text style={s.sectionTitle}>{t('home.section.popularIn', { storeLabel })}</Text>
             <TouchableOpacity
               style={s.seeAllRow}
               onPress={() => navigation.navigate('AllProducts', { storeType })}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Text style={[s.seeAll, { color: accent }]}>See All</Text>
+              <Text style={[s.seeAll, { color: accent }]}>{t('common.seeAll')}</Text>
               <Ionicons name="chevron-forward" size={14} color={accent} />
             </TouchableOpacity>
           </View>
@@ -268,12 +279,12 @@ export default function HomeScreen({ navigation }: any) {
               [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)
             ) : error ? (
               <View style={{ width: '100%' }}>
-                <ErrorState message="Couldn't load products" onRetry={load} />
+                <ErrorState message={t('home.error.loadProducts')} onRetry={load} />
               </View>
             ) : products.length === 0 ? (
               <View style={s.emptyState}>
                 <Ionicons name="leaf-outline" size={36} color={Colors.textSecondary} />
-                <Text style={s.emptyText}>No products yet in {storeLabel}</Text>
+                <Text style={s.emptyText}>{t('home.empty.noProducts', { storeLabel })}</Text>
               </View>
             ) : (
               products.map((product, index) => (

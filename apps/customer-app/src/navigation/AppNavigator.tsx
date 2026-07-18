@@ -197,11 +197,12 @@ function MiniCartBar() {
 // Each tab owns its own bounce: icon springs up in scale and crossfades from
 // muted gray to the active near-black + accent-organic tone on selection.
 function TabButton({
-  tab, focused, onPress,
+  tab, focused, onPress, badge,
 }: {
   tab: (typeof TABS)[number];
   focused: boolean;
   onPress: () => void;
+  badge?: number;
 }) {
   const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
 
@@ -221,6 +222,11 @@ function TabButton({
           size={20}
           color={focused ? Colors.organic : Colors.textSecondary}
         />
+        {!!badge && badge > 0 && (
+          <View style={pill.badge}>
+            <Text style={pill.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
@@ -235,6 +241,7 @@ function TabButton({
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [containerWidth, setContainerWidth] = useState(0);
+  const { wishlistCount } = useStore();
   // Profile is still a registered Tab.Screen (for nested `navigate('Profile',
   // {screen: ...})` targets from ProfileSheet) but no longer has a pill button
   // — its route index (3) falls outside TABS' own index range (0-2), so it
@@ -294,7 +301,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
               }
             };
 
-            return <TabButton key={tab.name} tab={tab} focused={focused} onPress={onPress} />;
+            return <TabButton key={tab.name} tab={tab} focused={focused} onPress={onPress} badge={tab.name === 'Favorites' ? wishlistCount : undefined} />;
           })}
         </View>
 
@@ -473,6 +480,23 @@ const pill = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 21,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 9,
+    color: Colors.white,
   },
 });
 

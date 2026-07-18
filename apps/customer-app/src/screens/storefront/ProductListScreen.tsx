@@ -18,6 +18,7 @@ import {
   Colors, Spacing, BorderRadius, Typography,
   getStoreAccent, getStoreAccentLight,
 } from '../../constants/theme';
+import { useTranslation } from 'react-i18next';
 
 const SORT_OPTIONS = [
   { key: 'trending', label: 'Trending' },
@@ -35,14 +36,15 @@ const RAIL_BORDER = 1;
 const PANE_WIDTH = Dimensions.get('window').width - RAIL_WIDTH - RAIL_BORDER;
 const CARD_WIDTH = (PANE_WIDTH - Spacing.lg * 3) / 2;
 
-const PRICE_RANGES: { label: string; min: number; max?: number }[] = [
-  { label: 'Under ₹200', min: 0, max: 200 },
-  { label: '₹200 – ₹500', min: 200, max: 500 },
-  { label: '₹500 – ₹1000', min: 500, max: 1000 },
-  { label: 'Above ₹1000', min: 1000 },
+const PRICE_RANGES: { key: string; label: string; min: number; max?: number }[] = [
+  { key: 'under200', label: 'Under ₹200', min: 0, max: 200 },
+  { key: 'range200to500', label: '₹200 – ₹500', min: 200, max: 500 },
+  { key: 'range500to1000', label: '₹500 – ₹1000', min: 500, max: 1000 },
+  { key: 'above1000', label: 'Above ₹1000', min: 1000 },
 ];
 
 export default function ProductListScreen() {
+  const { t } = useTranslation();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { addToCart, storeType: activeStoreType } = useStore();
@@ -141,8 +143,8 @@ export default function ProductListScreen() {
 
   const handleQuickAdd = (product: Product) => {
     addToCart(product.id, 1)
-      .then(() => Alert.alert('Added', `${product.name} added to cart`))
-      .catch(() => Alert.alert('Error', 'Please sign in to add items'));
+      .then(() => Alert.alert(t('products.alert.added.title'), t('products.alert.added.message', { name: product.name })))
+      .catch(() => Alert.alert(t('common.error'), t('products.alert.signInRequired')));
   };
 
   const handleProductPress = (product: Product) => {
@@ -160,7 +162,7 @@ export default function ProductListScreen() {
             </TouchableOpacity>
           )}
           <Text style={styles.sortLabel}>
-            {categoryName || 'All Products'}
+            {categoryName || t('products.title.allProducts')}
           </Text>
         </View>
         <FlatList
@@ -174,7 +176,7 @@ export default function ProductListScreen() {
               onPress={() => setSortBy(item.key)}
             >
               <Text style={[styles.sortChipText, sortBy === item.key && { color: Colors.white }]}>
-                {item.label}
+                {t(`products.sort.${item.key}`)}
               </Text>
             </TouchableOpacity>
           )}
@@ -231,13 +233,13 @@ export default function ProductListScreen() {
                   onPress={() => setMinRating(minRating === 4 ? undefined : 4)}
                 >
                   <Ionicons name="star" size={12} color={minRating === 4 ? Colors.white : Colors.textSecondary} />
-                  <Text style={[styles.chipText, minRating === 4 && { color: Colors.white }]}>4★ & up</Text>
+                  <Text style={[styles.chipText, minRating === 4 && { color: Colors.white }]}>{t('products.filter.rating4')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.chip, inStockOnly && { backgroundColor: accent, borderColor: accent }]}
                   onPress={() => setInStockOnly((v) => !v)}
                 >
-                  <Text style={[styles.chipText, inStockOnly && { color: Colors.white }]}>In Stock</Text>
+                  <Text style={[styles.chipText, inStockOnly && { color: Colors.white }]}>{t('products.filter.inStock')}</Text>
                 </TouchableOpacity>
               </>
             }
@@ -248,7 +250,9 @@ export default function ProductListScreen() {
                   style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
                   onPress={() => setPriceRange(active ? null : item)}
                 >
-                  <Text style={[styles.chipText, active && { color: Colors.white }]}>{item.label}</Text>
+                  <Text style={[styles.chipText, active && { color: Colors.white }]}>
+                    {t(`products.price.${item.key}`)}
+                  </Text>
                 </TouchableOpacity>
               );
             }}
@@ -259,7 +263,7 @@ export default function ProductListScreen() {
               {[0, 1, 2, 3, 4, 5].map((i) => <SkeletonProductCard key={i} />)}
             </View>
           ) : error && products.length === 0 ? (
-            <ErrorState message="Couldn't load products" onRetry={() => { setLoading(true); fetchProducts(1, true); }} />
+            <ErrorState message={t('products.error.load')} onRetry={() => { setLoading(true); fetchProducts(1, true); }} />
           ) : (
             <FlatList
               data={visibleProducts}
@@ -282,7 +286,7 @@ export default function ProductListScreen() {
               ListEmptyComponent={
                 <View style={styles.empty}>
                   <Text style={styles.emptyIcon}>🔍</Text>
-                  <Text style={styles.emptyText}>No products found</Text>
+                  <Text style={styles.emptyText}>{t('products.empty.noProducts')}</Text>
                 </View>
               }
               renderItem={({ item, index }) => (

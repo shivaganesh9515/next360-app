@@ -13,6 +13,7 @@ import {
   Colors, Typography, Spacing, BorderRadius, Shadows,
   getStoreAccent, getStoreAccentDark, getStoreLabel,
 } from '../../constants/theme';
+import { useTranslation } from 'react-i18next';
 
 const DEBOUNCE_MS = 350;
 
@@ -29,6 +30,7 @@ const POPULAR_SEARCHES = [
 ];
 
 export default function SearchScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { storeType } = useStore();
   const { open: openProduct } = useProductSheet();
   const initialQuery: string = route?.params?.initialQuery ?? '';
@@ -44,6 +46,12 @@ export default function SearchScreen({ navigation, route }: any) {
 
   const accent = getStoreAccent(storeType);
   const showPopup = query.trim().length > 0;
+
+  const storeTagMap: Record<string, string> = {
+    [StoreType.ORGANIC]: t('search.store.organic.tag'),
+    [StoreType.NATURAL]: t('search.store.natural.tag'),
+    [StoreType.ECO_FRIENDLY]: t('search.store.eco.tag'),
+  };
 
   useEffect(() => {
     if (showPopup) setPopupVisible(true);
@@ -109,7 +117,7 @@ export default function SearchScreen({ navigation, route }: any) {
             style={s.input}
             value={query}
             onChangeText={onChangeText}
-            placeholder="Search products..."
+            placeholder={t('search.placeholder')}
             placeholderTextColor={Colors.textSecondary}
             returnKeyType="search"
             onSubmitEditing={() => runSearch(query)}
@@ -128,9 +136,9 @@ export default function SearchScreen({ navigation, route }: any) {
       {/* Landing content always sits underneath — it's what you see once the
           popup below closes (query cleared), not a separate page state. */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.landing}>
-        <Text style={s.landingHeadline}>Find the Finest</Text>
+        <Text style={s.landingHeadline}>{t('search.landing.headline')}</Text>
 
-        <Text style={s.sectionTitle}>Shop by Store</Text>
+        <Text style={s.sectionTitle}>{t('search.section.shopByStore')}</Text>
         <View style={s.storeGrid}>
           {STORE_SHORTCUTS.map((store) => (
             <TouchableOpacity
@@ -141,14 +149,14 @@ export default function SearchScreen({ navigation, route }: any) {
             >
               <Ionicons name={store.icon as any} size={26} color="rgba(255,255,255,0.5)" />
               <View>
-                <Text style={s.storeCardTag}>{store.tag}</Text>
+                <Text style={s.storeCardTag}>{storeTagMap[store.type]}</Text>
                 <Text style={s.storeCardLabel}>{getStoreLabel(store.type)}</Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={s.sectionTitle}>Popular Searches</Text>
+        <Text style={s.sectionTitle}>{t('search.section.popularSearches')}</Text>
         <View style={s.chipRow}>
           {POPULAR_SEARCHES.map((term) => (
             <TouchableOpacity
@@ -187,15 +195,15 @@ export default function SearchScreen({ navigation, route }: any) {
               <View style={s.popupCenter}><ActivityIndicator size="small" color={accent} /></View>
             ) : searchError ? (
               <View style={s.popupCenter}>
-                <Text style={s.emptyTitle}>Couldn't search right now</Text>
+                <Text style={s.emptyTitle}>{t('search.error.title')}</Text>
                 <TouchableOpacity onPress={() => runSearch(query)}>
-                  <Text style={[s.hintText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>Tap to retry</Text>
+                  <Text style={[s.hintText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>{t('common.tapToRetry')}</Text>
                 </TouchableOpacity>
               </View>
             ) : searched && results.length === 0 ? (
               <View style={s.popupCenter}>
-                <Text style={s.emptyTitle}>No results for "{query}"</Text>
-                <Text style={s.hintText}>Try a different keyword or check another store.</Text>
+                <Text style={s.emptyTitle}>{t('search.empty.noResults', { query })}</Text>
+                <Text style={s.hintText}>{t('search.empty.hint')}</Text>
               </View>
             ) : (
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

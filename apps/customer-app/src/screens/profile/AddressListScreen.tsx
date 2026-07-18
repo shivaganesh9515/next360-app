@@ -5,12 +5,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { customerApi } from '../../lib/api';
 import { Address } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import ErrorState from '../../components/ErrorState';
 
 export default function AddressListScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const onSelect = route.params?.onSelect as ((address: Address) => void) | undefined;
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,22 +38,22 @@ export default function AddressListScreen({ navigation, route }: any) {
       await customerApi.updateAddress(id, { isDefault: true });
       load();
     } catch {
-      Alert.alert('Error', 'Failed to set default address');
+      Alert.alert(t('common.error'), t('addressList.alert.setDefaultError'));
     }
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete address', 'Are you sure you want to remove this address?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('addressList.alert.delete.title'), t('addressList.alert.delete.message'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await customerApi.deleteAddress(id);
             load();
           } catch {
-            Alert.alert('Error', 'Failed to delete address');
+            Alert.alert(t('common.error'), t('addressList.alert.deleteError'));
           }
         },
       },
@@ -72,21 +74,21 @@ export default function AddressListScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>My Addresses</Text>
+        <Text style={s.headerTitle}>{t('addressList.title')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('AddAddress')} hitSlop={8}>
           <Ionicons name="add-circle" size={26} color={Colors.organic} />
         </TouchableOpacity>
       </View>
 
       {error ? (
-        <ErrorState message="Couldn't load your addresses" onRetry={load} />
+        <ErrorState message={t('addressList.error.load')} onRetry={load} />
       ) : addresses.length === 0 ? (
         <View style={s.center}>
           <Ionicons name="location-outline" size={64} color={Colors.border} />
-          <Text style={s.emptyTitle}>No addresses yet</Text>
-          <Text style={s.emptySubtitle}>Add your first delivery address.</Text>
+          <Text style={s.emptyTitle}>{t('addressList.empty.title')}</Text>
+          <Text style={s.emptySubtitle}>{t('addressList.empty.subtitle')}</Text>
           <TouchableOpacity style={s.addButton} onPress={() => navigation.navigate('AddAddress')}>
-            <Text style={s.addButtonText}>Add Address</Text>
+            <Text style={s.addButtonText}>{t('addressList.empty.addAddress')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -115,9 +117,9 @@ export default function AddressListScreen({ navigation, route }: any) {
                 </View>
                 <View style={s.cardInfo}>
                   <View style={s.cardHeaderRow}>
-                    <Text style={s.cardLabel}>{item.label || 'Address'}</Text>
+                    <Text style={s.cardLabel}>{item.label || t('addressList.fallback.label')}</Text>
                     {item.isDefault && (
-                      <View style={s.defaultBadge}><Text style={s.defaultBadgeText}>Default</Text></View>
+                      <View style={s.defaultBadge}><Text style={s.defaultBadgeText}>{t('addressList.badge.default')}</Text></View>
                     )}
                   </View>
                   <Text style={s.cardText}>{item.fullAddress}</Text>
@@ -128,11 +130,11 @@ export default function AddressListScreen({ navigation, route }: any) {
               <View style={s.cardActions}>
                 {!item.isDefault && (
                   <TouchableOpacity onPress={() => handleSetDefault(item.id)} hitSlop={8}>
-                    <Text style={s.actionText}>Set as default</Text>
+                    <Text style={s.actionText}>{t('addressList.action.setDefault')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8}>
-                  <Text style={[s.actionText, { color: Colors.error }]}>Delete</Text>
+                  <Text style={[s.actionText, { color: Colors.error }]}>{t('common.delete')}</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>

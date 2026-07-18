@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { customerApi } from '../../lib/api';
 import { Notification } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
@@ -14,6 +15,7 @@ const ICONS: Record<string, string> = {
 };
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -55,21 +57,21 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Notifications</Text>
+        <Text style={s.headerTitle}>{t('notifications.title')}</Text>
         {items.some((i) => !i.isRead) && (
           <TouchableOpacity onPress={handleMarkAll} hitSlop={8}>
-            <Text style={s.markAll}>Mark all read</Text>
+            <Text style={s.markAll}>{t('notifications.markAllRead')}</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {error ? (
-        <ErrorState message="Couldn't load notifications" onRetry={load} />
+        <ErrorState message={t('notifications.error.load')} onRetry={load} />
       ) : items.length === 0 ? (
         <View style={s.center}>
           <Text style={s.emptyEmoji}>🔔</Text>
-          <Text style={s.emptyTitle}>You're all caught up</Text>
-          <Text style={s.emptySubtitle}>Order updates and offers will show up here.</Text>
+          <Text style={s.emptyTitle}>{t('notifications.empty.title')}</Text>
+          <Text style={s.emptySubtitle}>{t('notifications.empty.subtitle')}</Text>
         </View>
       ) : (
         <FlatList
