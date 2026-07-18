@@ -162,6 +162,11 @@ export const adminApi = {
   cancelOrder: (id: string, reason: string) =>
     api.post<any>(`/orders/${id}/cancel`, { reason }),
 
+  // Disputes — dedicated disputes endpoints
+  getDisputes: () => api.get<any>('/disputes'),
+  resolveDispute: (id: string, payload: { status: string; resolution?: string }) =>
+    api.patch<any>(`/disputes/${id}/resolve`, payload),
+
   // Returns
   getReturns: (params?: any) => api.get<any>('/returns', params),
   processReturn: (id: string, status: string, reason?: string) =>
@@ -243,9 +248,10 @@ export const adminApi = {
   // Was /roles/permissions — actual route is the bare /permissions (a
   // sibling resource on the same controller, not nested under roles).
   getPermissions: (params?: any) => api.get<any>('/permissions', params),
-  // No separate /roles/:id/permissions route — permissions live on the Role
-  // record itself (CreateRoleDto.permissions: string[]), updated through the
-  // same PATCH /roles/:id updateRole already uses.
+  createPermission: (data: any) => api.post<any>('/permissions', data),
+  deletePermission: (id: string) => api.delete<any>(`/permissions/${id}`),
+  // Permissions live on the Role record (CreateRoleDto.permissions: string[]),
+  // updated through the same PATCH /roles/:id updateRole already uses.
   updatePermissions: (roleId: string, permissions: string[]) =>
     api.patch<any>(`/roles/${roleId}`, { permissions }),
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Store, Save } from 'lucide-react';
+import { ArrowLeft, Store, Save, Loader2 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
 
@@ -14,6 +14,7 @@ export default function VendorDetailPage() {
   const [commissionRate, setCommissionRate] = useState(15);
   const [saving, setSaving] = useState(false);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     loadVendor();
@@ -32,12 +33,15 @@ export default function VendorDetailPage() {
   };
 
   const handleStatusChange = async (status: string) => {
+    setProcessing(true);
     try {
       await adminApi.updateVendorStatus(params.id as string, status);
       await loadVendor();
       setConfirmAction(null);
     } catch (err: any) {
       alert(err.message || 'Failed to update vendor');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -139,18 +143,48 @@ export default function VendorDetailPage() {
           <div className="space-y-3">
             {vendor.status === 'PENDING' && (
               <div className="flex gap-3">
-                <button onClick={() => handleStatusChange('APPROVED')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Approve</button>
-                <button onClick={() => handleStatusChange('REJECTED')} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Reject</button>
+                <button
+                  onClick={() => handleStatusChange('APPROVED')}
+                  disabled={processing}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {processing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Approving...</> : 'Approve'}
+                </button>
+                <button
+                  onClick={() => handleStatusChange('REJECTED')}
+                  disabled={processing}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {processing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Rejecting...</> : 'Reject'}
+                </button>
               </div>
             )}
             {vendor.status === 'APPROVED' && (
-              <button onClick={() => setConfirmAction('SUSPENDED')} className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700">Suspend</button>
+              <button
+                onClick={() => setConfirmAction('SUSPENDED')}
+                disabled={processing}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 disabled:opacity-60"
+              >
+                {processing ? 'Processing...' : 'Suspend'}
+              </button>
             )}
             {vendor.status === 'SUSPENDED' && (
-              <button onClick={() => handleStatusChange('APPROVED')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Reactivate</button>
+              <button
+                onClick={() => handleStatusChange('APPROVED')}
+                disabled={processing}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60 flex items-center gap-2"
+              >
+                {processing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Reactivating...</> : 'Reactivate'}
+              </button>
             )}
             {vendor.status === 'REJECTED' && (
-              <button onClick={() => handleStatusChange('APPROVED')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Approve (Override)</button>
+              <button
+                onClick={() => handleStatusChange('APPROVED')}
+                disabled={processing}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60 flex items-center gap-2"
+              >
+                {processing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Approving...</> : 'Approve (Override)'}
+              </button>
             )}
           </div>
         </div>
@@ -163,7 +197,14 @@ export default function VendorDetailPage() {
             <p className="text-sm text-gray-600 mb-6">Are you sure you want to {confirmAction.toLowerCase()} this vendor?</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmAction(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={() => handleStatusChange(confirmAction)} className="px-4 py-2 text-sm text-white bg-orange-600 rounded-lg hover:bg-orange-700">{confirmAction}</button>
+              <button
+                onClick={() => handleStatusChange(confirmAction)}
+                disabled={processing}
+                className="px-4 py-2 text-sm text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-60 flex items-center gap-2"
+              >
+                {processing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {processing ? 'Processing...' : confirmAction}
+              </button>
             </div>
           </div>
         </div>

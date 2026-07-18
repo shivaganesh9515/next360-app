@@ -12,6 +12,17 @@ export default function CouponsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
   const [form, setForm] = useState({ code: '', type: 'PERCENTAGE', value: 0, minOrderAmount: 0, maxDiscountAmount: 0, usageLimit: 0, isActive: true });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredCoupons = coupons.filter((c) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.code?.toLowerCase().includes(q) ||
+      c.type?.toLowerCase().includes(q) ||
+      String(c.value).includes(q)
+    );
+  });
 
   useEffect(() => { loadCoupons(); }, []);
 
@@ -58,7 +69,7 @@ export default function CouponsPage() {
         <button onClick={() => { setEditCoupon(null); setForm({ code: '', type: 'PERCENTAGE', value: 0, minOrderAmount: 0, maxDiscountAmount: 0, usageLimit: 0, isActive: true }); setShowModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"><Plus className="w-4 h-4" /> Add Coupon</button>
       </div>
 
-      <DataTable columns={columns} data={coupons} loading={loading} emptyMessage="No coupons created" emptyIcon={<Percent className="w-10 h-10" />} />
+      <DataTable columns={columns} data={filteredCoupons} loading={loading} searchable searchPlaceholder="Search coupons..." onSearch={setSearchQuery} emptyMessage="No coupons created" emptyIcon={<Percent className="w-10 h-10" />} />
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

@@ -7,6 +7,9 @@ Area: `apps/admin-panel`. Next.js 14 App Router + Tailwind + shadcn/ui.
 - [ ] **Merge existing branch** — your branch has `/roles/permissions` and `/cms/notifications` page implementations + dispute wiring fix. Merge to main. Coordinate with Ashwanth for review.
 
 - [ ] **Fix dispute wiring** — currently builds disputes from `getReturns+getRefunds` merge instead of the dedicated `/disputes` module that Srinitha built. Once branch is merged, verify disputes page calls the correct endpoints.
+=======
+Both fixed and pushed. If you pull latest, all 7 pages below should now show real data against a live backend (see `.claude/memory/STATUS.md` for how to spin one up locally — Docker Postgres + `npm run dev` in `apps/api`).
+
 
 - [ ] **Fix admin 401 token cleanup** — on 401 response, `admin_token` is not cleared from `localStorage`. Users get stuck in a loop. Add `localStorage.removeItem('admin_token')` to the 401 handler in `lib/api.ts`.
 
