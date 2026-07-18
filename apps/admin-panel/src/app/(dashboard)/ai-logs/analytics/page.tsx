@@ -140,7 +140,10 @@ export default function AiAnalyticsPage() {
           </div>
         </>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">No analytics data available</div>
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
+          <div className="text-sm">No analytics data available</div>
+          <div className="text-xs text-slate-400 mt-1">Analytics will appear once AI features are actively used.</div>
+        </div>
       )}
     </div>
   );
