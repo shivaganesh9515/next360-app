@@ -19,7 +19,7 @@ export class DeliveryService {
    * Resolve the DeliveryPartner record from the authenticated user ID.
    * Throws 404 if the user has no delivery partner profile.
    */
-  private async getPartnerByUserId(userId: string) {
+  async getPartnerByUserId(userId: string) {
     const partner = await this.prisma.deliveryPartner.findUnique({
       where: { userId },
       include: {
