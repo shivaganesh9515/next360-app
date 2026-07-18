@@ -1,24 +1,49 @@
-# Srinitha — Backend: delivery-partners / zones / disputes + vendor analytics endpoints
+# Srinitha — Backend: Delivery Pipeline + Endpoints
 
-Area: `apps/api`. These have zero backend support today despite the admin-panel already having full screens built for all three (they're currently calling into nothing).
+Area: `apps/api`. All tasks have no dependencies — can start immediately.
 
-## Tasks
+## P0 — Fulfillment Pipeline (Critical Path)
 
-- [ ] **`delivery-partners/` module** — Prisma has `DeliveryPartner`, `DeliveryAssignment`. Needs: list, status, zone, completed-deliveries count, rating, document verification (KYC-gated per CLAUDE.md business rules), plus whatever the admin-panel's `delivery-partners/`, `delivery-partners/approvals`, `delivery-partners/[id]` pages already expect — check `apps/admin-panel/src/app/(dashboard)/delivery-partners/**` for the exact shape each page needs before designing the DTO.
+- [ ] **Delivery assignment pipeline** — build the entire flow:
+  - `POST /orders/:id/assign` — admin assigns delivery partner to an OrderVendorGroup
+  - `POST /orders/:id/reject` — delivery partner rejects assignment
+  - `POST /orders/:id/verify-pickup` — OTP verification on pickup
+  - `PATCH /delivery/location` — delivery partner updates lat/lng
+  - `PATCH /delivery/availability` — online/offline toggle
+  - `GET /delivery/new-orders` — list available assignments for partner
+  - `GET /delivery/active` — list active deliveries for partner
+  - `GET /delivery/history` — completed deliveries for partner
+  - This is the single biggest gap in the project — no order can reach the customer once packed without this.
 
-- [ ] **`zones/` module** — Prisma has `Zone`. Add/edit/activate zones, delivery radius, COD cap enforcement (₹2,000 rule per CLAUDE.md). MVP is Hyderabad + Vijayawada only — zone-gating logic for signup/checkout should live here or be called from here.
+- [ ] **Fix realtime channel table name** — delivery app subscribes to Supabase `postgres_changes` on table `orders` (lowercase). Verify this matches actual Supabase table name (Prisma generates lowercase plural). If wrong, the new-order push will never fire.
 
-- [ ] **`disputes/` module** — refund requests and complaints linked to specific orders, resolution notes + action. Check `apps/admin-panel/src/app/(dashboard)/disputes/**` for the expected shape.
+## P1 — Delivery Endpoints
 
-- [ ] **Vendor analytics/earnings/payouts endpoints** — `apps/vendor-dashboard/src/lib/api.ts` calls these, none exist yet in `vendors.controller.ts`:
-  - `GET /vendors/me/analytics`
-  - `GET /vendors/me/earnings`
-  - `GET /vendors/me/payouts`
-  - `GET /vendors/me/transactions`
-  - `GET /vendors/me/customers`
-  - `GET /vendors/:id/stats`
+- [ ] **Add delivery earnings endpoint** — `GET /delivery/earnings` — delivery app's earnings screen calls this, it doesn't exist.
+
+- [ ] **Delivery partner registration** — `POST /delivery-partners/setup` — delivery app can't onboard new partners. Needs to create DeliveryPartner record from vehicle/zone data.
+
+## P1 — Vendor Endpoints (Verify & Fill Gaps)
+
+These were originally assigned and partially done. Verify which exist and fill gaps:
+
+- [ ] `GET /vendors/me/analytics` — verify it works, add sub-routes `/sales` and `/revenue` if missing
+- [ ] `GET /vendors/me/earnings` — verify it works
+- [ ] `GET /vendors/me/transactions` — verify it works
+- [ ] `GET /vendors/me/customers` — verify it works
+- [ ] `GET /vendors/:id/stats` — verify it works
+
+## P3 — Future
+
+- [ ] **Delivery partner payouts** — weekly batch logic for delivery partner earnings (per-delivery fee, batched weekly, NOT through Razorpay Route)
+- [ ] **Loyalty endpoints** — tiers, points, progress tracking
+- [ ] **Permissions enforcement** — `PermissionGuard` doesn't exist. `Role.permissions` JSON is never checked.
+- [ ] **Caching layer** — Redis or in-memory cache for product listings, categories, CMS
+- [ ] **Inventory audit trail** — log stock changes with what/when/why
+- [ ] **No tests** — add unit tests for critical paths (orders, payments, auth)
 
 ## Reference
 
-- Response envelope format and Prisma error → HTTP mapping: see root `CLAUDE.md`.
-- Coordinate with Harshitha — payouts data (`/vendors/me/payouts`) overlaps with her Razorpay Route payout work; confirm who owns the payout *read* endpoint vs. the payout *automation* before duplicating work.
+- Response envelope format: root `CLAUDE.md`
+- Existing module patterns: `apps/api/src/categories/`, `apps/api/src/vendors/`
+- Prisma schema: `prisma/schema.prisma` (551 lines, 27 models)
