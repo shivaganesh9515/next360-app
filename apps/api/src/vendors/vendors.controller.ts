@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ParseIntPipe, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -47,6 +47,17 @@ export class VendorsController {
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@CurrentUser('id') userId: string) {
     return this.vendorsService.getVendorByUserId(userId);
+  }
+
+  @Patch('my-profile')
+  @UseGuards(JwtAuthGuard)
+  async updateMyProfile(
+    @Body() dto: UpdateVendorDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    const vendor = await this.vendorsService.getVendorByUserId(userId);
+    if (!vendor) throw new NotFoundException('Vendor profile not found');
+    return this.vendorsService.update(vendor.id, dto, userId);
   }
 
   @Get('me/payouts')

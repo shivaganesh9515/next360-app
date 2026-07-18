@@ -111,6 +111,7 @@ export const vendorApi = {
 
   // Vendor profile — always uses authenticated identity, never a client-supplied ID
   getMyProfile: () => api.get<any>('/vendors/my-profile'),
+  updateMyProfile: (data: any) => api.patch<any>('/vendors/my-profile', data),
 
   // Dashboard
   getDashboard: (vendorId: string) =>
@@ -151,11 +152,6 @@ export const vendorApi = {
   // Analytics
   getAnalytics: (period?: string) =>
     api.get<any>('/vendors/me/analytics', { period }),
-  getSalesAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/sales', { period }),
-  getRevenueAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/revenue', { period }),
-
   // Earnings
   getEarnings: () => api.get<any>('/vendors/me/earnings'),
   getPayouts: () => api.get<any[]>('/vendors/me/payouts'),

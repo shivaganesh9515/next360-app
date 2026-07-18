@@ -9,7 +9,22 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getTransactions({}).then((res: any) => setTransactions(Array.isArray(res) ? res : [])).catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getTransactions({}).then((res: any) => {
+      // Backend returns { items: [...], total, page, limit, totalPages }
+      const rawItems = res?.items || (Array.isArray(res) ? res : []);
+      // Map backend fields to DataTable expectations
+      const mapped = (Array.isArray(rawItems) ? rawItems : []).map((t: any) => ({
+        id: t.id,
+        orderNo: t.orderNo || t.orderId?.slice(0, 8),
+        customer: t.customer?.name || '—',
+        amount: t.subtotal || 0,
+        type: t.orderStatus === 'REFUNDED' ? 'REFUND' : 'SALE',
+        date: t.createdAt || new Date().toISOString(),
+        paymentMethod: t.paymentMethod,
+        paymentStatus: t.paymentStatus,
+      }));
+      setTransactions(mapped);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [
