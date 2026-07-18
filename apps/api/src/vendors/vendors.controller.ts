@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ParseIntPipe, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ForbiddenException } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';

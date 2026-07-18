@@ -25,7 +25,8 @@ export class CommissionService {
     });
 
     if (!order) throw new NotFoundException('Order not found');
-    if (order.paymentStatus !== 'PAID') {
+    // Razorpay orders must be PAID; COD orders have paymentStatus PENDING (paid on delivery)
+    if (order.paymentStatus !== 'PAID' && order.paymentMethod !== 'COD') {
       throw new BadRequestException('Order is not yet paid');
     }
 
