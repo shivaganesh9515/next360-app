@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from '../commission/commission.service';
+import { OffersService } from '../offers/offers.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
@@ -45,6 +46,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commissionService: CommissionService,
+    private readonly offersService: OffersService,
   ) {}
 
   /**
@@ -94,6 +96,11 @@ export class OrdersService {
       );
     }
 
+    // Mutual exclusion: cannot use both coupon and offer
+    if (dto.couponCode && dto.offerId) {
+      throw new BadRequestException('Cannot use both a coupon and an offer');
+    }
+
     // Validate coupon if provided
     let discountAmount = 0;
     if (dto.couponCode) {
@@ -131,6 +138,19 @@ export class OrdersService {
       });
     }
 
+    // Validate offer if provided
+    let offer: any = null;
+    if (dto.offerId) {
+      offer = await this.offersService.findOne(dto.offerId);
+      if (!offer.isActive) {
+        throw new BadRequestException('Offer is inactive');
+      }
+      const now = new Date();
+      if (now < offer.startDate || now > offer.endDate) {
+        throw new BadRequestException('Offer is not currently valid');
+      }
+    }
+
     // Group items by vendor
     const vendorGroups = new Map<string, typeof cartItems>();
     for (const item of cartItems) {
@@ -141,7 +161,33 @@ export class OrdersService {
       vendorGroups.get(vendorId)!.push(item);
     }
 
-    const totalAmount = Math.max(0, subtotal - discountAmount);
+    // Calculate per-vendor-group offer discount
+    let offerDiscountAmount = 0;
+    if (offer) {
+      const matchingSubtotal = Array.from(vendorGroups.values()).reduce(
+        (sum, items) => {
+          const vendor = items[0].product.vendor;
+          const storeTypeMatch = vendor.storeType === offer.storeType;
+          const vendorMatch = !offer.vendorId || vendor.id === offer.vendorId;
+          if (storeTypeMatch && vendorMatch) {
+            return sum + items.reduce(
+              (s, item) => s + Number(item.product.price) * item.quantity,
+              0,
+            );
+          }
+          return sum;
+        },
+        0,
+      );
+
+      if (offer.discountType === 'PERCENTAGE') {
+        offerDiscountAmount = (matchingSubtotal * Number(offer.discountValue)) / 100;
+      } else {
+        offerDiscountAmount = Math.min(Number(offer.discountValue), matchingSubtotal);
+      }
+    }
+
+    const totalAmount = Math.max(0, subtotal - discountAmount - offerDiscountAmount);
 
     // For COD, automatically confirm the order
     const initialStatus = dto.paymentMethod === 'COD' ? 'CONFIRMED' : 'PLACED';
