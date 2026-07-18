@@ -15,13 +15,13 @@ export default function EditStorePage() {
 
   useEffect(() => {
     setLoading(true);
-    vendorApi.getStore('me').then((res: any) => setForm({ storeName: res.storeName || '', description: res.description || '' }))
+    vendorApi.getMyProfile().then((res: any) => setForm({ storeName: res.storeName || '', description: res.description || '' }))
       .catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setSaving(true);
-    try { await vendorApi.updateStore('me', form); router.push('/store'); }
+    try { await vendorApi.updateMyProfile(form); router.push('/store'); }
     catch (err: any) { setError(err.message); }
     finally { setSaving(false); }
   };

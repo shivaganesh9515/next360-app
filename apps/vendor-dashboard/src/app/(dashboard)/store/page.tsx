@@ -11,7 +11,7 @@ export default function StoreProfilePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getStore('me').then((res: any) => setVendor(res)).catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getMyProfile().then((res: any) => setVendor(res)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) return (

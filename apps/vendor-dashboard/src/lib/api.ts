@@ -113,6 +113,7 @@ export const vendorApi = {
 
   // Vendor profile — always uses authenticated identity, never a client-supplied ID
   getMyProfile: () => api.get<any>('/vendors/my-profile'),
+  updateMyProfile: (data: any) => api.patch<any>('/vendors/my-profile', data),
 
   // Dashboard
   getDashboard: (vendorId: string) =>
