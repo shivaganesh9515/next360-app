@@ -11,17 +11,24 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { DeliveryService } from '../delivery/delivery.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
+import { VerifyPickupDto } from '../delivery/dto/verify-pickup.dto';
+import { AssignDeliveryDto } from '../delivery/dto/assign-delivery.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly deliveryService: DeliveryService,
+  ) {}
 
   @Post()
   create(
@@ -104,5 +111,36 @@ export class OrdersController {
     @Param('groupId') groupId: string,
   ) {
     return this.ordersService.cancel(user.id, user.role, id, groupId);
+  }
+
+  @Post(':id/assign')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  assignDelivery(
+    @Param('id') id: string,
+    @Body() dto: AssignDeliveryDto,
+  ) {
+    return this.deliveryService.assignOrder(id, dto.deliveryPartnerId);
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  rejectDelivery(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.rejectOrder(userId, id);
+  }
+
+  @Post(':id/verify-pickup')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  verifyPickup(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: VerifyPickupDto,
+  ) {
+    return this.deliveryService.verifyPickup(userId, id, dto.otp);
   }
 }

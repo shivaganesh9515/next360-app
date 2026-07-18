@@ -1,0 +1,79 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { DeliveryService } from './delivery.service';
+import { UpdateLocationDto } from './dto/update-location.dto';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserRole } from '@prisma/client';
+
+@Controller('delivery')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.DELIVERY_PARTNER)
+export class DeliveryController {
+  constructor(private readonly deliveryService: DeliveryService) {}
+
+  @Patch('availability')
+  updateAvailability(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateAvailabilityDto,
+  ) {
+    return this.deliveryService.updateAvailability(userId, dto.isAvailable);
+  }
+
+  @Patch('location')
+  updateLocation(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateLocationDto,
+  ) {
+    return this.deliveryService.updateLocation(userId, dto.lat, dto.lng);
+  }
+
+  @Get('new-orders')
+  getNewOrders(
+    @CurrentUser('id') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.deliveryService.getNewOrders(
+      userId,
+      query.page || 1,
+      query.limit || 20,
+    );
+  }
+
+  @Get('active')
+  getActiveDeliveries(
+    @CurrentUser('id') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.deliveryService.getActiveDeliveries(
+      userId,
+      query.page || 1,
+      query.limit || 20,
+    );
+  }
+
+  @Get('history')
+  getDeliveryHistory(
+    @CurrentUser('id') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.deliveryService.getDeliveryHistory(
+      userId,
+      query.page || 1,
+      query.limit || 20,
+    );
+  }
+}
