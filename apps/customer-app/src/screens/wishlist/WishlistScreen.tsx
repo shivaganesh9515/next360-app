@@ -11,6 +11,7 @@ import ProductCard from '../../components/ProductCard';
 import Shimmer from '../../components/Shimmer';
 import StaggerFadeIn from '../../components/StaggerFadeIn';
 import ErrorState from '../../components/ErrorState';
+import { useTranslation } from 'react-i18next';
 
 function SkeletonCard() {
   return (
@@ -23,6 +24,7 @@ function SkeletonCard() {
 }
 
 export default function WishlistScreen() {
+  const { t } = useTranslation();
   const { addToCart, incrementCart } = useStore();
   const { open: openProduct } = useProductSheet();
   const [items, setItems] = useState<WishlistItem[]>([]);
@@ -84,7 +86,7 @@ export default function WishlistScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Favourites</Text>
+        <Text style={s.headerTitle}>{t('wishlist.title')}</Text>
       </View>
 
       {loading ? (
@@ -92,12 +94,12 @@ export default function WishlistScreen() {
           {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </View>
       ) : error ? (
-        <ErrorState message="Couldn't load your favourites" onRetry={load} />
+        <ErrorState message={t('wishlist.error.load')} onRetry={load} />
       ) : items.length === 0 ? (
         <View style={s.center}>
           <Text style={s.emptyEmoji}>🤍</Text>
-          <Text style={s.emptyTitle}>No favourites yet</Text>
-          <Text style={s.emptySubtitle}>Tap the heart on any product to save it here.</Text>
+          <Text style={s.emptyTitle}>{t('wishlist.empty.title')}</Text>
+          <Text style={s.emptySubtitle}>{t('wishlist.empty.subtitle')}</Text>
         </View>
       ) : (
         <FlatList

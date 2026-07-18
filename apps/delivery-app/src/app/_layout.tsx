@@ -37,6 +37,13 @@ export default function RootLayout() {
             headerTintColor: '#10B981',
           }}
         />
+        <Stack.Screen
+          name="kyc-documents"
+          options={{
+            title: 'KYC Documents',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );

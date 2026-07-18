@@ -39,7 +39,7 @@ export default function ProfileScreen() {
     {
       icon: 'document-text-outline',
       label: 'Documents',
-      onPress: () => {},
+      onPress: () => router.push('/kyc-documents'),
     },
     {
       icon: 'help-circle-outline',

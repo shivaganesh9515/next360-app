@@ -2,11 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '../../constants/theme';
 
 const GREEN = Colors.organic;
 
 export default function OrderConfirmationScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { orderId } = route.params || {};
 
   return (
@@ -18,13 +20,13 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
         </View>
 
         {/* Success Message */}
-        <Text style={styles.title}>Order Placed!</Text>
-        <Text style={styles.subtitle}>Your order has been successfully placed</Text>
+        <Text style={styles.title}>{t('orderConfirm.title')}</Text>
+        <Text style={styles.subtitle}>{t('orderConfirm.subtitle')}</Text>
 
         {/* Order ID */}
         {orderId && (
           <View style={styles.orderIdCard}>
-            <Text style={styles.orderIdLabel}>Order ID</Text>
+            <Text style={styles.orderIdLabel}>{t('orderConfirm.orderId')}</Text>
             <Text style={styles.orderIdValue}>#{orderId.slice(0, 8).toUpperCase()}</Text>
           </View>
         )}
@@ -32,7 +34,7 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
         {/* Estimated Delivery */}
         <View style={styles.deliveryInfo}>
           <Ionicons name="time-outline" size={20} color="#6B7280" />
-          <Text style={styles.deliveryText}>Estimated delivery: 30-45 minutes</Text>
+          <Text style={styles.deliveryText}>{t('orderConfirm.deliveryEstimate')}</Text>
         </View>
       </View>
 
@@ -42,21 +44,21 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
           style={styles.trackButton}
           onPress={() => navigation.navigate('OrderTracking', { orderId })}
         >
-          <Text style={styles.trackButtonText}>Track Order</Text>
+          <Text style={styles.trackButtonText}>{t('orderConfirm.trackOrder')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.ordersButton}
           onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { screen: 'OrderHistory' } })}
         >
-          <Text style={styles.ordersButtonText}>View Orders</Text>
+          <Text style={styles.ordersButtonText}>{t('orderConfirm.viewOrders')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.shopButton}
           onPress={() => navigation.navigate('Home')}
         >
-          <Text style={styles.shopButtonText}>Continue Shopping</Text>
+          <Text style={styles.shopButtonText}>{t('orderConfirm.continueShopping')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

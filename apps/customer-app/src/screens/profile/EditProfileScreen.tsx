@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../lib/auth';
 import { customerApi } from '../../lib/api';
 import { Colors, Typography, Spacing } from '../../constants/theme';
@@ -9,6 +10,7 @@ import AuthTextField from '../../components/AuthTextField';
 import BigButton from '../../components/BigButton';
 
 export default function EditProfileScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -20,7 +22,7 @@ export default function EditProfileScreen({ navigation }: any) {
       await customerApi.updateProfile({ name: name.trim(), email: email.trim() || undefined });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Could not save changes', err.message || 'Please try again.');
+      Alert.alert(t('editProfile.alert.saveError.title'), err.message || t('common.pleaseTryAgain'));
     } finally {
       setLoading(false);
     }
@@ -32,7 +34,7 @@ export default function EditProfileScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Edit Profile</Text>
+        <Text style={s.headerTitle}>{t('editProfile.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -41,27 +43,27 @@ export default function EditProfileScreen({ navigation }: any) {
           <Text style={s.avatarText}>{name?.charAt(0)?.toUpperCase() || 'U'}</Text>
         </View>
 
-        <AuthTextField icon="👤" placeholder="Full name" value={name} onChangeText={setName} autoCapitalize="words" />
+        <AuthTextField icon="👤" placeholder={t('editProfile.placeholder.name')} value={name} onChangeText={setName} autoCapitalize="words" />
         <AuthTextField
           icon="✉️"
-          placeholder="Email address (optional)"
+          placeholder={t('editProfile.placeholder.email')}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
         />
         <View style={s.emailRow}>
-          <Text style={s.emailLabel}>Phone</Text>
+          <Text style={s.emailLabel}>{t('editProfile.label.phone')}</Text>
           <View style={s.phoneRow}>
             <Text style={s.emailValue}>+91 {user?.phone}</Text>
             <View style={s.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
-              <Text style={s.verifiedText}>Verified</Text>
+              <Text style={s.verifiedText}>{t('editProfile.verified')}</Text>
             </View>
           </View>
         </View>
 
-        <BigButton label="Save Changes" onPress={handleSave} loading={loading} style={{ marginTop: Spacing.md }} />
+        <BigButton label={t('editProfile.saveChanges')} onPress={handleSave} loading={loading} style={{ marginTop: Spacing.md }} />
       </View>
     </SafeAreaView>
   );

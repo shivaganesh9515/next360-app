@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../lib/auth';
 import { Colors, Typography } from '../../constants/theme';
 import BigButton from '../../components/BigButton';
@@ -16,6 +17,7 @@ const RESEND_SECONDS = 30;
 // success. Whether this created a new account or logged an existing one in
 // happens server-side (or in the demo fallback); this screen doesn't care.
 export default function VerificationCodeScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { sendOtp, verifyOtpAndAuth } = useAuth();
   const phone: string = route.params?.phone || '';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
@@ -47,7 +49,7 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
   const handleContinue = async () => {
     const otp = code.join('');
     if (otp.length !== CODE_LENGTH) {
-      Alert.alert('Incomplete code', `Enter all ${CODE_LENGTH} digits.`);
+      Alert.alert(t('auth.verify.incomplete.title'), t('auth.verify.incomplete.message', { length: CODE_LENGTH }));
       return;
     }
     setLoading(true);
@@ -56,7 +58,7 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
       // No navigation.goBack() here — AuthProvider's user state flipping to
       // non-null makes AppNavigator swap AuthStack for the main app itself.
     } catch (err: any) {
-      Alert.alert('Invalid code', err.message || 'That code did not match. Try again.');
+      Alert.alert(t('auth.verify.invalid.title'), err.message || t('auth.verify.invalid.message'));
       setCode(Array(CODE_LENGTH).fill(''));
       refs.current[0]?.focus();
     } finally {
@@ -70,7 +72,7 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
       await sendOtp(phone);
       setCountdown(RESEND_SECONDS);
     } catch (err: any) {
-      Alert.alert('Could not resend code', err.message || 'Please try again.');
+      Alert.alert(t('auth.verify.resendError.title'), err.message || t('common.pleaseTryAgain'));
     } finally {
       setResending(false);
     }
@@ -79,9 +81,9 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={s.root} edges={['top', 'bottom']}>
       <View style={s.content}>
-        <Text style={s.title}>Verification Code</Text>
+        <Text style={s.title}>{t('auth.verify.title')}</Text>
         <Text style={s.subtitle}>
-          Enter the code we sent to{phone ? ` +91 ${phone}` : ' your number'}.
+          {t('auth.verify.subtitle', { phone: phone ? `+91 ${phone}` : 'your number' })}
         </Text>
 
         <View style={s.codeRow}>
@@ -103,11 +105,11 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
 
         <TouchableOpacity disabled={countdown > 0 || resending} onPress={handleResend} hitSlop={8}>
           <Text style={countdown > 0 ? s.resendMuted : s.resend}>
-            {countdown > 0 ? `Resend code in ${countdown}s` : resending ? 'Resending...' : 'Resend Code'}
+            {countdown > 0 ? t('auth.verify.resendCountdown', { countdown }) : resending ? t('auth.verify.resending') : t('auth.verify.resendCode')}
           </Text>
         </TouchableOpacity>
 
-        <BigButton label="Continue" onPress={handleContinue} loading={loading} style={{ marginTop: 40 }} />
+        <BigButton label={t('common.continue')} onPress={handleContinue} loading={loading} style={{ marginTop: 40 }} />
       </View>
     </SafeAreaView>
   );

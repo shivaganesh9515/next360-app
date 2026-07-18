@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { customerApi } from '../../lib/api';
 import { getSupabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
@@ -12,20 +13,8 @@ import ErrorState from '../../components/ErrorState';
 // once a rider is assigned/picked up, cancellation has to go through support
 // instead (food/goods may already be in transit).
 const CANCELLABLE_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING'];
-const CANCEL_REASONS = ['Ordered by mistake', 'Found a better price', 'Delivery taking too long', 'Other'];
-const RETURN_REASONS = ['Item damaged', 'Wrong item delivered', 'Item expired/quality issue', 'Other'];
 
 const STEPS = ['PLACED', 'CONFIRMED', 'PACKED', 'ASSIGNED_TO_DELIVERY', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'];
-
-const STEP_LABELS: Record<string, string> = {
-  PLACED: 'Order Placed',
-  CONFIRMED: 'Confirmed by Vendor',
-  PACKED: 'Packed',
-  ASSIGNED_TO_DELIVERY: 'Assigned for Delivery',
-  PICKED_UP: 'Picked Up',
-  OUT_FOR_DELIVERY: 'Out for Delivery',
-  DELIVERED: 'Delivered',
-};
 
 function VendorGroupTimeline({
   group, canReturn, onRequestReturn, canReview, onWriteReview,
@@ -36,8 +25,19 @@ function VendorGroupTimeline({
   canReview: boolean;
   onWriteReview: (item: any) => void;
 }) {
+  const { t } = useTranslation();
   const isTerminalBad = group.status === 'CANCELLED' || group.status === 'REFUNDED';
   const currentIndex = STEPS.indexOf(group.status);
+
+  const stepLabels: Record<string, string> = {
+    PLACED: t('orderStatus.placed'),
+    CONFIRMED: t('orderStatus.confirmed'),
+    PACKED: t('orderStatus.packed'),
+    ASSIGNED_TO_DELIVERY: t('orderStatus.assignedForDelivery'),
+    PICKED_UP: t('orderStatus.pickedUp'),
+    OUT_FOR_DELIVERY: t('orderStatus.outForDelivery'),
+    DELIVERED: t('orderStatus.delivered'),
+  };
 
   return (
     <View style={[s.groupCard, Shadows.card]}>
@@ -45,14 +45,14 @@ function VendorGroupTimeline({
         <View style={s.vendorIconWrap}>
           <Ionicons name="storefront" size={16} color={Colors.organic} />
         </View>
-        <Text style={s.vendorName}>{group.vendor?.storeName || 'Vendor'}</Text>
+        <Text style={s.vendorName}>{group.vendor?.storeName || t('orderDetail.fallback.vendor')}</Text>
       </View>
 
       {isTerminalBad ? (
         <View style={s.badBanner}>
           <Ionicons name="close-circle" size={16} color={Colors.error} />
           <Text style={s.badBannerText}>
-            {group.status === 'CANCELLED' ? 'This part of your order was cancelled' : 'This part of your order was refunded'}
+            {group.status === 'CANCELLED' ? t('orderDetail.status.cancelled') : t('orderDetail.status.refunded')}
           </Text>
         </View>
       ) : (
@@ -72,7 +72,7 @@ function VendorGroupTimeline({
                   </View>
                   {i < STEPS.length - 1 && <View style={[s.stepLine, done && s.stepLineDone]} />}
                 </View>
-                <Text style={[s.stepLabel, done && s.stepLabelDone]}>{STEP_LABELS[step]}</Text>
+                <Text style={[s.stepLabel, done && s.stepLabelDone]}>{stepLabels[step]}</Text>
               </View>
             );
           })}
@@ -90,12 +90,12 @@ function VendorGroupTimeline({
             <View style={s.itemLinks}>
               {canReview && (
                 <TouchableOpacity onPress={() => onWriteReview(item)} hitSlop={8}>
-                  <Text style={s.reviewLink}>Write a Review</Text>
+                  <Text style={s.reviewLink}>{t('orderDetail.action.writeReview')}</Text>
                 </TouchableOpacity>
               )}
               {canReturn && (
                 <TouchableOpacity onPress={() => onRequestReturn(item.id)} hitSlop={8}>
-                  <Text style={s.returnLink}>Request Return</Text>
+                  <Text style={s.returnLink}>{t('orderDetail.action.requestReturn')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -107,6 +107,7 @@ function VendorGroupTimeline({
 }
 
 export default function OrderDetailScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { orderId } = route.params || {};
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +118,9 @@ export default function OrderDetailScreen({ navigation, route }: any) {
   const [reviewTargetItem, setReviewTargetItem] = useState<{ productId: string; productName: string } | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [error, setError] = useState(false);
+
+  const cancelReasons = [t('orderDetail.cancelReason.mistake'), t('orderDetail.cancelReason.price'), t('orderDetail.cancelReason.slow'), t('orderDetail.cancelReason.other')];
+  const returnReasons = [t('orderDetail.returnReason.damaged'), t('orderDetail.returnReason.wrong'), t('orderDetail.returnReason.expired'), t('orderDetail.returnReason.other')];
 
   const load = useCallback(async () => {
     try {
@@ -182,7 +186,7 @@ export default function OrderDetailScreen({ navigation, route }: any) {
       setOrder((prev: any) => (prev ? { ...prev, status: 'CANCELLED' } : prev));
       setCancelModalVisible(false);
     } catch (err: any) {
-      Alert.alert('Could not cancel order', err.message || 'Please try again.');
+      Alert.alert(t('orderDetail.alert.cancelError.title'), err.message || t('common.pleaseTryAgain'));
     } finally {
       setCancelling(false);
     }
@@ -194,9 +198,9 @@ export default function OrderDetailScreen({ navigation, route }: any) {
     try {
       await customerApi.requestReturn({ orderId: order.id, orderItemId: returnTargetItem, reason });
       setReturnTargetItem(null);
-      Alert.alert('Return requested', "We've received your return request and will review it shortly.");
+      Alert.alert(t('orderDetail.alert.returnRequested.title'), t('orderDetail.alert.returnRequested.message'));
     } catch (err: any) {
-      Alert.alert('Could not submit return', err.message || 'Please try again.');
+      Alert.alert(t('orderDetail.alert.returnError.title'), err.message || t('common.pleaseTryAgain'));
     } finally {
       setSubmittingReturn(false);
     }
@@ -208,9 +212,9 @@ export default function OrderDetailScreen({ navigation, route }: any) {
     try {
       await customerApi.createReview({ productId: reviewTargetItem.productId, orderId: order.id, rating, comment: comment || undefined });
       setReviewTargetItem(null);
-      Alert.alert('Thanks for the review!', 'Your review helps other shoppers.');
+      Alert.alert(t('orderDetail.alert.reviewThanks.title'), t('orderDetail.alert.reviewThanks.message'));
     } catch (err: any) {
-      Alert.alert('Could not submit review', err.message || 'Please try again.');
+      Alert.alert(t('orderDetail.alert.reviewError.title'), err.message || t('common.pleaseTryAgain'));
     } finally {
       setSubmittingReview(false);
     }
@@ -228,9 +232,9 @@ export default function OrderDetailScreen({ navigation, route }: any) {
     return (
       <SafeAreaView style={s.container}>
         {error ? (
-          <ErrorState message="Couldn't load this order" onRetry={load} />
+          <ErrorState message={t('orderDetail.error.load')} onRetry={load} />
         ) : (
-          <View style={s.center}><Text style={s.emptyText}>Order not found.</Text></View>
+          <View style={s.center}><Text style={s.emptyText}>{t('orderDetail.empty.notFound')}</Text></View>
         )}
       </SafeAreaView>
     );
@@ -253,13 +257,13 @@ export default function OrderDetailScreen({ navigation, route }: any) {
             onPress={() => navigation.navigate('OrderTracking', { orderId: order.id })}
           >
             <Ionicons name="navigate" size={16} color={Colors.white} />
-            <Text style={s.trackBtnText}>Track Order Live</Text>
+            <Text style={s.trackBtnText}>{t('orderDetail.trackOrderLive')}</Text>
           </TouchableOpacity>
         )}
 
         {order.address && (
           <View style={[s.addressCard, Shadows.card]}>
-            <Text style={s.sectionTitle}>Delivering to</Text>
+            <Text style={s.sectionTitle}>{t('orderDetail.section.deliveringTo')}</Text>
             <Text style={s.addressText}>{order.address.fullAddress}</Text>
             <Text style={s.addressText}>{order.address.city}, {order.address.state} - {order.address.pincode}</Text>
           </View>
@@ -277,42 +281,42 @@ export default function OrderDetailScreen({ navigation, route }: any) {
         ))}
 
         <View style={[s.summaryCard, Shadows.card]}>
-          <Text style={s.sectionTitle}>Payment</Text>
+          <Text style={s.sectionTitle}>{t('orderDetail.section.payment')}</Text>
           <View style={s.summaryRow}>
-            <Text style={s.summaryLabel}>Method</Text>
+            <Text style={s.summaryLabel}>{t('orderDetail.summary.method')}</Text>
             <Text style={s.summaryValue}>{order.paymentMethod}</Text>
           </View>
           <View style={s.summaryRow}>
-            <Text style={s.summaryLabel}>Status</Text>
+            <Text style={s.summaryLabel}>{t('orderDetail.summary.status')}</Text>
             <Text style={s.summaryValue}>{order.paymentStatus}</Text>
           </View>
           <View style={[s.summaryRow, s.totalRow]}>
-            <Text style={s.totalLabel}>Total</Text>
+            <Text style={s.totalLabel}>{t('orderDetail.summary.total')}</Text>
             <Text style={s.totalValue}>₹{Number(order.totalAmount).toFixed(0)}</Text>
           </View>
         </View>
 
         {CANCELLABLE_STATUSES.includes(order.status) && (
           <TouchableOpacity style={s.cancelBtn} onPress={() => setCancelModalVisible(true)}>
-            <Text style={s.cancelBtnText}>Cancel Order</Text>
+            <Text style={s.cancelBtnText}>{t('orderDetail.cancelOrder')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
 
       <ReasonModal
         visible={cancelModalVisible}
-        title="Why are you cancelling?"
-        reasons={CANCEL_REASONS}
-        submitLabel="Cancel Order"
+        title={t('orderDetail.cancelModal.title')}
+        reasons={cancelReasons}
+        submitLabel={t('orderDetail.cancelOrder')}
         submitting={cancelling}
         onClose={() => setCancelModalVisible(false)}
         onSubmit={handleCancelOrder}
       />
       <ReasonModal
         visible={!!returnTargetItem}
-        title="Why are you returning this item?"
-        reasons={RETURN_REASONS}
-        submitLabel="Submit Return"
+        title={t('orderDetail.returnModal.title')}
+        reasons={returnReasons}
+        submitLabel={t('orderDetail.returnModal.submit')}
         submitting={submittingReturn}
         onClose={() => setReturnTargetItem(null)}
         onSubmit={handleRequestReturn}
@@ -337,6 +341,7 @@ function ReviewModal({
   onClose: () => void;
   onSubmit: (rating: number, comment: string) => void;
 }) {
+  const { t } = useTranslation();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
 
@@ -348,7 +353,7 @@ function ReviewModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.modalBackdrop}>
         <View style={[s.modalCard, Shadows.raised]}>
-          <Text style={s.modalTitle}>Rate {productName}</Text>
+          <Text style={s.modalTitle}>{t('orderDetail.reviewModal.title', { productName })}</Text>
           <View style={s.starRow}>
             {[1, 2, 3, 4, 5].map((n) => (
               <TouchableOpacity key={n} onPress={() => setRating(n)} hitSlop={6}>
@@ -363,7 +368,7 @@ function ReviewModal({
           </View>
           <TextInput
             style={s.reasonInput}
-            placeholder="Share your experience (optional)"
+            placeholder={t('orderDetail.reviewModal.placeholder')}
             placeholderTextColor={Colors.textSecondary}
             value={comment}
             onChangeText={setComment}
@@ -372,7 +377,7 @@ function ReviewModal({
           />
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalCancelBtn} onPress={onClose} disabled={submitting}>
-              <Text style={s.modalCancelText}>Never mind</Text>
+              <Text style={s.modalCancelText}>{t('common.neverMind')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.modalSubmitBtn, (!rating || submitting) && s.modalSubmitBtnDisabled]}
@@ -381,7 +386,7 @@ function ReviewModal({
             >
               {submitting
                 ? <ActivityIndicator color={Colors.white} size="small" />
-                : <Text style={s.modalSubmitText}>Submit Review</Text>}
+                : <Text style={s.modalSubmitText}>{t('orderDetail.reviewModal.submit')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -401,6 +406,7 @@ function ReasonModal({
   onClose: () => void;
   onSubmit: (reason: string) => void;
 }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
 
@@ -408,7 +414,7 @@ function ReasonModal({
     if (!visible) { setSelected(null); setCustomText(''); }
   }, [visible]);
 
-  const finalReason = selected === 'Other' ? customText.trim() : selected;
+  const finalReason = selected === t('orderDetail.cancelReason.other') || selected === t('orderDetail.returnReason.other') ? customText.trim() : selected;
   const canSubmit = !!finalReason && !submitting;
 
   return (
@@ -424,10 +430,10 @@ function ReasonModal({
               <Text style={s.reasonText}>{r}</Text>
             </TouchableOpacity>
           ))}
-          {selected === 'Other' && (
+          {(selected === t('orderDetail.cancelReason.other') || selected === t('orderDetail.returnReason.other')) && (
             <TextInput
               style={s.reasonInput}
-              placeholder="Tell us more..."
+              placeholder={t('orderDetail.reasonModal.otherPlaceholder')}
               placeholderTextColor={Colors.textSecondary}
               value={customText}
               onChangeText={setCustomText}
@@ -437,7 +443,7 @@ function ReasonModal({
           )}
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalCancelBtn} onPress={onClose} disabled={submitting}>
-              <Text style={s.modalCancelText}>Never mind</Text>
+              <Text style={s.modalCancelText}>{t('common.neverMind')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.modalSubmitBtn, !canSubmit && s.modalSubmitBtnDisabled]}

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { customerApi } from '../../lib/api';
 import { geocodeAddress, ReverseGeocodeResult } from '../../lib/geocode';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
@@ -13,6 +14,7 @@ import AddressMapPicker from '../../components/AddressMapPicker';
 const LABELS = ['Home', 'Work', 'Other'];
 
 export default function AddAddressScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const [label, setLabel] = useState('Home');
   const [fullAddress, setFullAddress] = useState('');
   const [city, setCity] = useState('');
@@ -43,7 +45,7 @@ export default function AddAddressScreen({ navigation }: any) {
 
   const handleSave = async () => {
     if (!isValid) {
-      Alert.alert('Missing details', 'Fill in the address, city, state, and a 6-digit pincode.');
+      Alert.alert(t('addAddress.alert.missing.title'), t('addAddress.alert.missing.message'));
       return;
     }
     setLoading(true);
@@ -70,7 +72,7 @@ export default function AddAddressScreen({ navigation }: any) {
       });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Could not save address', err.message || 'Please try again.');
+      Alert.alert(t('addAddress.alert.saveError.title'), err.message || t('common.pleaseTryAgain'));
     } finally {
       setLoading(false);
     }
@@ -82,12 +84,12 @@ export default function AddAddressScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Add Address</Text>
+        <Text style={s.headerTitle}>{t('addAddress.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <Text style={s.label}>Label</Text>
+        <Text style={s.label}>{t('addAddress.label.label')}</Text>
         <View style={s.typeRow}>
           {LABELS.map((l) => (
             <TouchableOpacity
@@ -103,15 +105,15 @@ export default function AddAddressScreen({ navigation }: any) {
         <TouchableOpacity style={s.mapPickerBtn} onPress={() => setMapVisible(true)}>
           <Ionicons name="location" size={18} color={Colors.organic} />
           <Text style={s.mapPickerText}>
-            {pickedCoords ? 'Location pinned — tap to change' : 'Set location on map'}
+            {pickedCoords ? t('addAddress.mapPicker.change') : t('addAddress.mapPicker.set')}
           </Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
         </TouchableOpacity>
 
-        <Text style={s.label}>Full Address *</Text>
+        <Text style={s.label}>{t('addAddress.label.fullAddress')}</Text>
         <TextInput
           style={[s.input, s.inputMultiline]}
-          placeholder="House/flat no., building, street, area, landmark"
+          placeholder={t('addAddress.placeholder.address')}
           placeholderTextColor={Colors.textSecondary}
           value={fullAddress}
           onChangeText={withEditReset(setFullAddress)}
@@ -119,28 +121,28 @@ export default function AddAddressScreen({ navigation }: any) {
           numberOfLines={3}
         />
 
-        <Text style={s.label}>City *</Text>
+        <Text style={s.label}>{t('addAddress.label.city')}</Text>
         <TextInput
           style={s.input}
-          placeholder="City"
+          placeholder={t('addAddress.placeholder.city')}
           placeholderTextColor={Colors.textSecondary}
           value={city}
           onChangeText={withEditReset(setCity)}
         />
 
-        <Text style={s.label}>State *</Text>
+        <Text style={s.label}>{t('addAddress.label.state')}</Text>
         <TextInput
           style={s.input}
-          placeholder="State"
+          placeholder={t('addAddress.placeholder.state')}
           placeholderTextColor={Colors.textSecondary}
           value={state}
           onChangeText={withEditReset(setState)}
         />
 
-        <Text style={s.label}>Pincode *</Text>
+        <Text style={s.label}>{t('addAddress.label.pincode')}</Text>
         <TextInput
           style={s.input}
-          placeholder="6-digit pincode"
+          placeholder={t('addAddress.placeholder.pincode')}
           placeholderTextColor={Colors.textSecondary}
           keyboardType="numeric"
           value={pincode}
@@ -150,7 +152,7 @@ export default function AddAddressScreen({ navigation }: any) {
       </ScrollView>
 
       <View style={s.footer}>
-        <BigButton label="Save Address" onPress={handleSave} loading={loading} disabled={!isValid} />
+        <BigButton label={t('addAddress.saveAddress')} onPress={handleSave} loading={loading} disabled={!isValid} />
       </View>
 
       <AddressMapPicker

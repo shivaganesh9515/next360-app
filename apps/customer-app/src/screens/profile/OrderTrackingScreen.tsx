@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, Easing, Linking, Share, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { AnimatedRegion, Marker, Polyline } from 'react-native-maps';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useOrderTracking, STEPS, STEP_LABELS, currentStepFor } from '../../lib/useOrderTracking';
 import {
@@ -16,15 +17,16 @@ import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 const FALLBACK_DESTINATION = { lat: 17.4483, lng: 78.3915 };
 const REGION_STEP_MS = 3600;
 
-function formatEta(iso?: string): string | undefined {
+function formatEta(iso: string | undefined, t: any): string | undefined {
   if (!iso) return undefined;
-  return `Arriving by ${new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
+  return t('orderTracking.eta', { time: new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) });
 }
 
 // Native-only (see the sibling .web.tsx) — react-native-maps has no web
 // implementation at all (it throws on import there), so Metro's platform file
 // resolution picks this file for iOS/Android and the .web.tsx for web builds.
 export default function OrderTrackingScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { orderId } = route.params || {};
   const { order, assignment, loading } = useOrderTracking(orderId);
   const mapRef = useRef<MapView>(null);
@@ -94,7 +96,7 @@ export default function OrderTrackingScreen({ navigation, route }: any) {
   if (loading || !order) {
     return (
       <SafeAreaView style={s.container}>
-        <View style={s.center}><Text style={s.emptyText}>Loading order...</Text></View>
+        <View style={s.center}><Text style={s.emptyText}>{t('orderTracking.loading')}</Text></View>
       </SafeAreaView>
     );
   }
@@ -117,7 +119,7 @@ export default function OrderTrackingScreen({ navigation, route }: any) {
               latitudeDelta: 0.05, longitudeDelta: 0.05,
             }}
           >
-            <Marker coordinate={destination} title="Delivery address" pinColor={Colors.organic} />
+            <Marker coordinate={destination} title={t('orderTracking.map.deliveryAddress')} pinColor={Colors.organic} />
             {assignment?.deliveryPartner?.currentLat != null && (
               <Marker.Animated coordinate={riderRegion as any} title={assignment.deliveryPartner.name}>
                 <View style={s.riderMarker}>
@@ -142,13 +144,13 @@ export default function OrderTrackingScreen({ navigation, route }: any) {
 
         {assignment?.otp && assignment.status !== 'DELIVERED' && (
           <TouchableOpacity style={s.otpCard} onPress={handleShareOtp}>
-            <Text style={s.otpLabel}>Delivery OTP — share with your rider on handoff</Text>
+            <Text style={s.otpLabel}>{t('orderTracking.otp.label')}</Text>
             <Text style={s.otpValue}>{assignment.otp}</Text>
           </TouchableOpacity>
         )}
 
         <View style={s.timelineSection}>
-          <Text style={s.sectionTitle}>Delivery Status</Text>
+          <Text style={s.sectionTitle}>{t('orderTracking.section.deliveryStatus')}</Text>
           {STEPS.map((step, i) => (
             <TimelineStep
               key={step}
@@ -156,7 +158,7 @@ export default function OrderTrackingScreen({ navigation, route }: any) {
               done={i <= currentIndex}
               isLast={i === STEPS.length - 1}
               live={step === currentStep && step !== 'DELIVERED'}
-              subtext={step === currentStep && step === 'OUT_FOR_DELIVERY' ? formatEta(order.estimatedDeliveryAt) : undefined}
+              subtext={step === currentStep && step === 'OUT_FOR_DELIVERY' ? formatEta(order.estimatedDeliveryAt, t) : undefined}
             />
           ))}
         </View>

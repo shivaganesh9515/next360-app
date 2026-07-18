@@ -623,6 +623,10 @@ export const customerApi = {
   getActiveOffers: (storeType?: string) =>
     api.get<any[]>('/offers/active', { storeType }),
 
+  // CMS Banners
+  getBanners: (params?: Record<string, any>) =>
+    api.get<any[]>('/cms/banners', params),
+
   // Notifications
   getNotifications: () => api.get<any[]>('/notifications'),
   markNotificationRead: (id: string) =>
