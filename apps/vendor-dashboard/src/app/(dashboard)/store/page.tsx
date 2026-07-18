@@ -52,10 +52,10 @@ export default function StoreProfilePage() {
             <div className="flex gap-2"><StatusBadge status={vendor.status} /><span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">{vendor.storeType}</span></div>
             {vendor.description && <p className="text-sm text-slate-600">{vendor.description}</p>}
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-              <div><p className="text-xs text-slate-500">Commission Rate</p><p className="text-sm font-medium text-slate-900">{vendor.commissionRate || 0}%</p></div>
-              <div><p className="text-xs text-slate-500">Rating</p><p className="text-sm font-medium text-slate-900">{'★'.repeat(Math.round(vendor.rating || 0))} ({vendor.rating || 0})</p></div>
-              <div><p className="text-xs text-slate-500">Total Products</p><p className="text-sm font-medium text-slate-900">{vendor.totalProducts || 0}</p></div>
-              <div><p className="text-xs text-slate-500">Total Orders</p><p className="text-sm font-medium text-slate-900">{vendor.totalOrders || 0}</p></div>
+              <div><p className="text-xs text-slate-500">Commission Rate</p><p className="text-sm font-medium text-slate-900">{vendor.commissionPct || vendor.commissionRate || 0}%</p></div>
+              <div><p className="text-xs text-slate-500">Zone</p><p className="text-sm font-medium text-slate-900">{vendor.zone?.name || vendor.zone?.city || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">Products</p><p className="text-sm font-medium text-slate-900">{vendor._count?.products || vendor.totalProducts || 0}</p></div>
+              <div><p className="text-xs text-slate-500">Store Type</p><p className="text-sm font-medium text-slate-900">{vendor.storeType || '—'}</p></div>
             </div>
           </div>
         </div>

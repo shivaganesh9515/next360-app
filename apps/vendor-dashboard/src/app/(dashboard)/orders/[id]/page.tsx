@@ -48,7 +48,8 @@ export default function OrderDetailPage() {
     </div>
   );
 
-  const items = order.items || order.orderItems || [];
+  // Flatten items from vendorGroups (backend: OrderVendorGroup[] with nested items)
+  const items = order.items || order.orderItems || order.vendorGroups?.flatMap((g: any) => g.items || []) || [];
   const currentIdx = statusFlow.indexOf(order.status);
   const nextStatus = currentIdx < statusFlow.length - 1 ? statusFlow[currentIdx + 1] : null;
 
