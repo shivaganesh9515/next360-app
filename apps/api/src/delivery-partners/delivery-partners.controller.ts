@@ -1,5 +1,6 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { DeliveryPartnersService } from './delivery-partners.service';
+import { CreateDeliveryPartnerDto } from './dto/create-delivery-partner.dto';
 import { UpdateDeliveryPartnerStatusDto } from './dto/update-delivery-partner-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -9,7 +10,15 @@ import { UserRole } from '@prisma/client';
 @Controller('delivery-partners')
 export class DeliveryPartnersController {
   constructor(private readonly deliveryPartnersService: DeliveryPartnersService) {}
-
+  
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async create(
+    @Body() dto: CreateDeliveryPartnerDto,
+  ) {
+    return this.deliveryPartnersService.create(dto);
+  }
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
