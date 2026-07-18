@@ -28,6 +28,13 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     const response = await fetch(url, { ...fetchOptions, headers });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      }
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
@@ -72,6 +79,13 @@ export const api = {
 
     const response = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: formData });
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      }
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
