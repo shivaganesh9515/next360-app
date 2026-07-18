@@ -4,13 +4,16 @@ Screens are structurally complete (all 8 sidebar sections exist under `src/app/(
 
 ## Tasks
 
+- [x] **Fix analytics sub-routes** — `getSalesAnalytics` and `getRevenueAnalytics` in `lib/api.ts` call `/vendors/me/analytics/sales` and `/vendors/me/analytics/revenue` which don't exist. The main `/vendors/me/analytics` endpoint works fine. Fix the sub-routes to either use the main endpoint or remove the separate calls. ✅ Already fixed — both sales and revenue pages call `vendorApi.getAnalytics(period)` which hits the main endpoint.
+
+- [x] **Verify store profile edit** — calls `GET/PATCH /vendors/me` with literal `"me"` as vendor ID. Backend may 404. Test against live backend, report if broken (backend owns the fix). ✅ Fixed — `store/page.tsx` uses `getMyProfile()`, `store/edit/page.tsx` uses `getMyProfile()` + `updateMyProfile()` which hit `GET/PATCH /vendors/my-profile` (resolves via `@CurrentUser`).
+
 - [ ] **Add missing dependencies** — `apps/vendor-dashboard/package.json` currently has Tailwind v4 + recharts + lucide, but is missing what CLAUDE.md's stack calls for:
   - `@supabase/supabase-js`
   - `shadcn/ui` (component setup, not just a dep — run their CLI init)
   - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them.
 
-- [ ] **Payouts page** (`earnings/` route) — currently renders empty since `GET /vendors/me/payouts` doesn't exist yet. Blocked on Srinitha — see [s
-rinitha.md](./srinitha.md). Once live, wire it up.
+- [ ] **Payouts page** (`earnings/` route) — currently renders empty since `GET /vendors/me/payouts` doesn't exist yet. Blocked on Srinitha — see [srinitha.md](./srinitha.md). Once live, wire it up.
 
 - [ ] **Analytics/earnings pages** — same story, blocked on `GET /vendors/me/analytics`, `GET /vendors/me/earnings`, `GET /vendors/me/transactions`, `GET /vendors/me/customers` (Srinitha).
 
