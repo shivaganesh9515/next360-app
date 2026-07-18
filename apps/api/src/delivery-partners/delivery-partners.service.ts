@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DeliveryPartnerStatus } from '@prisma/client';
+import { DeliveryPartnerStatus, UserRole } from '@prisma/client';
+import { CreateDeliveryPartnerDto } from './dto/create-delivery-partner.dto';
 
 @Injectable()
 export class DeliveryPartnersService {
@@ -22,6 +23,47 @@ export class DeliveryPartnersService {
     phone: true,
     avatarUrl: true,
   };
+  async create(dto: CreateDeliveryPartnerDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== UserRole.DELIVERY_PARTNER) {
+      throw new BadRequestException('User is not a delivery partner');
+    }
+
+    const existing = await this.prisma.deliveryPartner.findUnique({
+      where: { userId: dto.userId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Delivery partner already exists');
+    }
+
+    return this.prisma.deliveryPartner.create({
+      data: {
+        userId: dto.userId,
+        vehicleType: dto.vehicleType,
+        zoneId: dto.zoneId,
+      },
+      include: {
+        user: {
+          select: this.userSelect,
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+          },
+        },
+      },
+    });
+  }
 
   async findAll(params: {
     page: number;
