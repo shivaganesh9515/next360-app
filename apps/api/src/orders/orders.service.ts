@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../commission/commission.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
@@ -38,7 +40,12 @@ function generateInvoiceNo(orderId: string): string {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commissionService: CommissionService,
+  ) {}
 
   /**
    * Create an order from the user's current cart.
@@ -195,6 +202,18 @@ export class OrdersService {
 
       return created;
     });
+
+    // For COD orders, trigger commission calculation after the transaction succeeds.
+    // Razorpay commissions are calculated in the payment.captured webhook instead.
+    if (dto.paymentMethod === 'COD') {
+      try {
+        await this.commissionService.calculateCommissions(order.id);
+      } catch (error: any) {
+        this.logger.error(
+          `Commission calculation failed for COD order ${order.id}: ${error.message}`,
+        );
+      }
+    }
 
     return order;
   }
