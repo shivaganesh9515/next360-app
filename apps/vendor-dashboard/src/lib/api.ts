@@ -153,11 +153,6 @@ export const vendorApi = {
   // Analytics
   getAnalytics: (period?: string) =>
     api.get<any>('/vendors/me/analytics', { period }),
-  getSalesAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/sales', { period }),
-  getRevenueAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/revenue', { period }),
-
   // Earnings
   getEarnings: () => api.get<any>('/vendors/me/earnings'),
   getPayouts: () => api.get<any[]>('/vendors/me/payouts'),
