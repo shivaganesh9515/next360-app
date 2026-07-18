@@ -18,4 +18,8 @@ export class CreateVendorDto {
   @IsOptional()
   @IsString()
   zoneId?: string;
+
+  @IsOptional()
+  @IsString()
+  razorpayAccountId?: string;
 }
