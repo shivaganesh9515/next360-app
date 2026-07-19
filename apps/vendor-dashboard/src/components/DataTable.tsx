@@ -14,7 +14,7 @@ import {
 
 interface Column<T> {
   key: string;
-  label: string;
+  label: React.ReactNode;
   sortable?: boolean;
   render?: (item: T) => React.ReactNode;
 }
