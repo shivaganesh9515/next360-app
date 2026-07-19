@@ -558,6 +558,86 @@ export class PaymentsService {
   }
 
   /**
+   * Process weekly payouts for delivery partners.
+   * Finds all completed deliveries in the given period that have NOT already been
+   * paid, groups by partner, and creates one Payout record per partner. Uses the
+   * DB-level unique constraint on (deliveryPartnerId, periodStart, periodEnd) for
+   * idempotency — rerunning with the same parameters is always safe.
+   */
+  async processDeliveryPartnerPayouts(periodStart?: string, periodEnd?: string) {
+    const end = periodEnd ? new Date(periodEnd) : new Date();
+    const start = periodStart
+      ? new Date(periodStart)
+      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const DELIVERY_FEE = 40;
+
+    const completedAssignments = await this.prisma.deliveryAssignment.findMany({
+      where: {
+        deliveredAt: { gte: start, lte: end },
+      },
+      select: {
+        id: true,
+        deliveryPartnerId: true,
+        deliveredAt: true,
+      },
+    });
+
+    if (completedAssignments.length === 0) {
+      return { processed: 0, partners: [], periodStart: start, periodEnd: end };
+    }
+
+    const partnerTotals = new Map<string, number>();
+    for (const a of completedAssignments) {
+      partnerTotals.set(
+        a.deliveryPartnerId,
+        (partnerTotals.get(a.deliveryPartnerId) || 0) + DELIVERY_FEE,
+      );
+    }
+
+    const results: { partnerId: string; amount: number; status: string }[] = [];
+
+    for (const [partnerId, totalAmount] of partnerTotals) {
+      try {
+        await this.prisma.payout.create({
+          data: {
+            deliveryPartnerId: partnerId,
+            amount: totalAmount,
+            status: 'PENDING',
+            periodStart: start,
+            periodEnd: end,
+          },
+        });
+        results.push({ partnerId, amount: totalAmount, status: 'CREATED' });
+        this.logger.log(
+          `Delivery payout created — partner: ${partnerId}, amount: ₹${totalAmount}, period: ${start.toISOString()} – ${end.toISOString()}`,
+        );
+      } catch (error: any) {
+        if (error?.code === 'P2002') {
+          results.push({ partnerId, amount: totalAmount, status: 'SKIPPED' });
+          this.logger.log(
+            `Delivery payout skipped — dedup constraint for partner ${partnerId}, period ${start.toISOString()} – ${end.toISOString()}`,
+          );
+        } else {
+          results.push({ partnerId, amount: totalAmount, status: 'FAILED' });
+          this.logger.error(
+            `Delivery payout DB write failed — partner: ${partnerId}, error: ${error?.message || error}`,
+          );
+        }
+      }
+    }
+
+    return {
+      processed: results.filter((r) => r.status === 'CREATED').length,
+      skipped: results.filter((r) => r.status === 'SKIPPED').length,
+      failed: results.filter((r) => r.status === 'FAILED').length,
+      partners: results,
+      periodStart: start,
+      periodEnd: end,
+    };
+  }
+
+  /**
    * Initiate a refund for a payment.
    */
   async initiateRefund(orderId: string, reason?: string) {

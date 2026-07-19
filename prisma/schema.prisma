@@ -430,6 +430,7 @@ model Payout {
   createdAt   DateTime @default(now())
 
   @@unique([orderId, vendorId])
+  @@unique([deliveryPartnerId, periodStart, periodEnd])
 }
 
 model Coupon {

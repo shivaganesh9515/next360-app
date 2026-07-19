@@ -40,6 +40,16 @@ export class PaymentQueryDto {
   limit?: number = 20;
 }
 
+export class ProcessDeliveryPayoutsDto {
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string;
+
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string;
+}
+
 export class VerifyPaymentDto {
   razorpayOrderId: string;
   razorpayPaymentId: string;

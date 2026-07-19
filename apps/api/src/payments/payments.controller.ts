@@ -21,6 +21,7 @@ import {
   VerifyPaymentDto,
   RazorpayWebhookDto,
   PaymentQueryDto,
+  ProcessDeliveryPayoutsDto,
 } from './dto/create-razorpay-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -100,6 +101,16 @@ export class PaymentsController {
   @Roles('ADMIN')
   listPayments(@Query() query: PaymentQueryDto) {
     return this.paymentsService.listPayments(query);
+  }
+
+  @Post('process-delivery-payouts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  processDeliveryPayouts(@Body() dto: ProcessDeliveryPayoutsDto) {
+    return this.paymentsService.processDeliveryPartnerPayouts(
+      dto.periodStart,
+      dto.periodEnd,
+    );
   }
 
   @Get(':orderId')
