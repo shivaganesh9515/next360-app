@@ -330,6 +330,7 @@ model Order {
   payments     Payment[]
   returnRequests ReturnRequest[]
   commissions    Commission[]
+  payouts      Payout[]
 }
 
 // One record per vendor per order — tracked and fulfilled independently (Swiggy/Zomato model)
@@ -419,12 +420,16 @@ model Payout {
   vendor      Vendor?  @relation(fields: [vendorId], references: [id])
   deliveryPartnerId String?
   deliveryPartner DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
   amount      Decimal  @db.Decimal(10, 2)
   status      String   @default("PENDING") // PENDING, PROCESSED, PAID, FAILED
   periodStart DateTime?
   periodEnd   DateTime?
   paidAt      DateTime?
   createdAt   DateTime @default(now())
+
+  @@unique([orderId, vendorId])
 }
 
 model Coupon {

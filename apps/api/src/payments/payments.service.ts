@@ -220,31 +220,6 @@ export class PaymentsService {
           return { received: true, status: 'captured', transfersSkipped: true };
         }
 
-        /*
-         * IDEMPOTENCY NOTE — SCHEMA LIMITATION
-         *
-         * Exact duplicate detection is impossible without an `orderId` column on the
-         * Payout model.  The current Payout schema stores only (vendorId, amount,
-         * status, createdAt) — there is no way to query "has this specific order's
-         * payout for this vendor already been created?"
-         *
-         * The 5-minute time-window heuristic below is the best available application-level
-         * check.  It protects against Razorpay's typical retry interval (seconds to
-         * minutes).  It does NOT protect against retries that arrive after the window
-         * expires, and it carries a small false-positive risk for consecutive orders
-         * from the same vendor with identical subtotals.
-         *
-         * To achieve exact idempotency the Payout model requires:
-         *   - an `orderId` column (to link payout → order)
-         *   - a unique constraint on `(orderId, vendorId)` (database-level dedup)
-         *
-         * Until that schema change lands, every webhook retry beyond the window will
-         * create a duplicate transfer and a duplicate Payout record.  This is an
-         * accepted risk tracked in the project risk register.
-         */
-        const DEDUP_WINDOW_MS = 5 * 60 * 1000;
-        const cutoff = new Date(Date.now() - DEDUP_WINDOW_MS);
-
         for (const group of fullOrder.vendorGroups) {
           const commission = fullOrder.commissions.find(
             (c: any) => c.vendorId === group.vendorId,
@@ -283,16 +258,17 @@ export class PaymentsService {
             continue;
           }
 
-          const existingPayout = await this.prisma.payout.findFirst({
+          const existingPayout = await this.prisma.payout.findUnique({
             where: {
-              vendorId: group.vendorId,
-              amount: payoutAmount,
-              createdAt: { gte: cutoff },
+              orderId_vendorId: {
+                orderId: order.id,
+                vendorId: group.vendorId,
+              },
             },
           });
           if (existingPayout) {
             this.logger.log(
-              `Skipping vendor ${group.vendorId} — dedup: existing Payout ${existingPayout.id} found within window for order ${order.id}`,
+              `Skipping vendor ${group.vendorId} — dedup: existing Payout ${existingPayout.id} found for order ${order.id}`,
             );
             continue;
           }
@@ -325,6 +301,7 @@ export class PaymentsService {
             await this.prisma.payout.create({
               data: {
                 vendorId: group.vendorId,
+                orderId: order.id,
                 amount: payoutAmount,
                 status: payoutStatus,
               },
@@ -333,6 +310,12 @@ export class PaymentsService {
               `Payout record created — vendor: ${group.vendorId}, order: ${order.id}, status: ${payoutStatus}`,
             );
           } catch (dbError: any) {
+            if (dbError?.code === 'P2002') {
+              this.logger.log(
+                `Payout skipped — duplicate constraint for vendor: ${group.vendorId}, order: ${order.id}`,
+              );
+              continue;
+            }
             this.logger.error(
               `Payout DB write failed — vendor: ${group.vendorId}, order: ${order.id}, error: ${dbError?.message || dbError}`,
             );
@@ -402,6 +385,97 @@ export class PaymentsService {
       where: { orderId },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * List all payments with filters and pagination (admin).
+   */
+  async listPayments(query: {
+    status?: string;
+    vendorId?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const where: any = {};
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.vendorId) {
+      where.order = {
+        vendorGroups: {
+          some: { vendorId: query.vendorId },
+        },
+      };
+    }
+
+    if (query.paymentMethod) {
+      where.order = {
+        ...where.order,
+        paymentMethod: query.paymentMethod,
+      };
+    }
+
+    if (query.startDate || query.endDate) {
+      where.createdAt = {};
+      if (query.startDate) {
+        where.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.createdAt.lte = new Date(query.endDate);
+      }
+    }
+
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.payment.findMany({
+        where,
+        include: {
+          order: {
+            select: {
+              id: true,
+              orderNo: true,
+              totalAmount: true,
+              paymentMethod: true,
+              paymentStatus: true,
+              status: true,
+              createdAt: true,
+              vendorGroups: {
+                select: {
+                  vendorId: true,
+                  subtotal: true,
+                  vendor: {
+                    select: {
+                      id: true,
+                      storeName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /**
