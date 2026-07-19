@@ -1,47 +1,150 @@
 # Mobile Dev — Customer App + Delivery App
 
-Area: `apps/customer-app` and `apps/delivery-app`. Expo React Native apps.
+> **Area**: `apps/customer-app/` + `apps/delivery-app/`
+> **Status**: In Progress
+> **Priority**: 🔴 P0 → 🟡 P2
 
-## Customer App
+---
 
-### Do Now (No Dependencies)
+## ✅ Already Completed
 
-- [x] **Fix CMS banner wiring** — add `getBanners()` to `customerApi` in `apps/customer-app/src/lib/api.ts`, call it on `HomeScreen`, replace `HERO_PLACEHOLDER_IMAGE` with real banners from backend. Backend endpoint `GET /cms/banners` already exists. **Done 2026-07-18.**
+### Customer App
+- [x] Splash → Onboarding (3 slides) → Phone OTP → Main app flow
+- [x] Google Login button (UI exists, backend OAuth verification pending)
+- [x] Home: Search dock, location popover, category swatches, curated rows, CMS banners
+- [x] Product card with vendor name + vendor storefront navigation
+- [x] Product detail bottom sheet (2 snap points)
+- [x] Cart: Multi-vendor grouping, quantity stepper, mini-cart bar, fly-to-cart animation
+- [x] Checkout: Address selection, coupon, payment method, order notes
+- [x] Orders: History, detail, tracking (map + timeline), cancellation, return
+- [x] Profile: Edit profile, addresses, wishlist, support, loyalty, referral, subscription
+- [x] AI screens: Chat, scanner, recommendations, health insights, history
+- [x] Search: Full filter modal (store type, category, price range, rating)
+- [x] CMS banners wired to backend (`getBanners()` from customerApi)
+- [x] AI screen colors fixed to use category theming
+- [x] Wishlist count badge in nav
+- [x] Telugu/English i18n (29 screens translated, language toggle in Profile)
+- [x] All popover animations fixed (no useSafeAreaInsets interpolation)
 
-- [x] **Fix AI screen hardcoded color** — all 5 AI screens (`AiAssistantScreen`, `AiProductScannerScreen`, `AiRecommendationsScreen`, `AiHealthInsightsScreen`, `AiChatHistoryScreen`) use hardcoded `#2A7A4B`. Replace with `getStoreAccent()` from `src/constants/theme.ts` to match the category theming system. **Done 2026-07-18.**
+### Delivery App
+- [x] Splash → Phone OTP → Vehicle/Zone setup → KYC
+- [x] Home: Online/offline toggle, today's stats
+- [x] New orders list with Accept/Reject
+- [x] Active delivery: Map-first, status strip, GPS tracking, OTP pickup, call customer
+- [x] Delivery complete: Proof photo, earnings summary
+- [x] Failed delivery: Reason selection modal, report to backend
+- [x] Earnings: Today/Week/Month tabs
+- [x] History: Completed deliveries list with stats
+- [x] Profile: Details, vehicle, documents, support, version info
+- [x] KYC document submission with image upload
+- [x] API envelope unwrap fix
+- [x] Notification listeners setup
 
-- [x] **Add wishlist count to nav bar** — expose wishlist count from context/store to the floating pill bottom nav bar as a badge. **Done 2026-07-18.**
+---
 
-- [x] **Telugu/English i18n** — install `i18next` + `react-i18next`, create translation files (`en.json`, `te.json`), add language context/provider, add toggle in Profile/Settings screen, wrap all hardcoded strings across ~30 screens. ~200+ strings to extract and translate. **Done 2026-07-18.**
+## 🔴 P0 — Must Do
 
-### Blocked on Backend
+### 1. Google Login — Wire Backend OAuth Verification
+**Files**: `apps/customer-app/src/screens/auth/PhoneAuthScreen.tsx`, `apps/api/src/auth/auth.controller.ts`, `auth.service.ts`
+**What**:
+- **Frontend**: Already has "Continue with Google" button UI
+- **Backend**: Need `POST /auth/google-login` endpoint that:
+  - Receives `{ idToken: string }` from client
+  - Verifies token with Google's OAuth2 API
+  - Extracts email/name from verified token
+  - Upserts user (find by email or create)
+  - Returns JWT token
+- Install `google-auth-library` in backend
+- Wire the button to actually call the backend endpoint
 
-- [ ] **Loyalty/tier screen** — new screen with 8 tree-growth stages (Seed → Seedling → Sapling → Plant → Young Tree → Tree → Mature Tree → Forest), tier badge, progress bar. Blocked on: backend loyalty endpoints (Srinitha task #20).
+### 2. Delivery Slot at Checkout
+**Files**: `prisma/schema.prisma`, `apps/api/src/delivery-slot/` (new module), `apps/customer-app/src/screens/cart/CheckoutScreen.tsx`
+**What**:
+- New `DeliverySlotConfig` model: `zoneId, dayOfWeek, startTime, endTime, maxOrders, isActive`
+- New `DeliverySlotBooking` model: `orderVendorGroupId, slotConfigId, date, timeRange`
+- `GET /delivery-slots?zoneId=` — get available slots
+- DeliverySlotPicker component in checkout
+- Pass `deliverySlotId` in `createOrder` call
+- **Without this**: Customer has no ETA promise at checkout
 
-- [ ] **Test all screens end-to-end** — walk through every screen against live backend, document what breaks. Do after tasks 1-4 are done.
+### 3. Wire Order Status Push Notifications
+**Files**: `apps/api/src/notifications/notifications.service.ts`, `apps/customer-app/src/lib/notifications.ts`
+**What**:
+- Verify `sendOrderStatusNotification()` fires at EVERY status transition
+- Customer app notification handler registers token on login
+- Create in-app notification list screen (NotificationScreen) with:
+  - Time-ordered list of notifications
+  - Unread indicator (dot)
+  - Tap to mark as read
+  - Tap notification → navigate to relevant screen (order detail for order notifications)
+- Add notification preferences (which events to push)
 
-## Delivery App
+---
 
-### Do Now (No Dependencies)
+## 🟠 P1 — Should Do
 
-- [x] **Fix envelope unwrap bug** — `apps/delivery-app/src/lib/api.ts` line 39 returns raw `response.json()` without unwrapping the `{success, data, meta}` envelope. Add the same unwrap logic the other 3 apps have. This is a 5-minute fix that unblocks everything else. **Done 2026-07-18.**
+### 4. Loyalty/Tier Screen
+**Files**: New screens in `apps/customer-app/src/screens/loyalty/`, `apps/api/src/loyalty/` (new module)
+**What**:
+- **Blocked on**: Backend loyalty endpoints (currently unassigned)
+- 8-tier tree growth: Seed → Seedling → Sapling → Plant → Young Tree → Tree → Mature Tree → Forest
+- Points based on order value, progress bar showing next tier
+- Tier badge on profile
 
-- [x] **Test KYC submission flow** — built `kyc-documents.tsx` screen with document type picker, number input, image upload, status display. Backend `POST /kyc/submit` and `GET /kyc/status` already exist. Added `getKycStatus()` and `submitKyc()` to `deliveryApi`. Wired profile "Documents" menu item to navigate to screen. **Done 2026-07-18.**
+### 5. Cart Validation Enhancement
+**Files**: Checkout screen
+**What**:
+- Validate stock levels before creating order
+- Show warning if items are out of stock
+- Auto-remove unavailable items
 
-### Blocked on Backend
+### 6. Empty/Error/Loading States
+**Files**: All screens
+**What**:
+- Systematic audit: every screen needs loading, empty, error states
+- Skeleton loaders (not just spinners)
+- Helpful empty messages with CTAs
+- Retry buttons on errors
 
-- [ ] **Test vehicle setup flow** — screen exists at `vehicle-setup.tsx`. Blocked on: backend `POST /delivery-partners/setup` (Srinitha task #11).
+---
 
-- [ ] **Test incoming assignment modal** — `IncomingAssignmentModal.tsx` exists. Blocked on: backend delivery assignment pipeline (Srinitha task #1) + realtime table name fix (Srinitha task #2).
+## 🟡 P2 — Nice to Have
 
-- [ ] **Test active delivery flow** — `delivery/[id].tsx` exists (OTP verify, location push, mark delivered). Blocked on: backend delivery assignment pipeline (Srinitha task #1).
+### 7. Reorder Feature
+**Files**: Order history screen
+**What**: One-tap repeat of previous order
 
-- [ ] **Test earnings page** — `earnings.tsx` calls `GET /delivery/earnings` which doesn't exist. Blocked on: backend delivery earnings endpoint (Srinitha task #8).
+### 8. Referral Program
+**Files**: New screens + new API module
+**What**: Share referral code, get credit on referred orders
 
-- [x] **Test history page** — `history.tsx` exists. Calls `GET /orders?status=DELIVERED` via `deliveryApi.getDeliveryHistory()`. No backend dependency, screen is fully functional with filters, stats, and order cards. **Done 2026-07-18.**
+### 9. In-App Chat (Customer ↔ Vendor)
+**Files**: New chat module + screens
+**What**: Real-time messaging on each OrderVendorGroup
+
+### 10. Restock Notification
+**Files**: Product detail screen
+**What**: "Notify me when back in stock" button on out-of-stock products
+
+---
+
+## Implementation Order (Customer App)
+1. Google Login backend integration (high visibility)
+2. Delivery Slot at checkout (operational necessity)
+3. Wire push notifications end-to-end
+4. Cart validation enhancement
+5. Empty/error/loading states audit
+
+## Implementation Order (Delivery App)
+1. Already mostly complete — test against live backend
+2. Fix any issues found during E2E testing
+3. Verify earnings/history screens with real data (depends on Srinitha's backend)
+
+---
 
 ## Reference
-
-- Screen inventory: root `CLAUDE.md` → "Customer App — UI/UX Decisions" and "Delivery Partner App — UI/UX Decisions"
 - Design tokens: `apps/customer-app/src/constants/theme.ts`
-- API patterns: `apps/customer-app/src/lib/api.ts`, `apps/delivery-app/src/lib/api.ts`
+- API pattern: `apps/customer-app/src/lib/api.ts`
+- Auth flow: `apps/customer-app/src/lib/auth.ts`
+- i18n: `apps/customer-app/src/i18n/`
+- Delivery app API: `apps/delivery-app/src/lib/api.ts`
