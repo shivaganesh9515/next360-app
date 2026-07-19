@@ -34,9 +34,13 @@ import AddressListScreen from '../screens/profile/AddressListScreen';
 import AddAddressScreen from '../screens/profile/AddAddressScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
+import LoyaltyScreen from '../screens/profile/LoyaltyScreen';
+import ReferralScreen from '../screens/profile/ReferralScreen';
+import SubscriptionScreen from '../screens/profile/SubscriptionScreen';
 import WishlistScreen from '../screens/wishlist/WishlistScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import PromosScreen from '../screens/promos/PromosScreen';
+import VendorStorefrontScreen from '../screens/vendor/VendorStorefrontScreen';
 import SelectLocationScreen from '../screens/location/SelectLocationScreen';
 import AiAssistantScreen from '../screens/ai/AiAssistantScreen';
 import AiProductScannerScreen from '../screens/ai/AiProductScannerScreen';
@@ -323,9 +327,16 @@ function HomeStackNavigator() {
         headerTintColor: Colors.organic,
         headerTitleStyle: { fontFamily: 'Inter_600SemiBold', fontSize: 16 },
         headerShadowVisible: false,
+        // Fade-through for modal screens (Cart, Checkout, AI) — keeps
+        // the contextual feel of staying within the same tab instead of
+        // a push transition that suggests moving to a different section.
+        animation: 'slide_from_bottom',
+        gestureEnabled: true,
+        gestureDirection: 'vertical',
       }}
     >
       <HomeStack.Screen name="Storefront"    component={HomeScreen}           options={{ headerShown: false }} />
+      <HomeStack.Screen name="VendorStorefront" component={VendorStorefrontScreen} options={{ headerShown: false }} />
       <HomeStack.Screen name="Search"        component={SearchScreen}         options={{ headerShown: false }} />
       <HomeStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
       <HomeStack.Screen name="Cart" component={CartScreen} options={{ title: 'Cart' }} />
@@ -359,6 +370,12 @@ function ProfileStackNavigator() {
         headerTintColor: Colors.organic,
         headerTitleStyle: { fontFamily: 'Inter_600SemiBold', fontSize: 16 },
         headerShadowVisible: false,
+        // Smooth slide-up with scale for modal-like profile screens —
+        // the pushed screen rises from the bottom with a subtle shrink,
+        // creating depth without disorienting the user.
+        gestureEnabled: true,
+        gestureDirection: 'vertical',
+        animation: 'slide_from_bottom',
       }}
     >
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
@@ -371,6 +388,9 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Support" component={SupportScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Promos" component={PromosScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Loyalty" component={LoyaltyScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Referral" component={ReferralScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Subscription" component={SubscriptionScreen} options={{ headerShown: false }} />
     </ProfileStack.Navigator>
   );
 }
@@ -421,7 +441,14 @@ export default function AppNavigator() {
   }
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+    <RootStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Fade transition for auth <-> main switch — avoids a jarring
+        // cut between the two entirely different screen trees.
+        animation: 'fade',
+      }}
+    >
       {isAuthenticated ? (
         <>
           <RootStack.Screen name="Main" component={MainTabs} />

@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
 
 function generateOtp(): string {
@@ -13,7 +15,12 @@ function generateOtp(): string {
 
 @Injectable()
 export class DeliveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(DeliveryService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   /**
    * Resolve the DeliveryPartner record from the authenticated user ID.
@@ -93,10 +100,13 @@ export class DeliveryService {
 
     // Find vendor groups that:
     // 1. Belong to a vendor in the same zone as the delivery partner
-    // 2. Are in CONFIRMED or PACKED status (ready for pickup)
+    // 2. Are in READY_FOR_PICKUP status (vendor has explicitly marked it ready)
     // 3. Have no DeliveryAssignment yet
+    // Previously also checked CONFIRMED and PACKED — now only READY_FOR_PICKUP
+    // ensures the vendor has explicitly signalled readiness before a DP can
+    // claim the order (the vendor marks PACKED → READY_FOR_PICKUP first).
     const where = {
-      status: { in: [OrderStatus.CONFIRMED, OrderStatus.PACKED] },
+      status: { in: [OrderStatus.READY_FOR_PICKUP] },
       vendor: { zoneId: partner.zoneId },
       delivery: null,
     };
@@ -432,13 +442,12 @@ export class DeliveryService {
     }
 
     // Find the first vendor group that:
-    // 1. Is in a confirmable status (CONFIRMED or PACKED)
+    // 1. Is in READY_FOR_PICKUP status (vendor has explicitly marked it)
     // 2. Belongs to a vendor in the partner's zone
     // 3. Has no existing DeliveryAssignment
     const eligibleGroup = order.vendorGroups.find(
       (g: any) =>
-        (g.status === OrderStatus.CONFIRMED ||
-          g.status === OrderStatus.PACKED) &&
+        g.status === OrderStatus.READY_FOR_PICKUP &&
         g.vendor.zoneId === partner.zoneId &&
         !g.delivery,
     );
@@ -700,6 +709,16 @@ export class DeliveryService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Validate vendor group is in PICKED_UP status before marking delivered
+      const group = await tx.orderVendorGroup.findUnique({
+        where: { id: assignment.orderVendorGroupId },
+      });
+      if (group?.status !== OrderStatus.PICKED_UP) {
+        throw new BadRequestException(
+          `Cannot deliver: vendor group is in ${group?.status} status, expected ${OrderStatus.PICKED_UP}`,
+        );
+      }
+
       const a = await tx.deliveryAssignment.update({
         where: { id: assignment.id },
         data: { deliveredAt: new Date() },
@@ -707,8 +726,29 @@ export class DeliveryService {
 
       await tx.orderVendorGroup.update({
         where: { id: assignment.orderVendorGroupId },
-        data: { status: OrderStatus.OUT_FOR_DELIVERY },
+        data: { status: OrderStatus.DELIVERED },
       });
+
+      // Check if ALL vendor groups in the order are delivered → update
+      // the order-level status to DELIVERED and paymentStatus to PAID
+      // (for COD).  Razorpay orders already have paymentStatus = PAID
+      // from the payment capture webhook.
+      const allGroups = await tx.orderVendorGroup.findMany({
+        where: { orderId },
+        select: { status: true },
+      });
+      const allDelivered = allGroups.every(
+        (g: any) => g.status === OrderStatus.DELIVERED,
+      );
+      if (allDelivered) {
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: OrderStatus.DELIVERED,
+            paymentStatus: 'PAID',
+          },
+        });
+      }
 
       // Check if partner has more active deliveries
       const activeCount = await tx.deliveryAssignment.count({
@@ -728,9 +768,234 @@ export class DeliveryService {
       return a;
     });
 
+    // Send delivery complete notification to the delivery partner
+    try {
+      await this.notificationsService.sendDeliveryCompletedNotification(
+        partner.userId,
+        orderId,
+      );
+    } catch (error: any) {
+      this.logger.error(`Delivery complete notification failed: ${error.message}`);
+    }
+
+    // Send order delivered notification to the customer
+    try {
+      await this.notificationsService.sendOrderStatusNotification(
+        orderId,
+        'DELIVERED',
+        order.userId,
+      );
+    } catch (error: any) {
+      this.logger.error(`Order delivered notification failed: ${error.message}`);
+    }
+
     return {
       message: 'Delivery completed',
       deliveredAt: updated.deliveredAt,
     };
+  }
+
+  /**
+   * POST /delivery/failure
+   * Report a failed delivery attempt (customer unavailable, wrong address, etc.).
+   * Records the failure reason, releases the assignment, and reverts the vendor
+   * group status so it can be reassigned. The admin reviews the failure record
+   * and decides next steps.
+   */
+  async reportFailure(
+    userId: string,
+    orderId: string,
+    reason: string,
+    details?: string,
+  ) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { vendorGroups: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const vendorGroupIds = order.vendorGroups.map((g: any) => g.id);
+
+    const assignment = await this.prisma.deliveryAssignment.findFirst({
+      where: {
+        orderVendorGroupId: { in: vendorGroupIds },
+        deliveryPartnerId: partner.id,
+        deliveredAt: null,
+      },
+    });
+    if (!assignment) {
+      throw new NotFoundException('No active delivery assignment found');
+    }
+
+    // Create failure record, release assignment, revert status — in a transaction
+    await this.prisma.$transaction(async (tx) => {
+      await tx.deliveryFailure.create({
+        data: {
+          deliveryAssignmentId: assignment.id,
+          reason,
+          details: details || null,
+        },
+      });
+
+      // Release the assignment
+      await tx.deliveryAssignment.delete({
+        where: { id: assignment.id },
+      });
+
+      // Revert vendor group to READY_FOR_PICKUP so it can be reassigned
+      await tx.orderVendorGroup.update({
+        where: { id: assignment.orderVendorGroupId },
+        data: { status: OrderStatus.READY_FOR_PICKUP },
+      });
+
+      // Mark partner available if no other active deliveries
+      const activeCount = await tx.deliveryAssignment.count({
+        where: {
+          deliveryPartnerId: partner.id,
+          deliveredAt: null,
+        },
+      });
+      if (activeCount <= 1) {
+        await tx.deliveryPartner.update({
+          where: { id: partner.id },
+          data: { status: DeliveryPartnerStatus.AVAILABLE },
+        });
+      }
+    });
+
+    return { message: 'Delivery failure reported', reason };
+  }
+
+  /**
+   * GET /delivery/earnings
+   * Calculate earnings for a delivery partner, optionally filtered by period.
+   * Period: 'today' | 'week' | 'month' | 'all' (default)
+   */
+  async getEarnings(userId: string, period?: string) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const now = new Date();
+    let dateFilter: Date | null = null;
+
+    switch (period) {
+      case 'today':
+        dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week': {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        dateFilter = weekStart;
+        break;
+      }
+      case 'month':
+        dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      default:
+        // 'all' or any other value — no date filter, include all time
+        break;
+    }
+
+    const where: any = {
+      deliveryPartnerId: partner.id,
+      deliveredAt: { not: null },
+    };
+    if (dateFilter) {
+      where.deliveredAt = { gte: dateFilter };
+    }
+
+    const completedDeliveries = await this.prisma.deliveryAssignment.findMany({
+      where,
+      include: {
+        orderVendorGroup: {
+          select: {
+            id: true,
+            items: true,
+          },
+        },
+      },
+    });
+
+    const totalEarnings = completedDeliveries.reduce((sum, a) => {
+      const earnings = a.orderVendorGroup.items.reduce(
+        (itemSum, item: any) =>
+          itemSum + Number(item.priceAtPurchase) * item.quantity,
+        0,
+      );
+      return sum + earnings;
+    }, 0);
+
+    const deliveryFeeEarnings = completedDeliveries.length * 40; // ₹40 per delivery
+
+    return {
+      earnings: totalEarnings + deliveryFeeEarnings,
+      deliveryFeeEarnings,
+      totalDeliveries: completedDeliveries.length,
+      period: period || 'all',
+    };
+  }
+
+  /**
+   * POST /delivery/setup
+   * Set up a delivery partner profile for the first time.
+   * Creates a DeliveryPartner record linked to the authenticated user.
+   */
+  async setupPartner(userId: string, vehicleType: string, zoneName: string) {
+    // Check if partner already has a profile
+    const existing = await this.prisma.deliveryPartner.findUnique({
+      where: { userId },
+      include: { zone: { select: { id: true, name: true } } },
+    });
+    if (existing) {
+      // If zone name changed, look up the new zone
+      let zoneId = existing.zoneId;
+      if (zoneName && (existing.zone?.name !== zoneName)) {
+        const newZone = await this.prisma.zone.findFirst({
+          where: { name: { equals: zoneName, mode: 'insensitive' }, isActive: true },
+        });
+        if (!newZone) {
+          throw new NotFoundException(
+            `Zone "${zoneName}" not found. Available zones: Hyderabad, Vijayawada`,
+          );
+        }
+        zoneId = newZone.id;
+      }
+      // Update existing profile instead
+      return this.prisma.deliveryPartner.update({
+        where: { id: existing.id },
+        data: { vehicleType, zoneId },
+        select: {
+          id: true,
+          vehicleType: true,
+          status: true,
+        },
+      });
+    }
+
+    // Find the zone by name
+    const zone = await this.prisma.zone.findFirst({
+      where: { name: { equals: zoneName, mode: 'insensitive' }, isActive: true },
+    });
+
+    if (!zone) {
+      throw new NotFoundException(
+        `Zone "${zoneName}" not found. Available zones: Hyderabad, Vijayawada`,
+      );
+    }
+
+    // Create the delivery partner profile
+    return this.prisma.deliveryPartner.create({
+      data: {
+        userId,
+        vehicleType,
+        zoneId: zone.id,
+        status: DeliveryPartnerStatus.OFFLINE,
+      },
+      include: {
+        zone: { select: { id: true, name: true, city: true } },
+      },
+    });
   }
 }

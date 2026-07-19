@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from '../commission/commission.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateRazorpayOrderDto,
   VerifyPaymentDto,
@@ -26,6 +27,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commissionService: CommissionService,
+    private readonly notificationsService: NotificationsService,
   ) {
     if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
       const Razorpay = require('razorpay');
@@ -138,6 +140,17 @@ export class PaymentsService {
         data: { paymentStatus: 'PAID' },
       }),
     ]);
+
+    // Send payment success notification
+    try {
+      await this.notificationsService.sendPaymentSuccessNotification(
+        order.userId,
+        order.id,
+        Number(order.totalAmount),
+      );
+    } catch (error: any) {
+      this.logger.error(`Payment success notification failed: ${error.message}`);
+    }
 
     return { success: true, message: 'Payment verified successfully' };
   }
@@ -333,6 +346,10 @@ export class PaymentsService {
         const failedPayment = webhookDto.payload.payment?.entity;
         if (!failedPayment) throw new BadRequestException('Invalid webhook payload');
 
+        const failedOrder = await this.prisma.order.findFirst({
+          where: { razorpayOrderId: failedPayment.order_id },
+        });
+
         await this.prisma.payment.updateMany({
           where: { razorpayOrderId: failedPayment.order_id },
           data: { status: 'FAILED' },
@@ -342,6 +359,27 @@ export class PaymentsService {
           where: { razorpayOrderId: failedPayment.order_id },
           data: { paymentStatus: 'FAILED' },
         });
+
+        if (failedOrder) {
+          try {
+            await this.notificationsService.sendPaymentFailedNotification(
+              failedOrder.userId,
+              failedOrder.id,
+              failedPayment.error_description || failedPayment.error_reason || 'Payment declined',
+            );
+          } catch (error: any) {
+            this.logger.error(`Payment failed notification error: ${error.message}`);
+          }
+
+          try {
+            await this.notificationsService.sendAdminPaymentFailedAlert(
+              failedOrder.id,
+              failedPayment.error_description || failedPayment.error_reason || 'Payment declined',
+            );
+          } catch (error: any) {
+            this.logger.error(`Admin payment failure alert error: ${error.message}`);
+          }
+        }
 
         return { received: true, status: 'failed' };
       }
@@ -403,6 +441,17 @@ export class PaymentsService {
         data: { paymentStatus: 'REFUNDED', status: 'REFUNDED' },
       }),
     ]);
+
+    // Send refund notification to customer
+    try {
+      await this.notificationsService.sendRefundCompletedNotification(
+        order.userId,
+        orderId,
+        Number(order.totalAmount),
+      );
+    } catch (error: any) {
+      this.logger.error(`Refund notification failed: ${error.message}`);
+    }
 
     return { success: true, message: 'Refund processed successfully' };
   }

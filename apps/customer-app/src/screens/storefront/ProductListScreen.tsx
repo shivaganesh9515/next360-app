@@ -151,6 +151,10 @@ export default function ProductListScreen() {
     openProduct(product.id);
   };
 
+  const handleVendorPress = (vendorId: string, vendorName: string) => {
+    navigation.navigate('Home', { screen: 'VendorStorefront', params: { vendorId, vendorName } });
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Sort bar */}
@@ -295,6 +299,7 @@ export default function ProductListScreen() {
                     product={item}
                     onPress={handleProductPress}
                     onQuickAdd={handleQuickAdd}
+                    onVendorPress={handleVendorPress}
                     cardWidth={CARD_WIDTH}
                   />
                 </StaggerFadeIn>

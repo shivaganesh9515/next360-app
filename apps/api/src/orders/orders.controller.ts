@@ -143,4 +143,14 @@ export class OrdersController {
   ) {
     return this.deliveryService.verifyPickup(userId, id, dto.otp);
   }
+
+  @Post(':id/deliver')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  completeDelivery(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.completeDelivery(userId, id);
+  }
 }

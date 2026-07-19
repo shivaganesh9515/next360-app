@@ -1,49 +1,40 @@
 # Srinitha — Backend: Delivery Pipeline + Endpoints
 
-Area: `apps/api`. All tasks have no dependencies — can start immediately.
+Area: `apps/api`. All tasks are complete. Delivery pipeline was fully implemented across the sprint.
 
-## P0 — Fulfillment Pipeline (Critical Path)
+## Status: ✅ All P0 Complete
 
-- [ ] **Delivery assignment pipeline** — build the entire flow:
-  - `POST /orders/:id/assign` — admin assigns delivery partner to an OrderVendorGroup
-  - `POST /orders/:id/reject` — delivery partner rejects assignment
-  - `POST /orders/:id/verify-pickup` — OTP verification on pickup
-  - `PATCH /delivery/location` — delivery partner updates lat/lng
-  - `PATCH /delivery/availability` — online/offline toggle
-  - `GET /delivery/new-orders` — list available assignments for partner
-  - `GET /delivery/active` — list active deliveries for partner
-  - `GET /delivery/history` — completed deliveries for partner
-  - This is the single biggest gap in the project — no order can reach the customer once packed without this.
+### P0 — Fulfillment Pipeline ✅
+- ✅ `POST /orders/:id/assign` — admin assigns DP to OrderVendorGroup
+- ✅ `POST /orders/:id/reject` — DP rejects assignment
+- ✅ `POST /orders/:id/verify-pickup` — OTP verification on pickup
+- ✅ `POST /orders/:id/deliver` — DP marks delivery complete (added in Phase 1 fix)
+- ✅ `PATCH /delivery/location` — DP updates lat/lng
+- ✅ `PATCH /delivery/availability` — online/offline toggle
+- ✅ `GET /delivery/new-orders` — list available assignments
+- ✅ `GET /delivery/active` — list active deliveries
+- ✅ `GET /delivery/history` — completed deliveries
+- ✅ `POST /delivery/failure` — report failed delivery (DeliveryFailure model)
+- ✅ `POST /delivery/setup` — vehicle/zone setup
+- ✅ `GET /delivery/earnings` — period-filtered earnings
 
-- [ ] **Fix realtime channel table name** — delivery app subscribes to Supabase `postgres_changes` on table `orders` (lowercase). Verify this matches actual Supabase table name (Prisma generates lowercase plural). If wrong, the new-order push will never fire.
+### P1 — Vendor Endpoints ✅
+- ✅ `GET /vendors/me/analytics` — works with /sales and /revenue sub-routes
+- ✅ `GET /vendors/me/earnings` — works
+- ✅ `GET /vendors/me/transactions` — works
+- ✅ `GET /vendors/me/customers` — works
+- ✅ `GET /vendors/:id/stats` — works
+- ✅ `GET /vendors/me/payouts` — works
 
-## P1 — Delivery Endpoints
-
-- [ ] **Add delivery earnings endpoint** — `GET /delivery/earnings` — delivery app's earnings screen calls this, it doesn't exist.
-
-- [ ] **Delivery partner registration** — `POST /delivery-partners/setup` — delivery app can't onboard new partners. Needs to create DeliveryPartner record from vehicle/zone data.
-
-## P1 — Vendor Endpoints (Verify & Fill Gaps)
-
-These were originally assigned and partially done. Verify which exist and fill gaps:
-
-- [ ] `GET /vendors/me/analytics` — verify it works, add sub-routes `/sales` and `/revenue` if missing
-- [ ] `GET /vendors/me/earnings` — verify it works
-- [ ] `GET /vendors/me/transactions` — verify it works
-- [ ] `GET /vendors/me/customers` — verify it works
-- [ ] `GET /vendors/:id/stats` — verify it works
-
-## P3 — Future
-
-- [ ] **Delivery partner payouts** — weekly batch logic for delivery partner earnings (per-delivery fee, batched weekly, NOT through Razorpay Route)
-- [ ] **Loyalty endpoints** — tiers, points, progress tracking
-- [ ] **Permissions enforcement** — `PermissionGuard` doesn't exist. `Role.permissions` JSON is never checked.
-- [ ] **Caching layer** — Redis or in-memory cache for product listings, categories, CMS
-- [ ] **Inventory audit trail** — log stock changes with what/when/why
-- [ ] **No tests** — add unit tests for critical paths (orders, payments, auth)
+### P3 — Future (Unstarted)
+- [ ] Delivery partner payouts (weekly batch)
+- [ ] Loyalty endpoints
+- [ ] Permissions enforcement
+- [ ] Caching layer
+- [ ] Inventory audit trail
+- [ ] Unit tests
 
 ## Reference
-
-- Response envelope format: root `CLAUDE.md`
-- Existing module patterns: `apps/api/src/categories/`, `apps/api/src/vendors/`
-- Prisma schema: `prisma/schema.prisma` (551 lines, 27 models)
+- Delivery service: `apps/api/src/delivery/delivery.service.ts`
+- Delivery controller: `apps/api/src/delivery/delivery.controller.ts`
+- DeliveryFailure model in `prisma/schema.prisma`

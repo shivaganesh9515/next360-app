@@ -46,4 +46,7 @@ export class CreateProductDto {
 
   @IsOptional()
   isActive?: boolean;
+
+  @IsOptional()
+  isApproved?: boolean;
 }

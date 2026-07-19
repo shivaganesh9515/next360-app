@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReturnDto, ProcessReturnDto } from './dto/return.dto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class ReturnsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, dto: CreateReturnDto) {
@@ -38,7 +40,7 @@ export class ReturnsService {
       throw new BadRequestException('Return request already exists for this order');
     }
 
-    return this.prisma.returnRequest.create({
+    const returnRequest = await this.prisma.returnRequest.create({
       data: {
         orderId: dto.orderId,
         userId,
@@ -47,6 +49,15 @@ export class ReturnsService {
       },
       include: { order: true },
     });
+
+    // Notify customer that refund has been initiated
+    try {
+      await this.notificationsService.sendRefundInitiatedNotification(userId, dto.orderId);
+    } catch (error: any) {
+      this.logger.error(`Refund initiated notification failed: ${error.message}`);
+    }
+
+    return returnRequest;
   }
 
   async findAll(userId: string, role: string) {
@@ -143,12 +154,28 @@ export class ReturnsService {
       }
     }
 
-    return this.prisma.returnRequest.update({
+    const updated = await this.prisma.returnRequest.update({
       where: { id },
       data: {
         status: dto.status,
         refundAmount,
       },
     });
+
+    // Send notifications based on status change
+    try {
+      if (dto.status === 'APPROVED') {          await this.notificationsService.sendRefundInitiatedNotification(ret.userId, ret.orderId);
+      } else if (dto.status === 'REFUNDED' as string) {
+        await this.notificationsService.sendRefundCompletedNotification(
+          ret.userId,
+          ret.orderId,
+          Number(refundAmount),
+        );
+      }
+    } catch (error: any) {
+      this.logger.error(`Return status notification failed: ${error.message}`);
+    }
+
+    return updated;
   }
 }

@@ -68,11 +68,9 @@ export default function KycDocumentsScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
     });
 
     if (result.canceled || !result.assets?.[0]) return;
@@ -115,11 +113,13 @@ export default function KycDocumentsScreen() {
 
     setSubmitting(true);
     try {
-      await deliveryApi.submitKyc({
-        documentType,
-        documentNumber: documentNumber || undefined,
-        documentUrl: documentUrl || undefined,
-      });
+      await deliveryApi.submitKycDocuments([
+        {
+          documentType,
+          documentNumber: documentNumber || undefined,
+          documentUrl: documentUrl || '',
+        },
+      ]);
       Alert.alert('Submitted', 'Your documents have been submitted for review.', [
         { text: 'OK', onPress: loadKycStatus },
       ]);

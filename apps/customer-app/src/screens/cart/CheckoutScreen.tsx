@@ -17,13 +17,9 @@ const SLIDE_THRESHOLD = 0.85;
 // only alternative) isn't live yet.
 const COD_CAP = 2000;
 
-// RAZORPAY is shown but disabled — there's no real payment collection wired
-// up yet (no SDK, no live order/webhook endpoint). Selecting it silently
-// created a "paid" order that collected zero money, so it's marked
-// Coming Soon here rather than left selectable and misleading.
 const PAYMENT_OPTIONS = [
   { key: 'COD' as const, labelKey: 'checkout.payment.cod', icon: 'cash-outline' as const, comingSoon: false },
-  { key: 'RAZORPAY' as const, labelKey: 'checkout.payment.razorpay', icon: 'card-outline' as const, comingSoon: true },
+  { key: 'RAZORPAY' as const, labelKey: 'checkout.payment.razorpay', icon: 'card-outline' as const, comingSoon: false },
 ];
 
 export default function CheckoutScreen({ navigation }: any) {
@@ -31,7 +27,7 @@ export default function CheckoutScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { cartItems, subtotal, clearCart } = useStore();
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
-  const [paymentMethod] = useState<'COD'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY'>('COD');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -198,8 +194,44 @@ export default function CheckoutScreen({ navigation }: any) {
       };
 
       const result = await customerApi.createOrder(orderData);
+      const orderId = result?.id || result?.data?.id;
+
+      // For Razorpay, open the checkout flow after order creation
+      if (paymentMethod === 'RAZORPAY') {
+        try {
+          // Get Razorpay order from backend
+          const razorpayOrder = await customerApi.createRazorpayOrder(orderId);
+
+          // Dynamically import react-native-razorpay
+          const RazorpayCheckout = require('react-native-razorpay');
+
+          const paymentResult = await RazorpayCheckout.open({
+            key: razorpayOrder.key,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            order_id: razorpayOrder.order_id,
+            name: 'Next360',
+            description: `Order ${razorpayOrder.receipt || orderId.slice(0, 8).toUpperCase()}`,
+            prefill: {},
+            theme: { color: '#5C6B4D' },
+          });
+
+          // Verify payment on backend
+          await customerApi.verifyPayment({
+            razorpayOrderId: razorpayOrder.order_id,
+            razorpayPaymentId: paymentResult.razorpay_payment_id,
+            razorpaySignature: paymentResult.razorpay_signature,
+          });
+        } catch (razorpayError: any) {
+          // Payment was cancelled or failed — don't clear cart, let user retry
+          const msg = razorpayError?.message || 'Payment was cancelled or failed';
+          Alert.alert('Payment Failed', msg);
+          return false;
+        }
+      }
+
       await clearCart();
-      navigation.replace('OrderConfirmation', { orderId: result?.id || result?.data?.id });
+      navigation.replace('OrderConfirmation', { orderId });
       return true;
     } catch (error: any) {
       Alert.alert(t('checkout.alert.orderFailed.title'), error.message || t('checkout.alert.orderFailed.message'));
@@ -298,6 +330,7 @@ export default function CheckoutScreen({ navigation }: any) {
                   active && styles.paymentOptionActive,
                   opt.comingSoon && styles.paymentOptionDisabled,
                 ]}
+                onPress={() => !opt.comingSoon && setPaymentMethod(opt.key)}
                 disabled={opt.comingSoon}
                 activeOpacity={opt.comingSoon ? 1 : 0.7}
               >

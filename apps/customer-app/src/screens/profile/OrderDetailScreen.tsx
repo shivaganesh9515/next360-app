@@ -192,6 +192,21 @@ export default function OrderDetailScreen({ navigation, route }: any) {
     }
   };
 
+  const handleReorder = async () => {
+    try {
+      // Add all items from the order back to the cart
+      for (const group of order.vendorGroups || []) {
+        for (const item of group.items || []) {
+          await customerApi.addToCart(item.productId || item.product?.id, item.quantity);
+        }
+      }
+      Alert.alert(t('orderDetail.reorderAdded'), t('orderDetail.reorderAddedMessage'));
+      navigation.navigate('Main', { screen: 'Cart' });
+    } catch (err: any) {
+      Alert.alert(t('common.error'), err.message || t('common.pleaseTryAgain'));
+    }
+  };
+
   const handleRequestReturn = async (reason: string) => {
     if (!returnTargetItem) return;
     setSubmittingReturn(true);
@@ -299,6 +314,14 @@ export default function OrderDetailScreen({ navigation, route }: any) {
         {CANCELLABLE_STATUSES.includes(order.status) && (
           <TouchableOpacity style={s.cancelBtn} onPress={() => setCancelModalVisible(true)}>
             <Text style={s.cancelBtnText}>{t('orderDetail.cancelOrder')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Reorder — 1-tap repeat for delivered orders, per Swiggy/Zomato pattern */}
+        {order.status === 'DELIVERED' && (
+          <TouchableOpacity style={s.reorderBtn} onPress={() => handleReorder()}>
+            <Ionicons name="repeat" size={16} color={Colors.organic} />
+            <Text style={s.reorderBtnText}>{t('orderDetail.reorder')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -544,6 +567,13 @@ const s = StyleSheet.create({
     borderRadius: BorderRadius.pill, borderWidth: 1.5, borderColor: Colors.error,
   },
   cancelBtnText: { ...Typography.button, color: Colors.error },
+
+  reorderBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
+    marginTop: Spacing.lg, borderRadius: BorderRadius.pill, borderWidth: 1.5, borderColor: Colors.organic,
+    paddingVertical: Spacing.md,
+  },
+  reorderBtnText: { ...Typography.button, color: Colors.organic },
 
   modalBackdrop: {
     flex: 1, backgroundColor: 'rgba(10,10,8,0.4)',

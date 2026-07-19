@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import { useDeliveryStore } from '../store/deliveryStore';
 import { registerForPushNotifications, setupNotificationListeners } from '../lib/notifications';
+import { IncomingAssignmentModal } from '../components/IncomingAssignmentModal';
 
 export default function RootLayout() {
   const { loadSession, isAuthenticated } = useAuthStore();
@@ -17,6 +18,11 @@ export default function RootLayout() {
     if (isAuthenticated) {
       setupRealtime();
       registerForPushNotifications();
+      const subscription = setupNotificationListeners();
+      return () => {
+        cleanupRealtime();
+        subscription.remove();
+      };
     }
     return () => {
       cleanupRealtime();
@@ -37,14 +43,17 @@ export default function RootLayout() {
             headerTintColor: '#10B981',
           }}
         />
+        <Stack.Screen name="delivery/complete" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="vehicle-setup"
+          options={{ title: 'Vehicle & Zone', headerTintColor: '#10B981' }}
+        />
         <Stack.Screen
           name="kyc-documents"
-          options={{
-            title: 'KYC Documents',
-            headerShown: false,
-          }}
+          options={{ title: 'KYC Documents', headerTintColor: '#10B981' }}
         />
       </Stack>
+      {isAuthenticated && <IncomingAssignmentModal />}
     </>
   );
 }

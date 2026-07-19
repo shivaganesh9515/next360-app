@@ -123,6 +123,10 @@ export default function HomeScreen({ navigation }: any) {
     addToCart(product.id, 1).catch(() => {});
   };
 
+  const handleVendorPress = (vendorId: string, vendorName: string) => {
+    navigation.navigate('VendorStorefront', { vendorId, vendorName });
+  };
+
   // Apple-style "stretchy header": on iOS overscroll (pulling down past the top),
   // contentOffset.y goes negative. We scale the hero up to fill that revealed
   // gap and translate it back by half the extra height so it grows downward
@@ -293,6 +297,7 @@ export default function HomeScreen({ navigation }: any) {
                     product={product}
                     onPress={(p) => openProduct(p.id)}
                     onQuickAdd={handleQuickAdd}
+                    onVendorPress={handleVendorPress}
                   />
                 </StaggerFadeIn>
               ))

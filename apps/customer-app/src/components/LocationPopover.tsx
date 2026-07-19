@@ -5,7 +5,6 @@ import {
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useZone } from '../lib/zone';
 import PopoverBackdrop from './PopoverBackdrop';
@@ -29,7 +28,6 @@ interface Props {
 // locality), not a fixed icon circle, so origin size is measured live instead
 // of a constant. Replaces navigating to a separate SelectLocation page.
 export default function LocationPopover({ accent = Colors.organic }: Props) {
-  const insets = useSafeAreaInsets();
   const { city, locality, setZone } = useZone();
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
@@ -38,7 +36,11 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
   const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60, width: 120, height: 40 });
   const anim = useSharedValue(0);
 
-  const topTarget = insets.top + Spacing.md;
+  // top is pinned to origin.y (the trigger's own measured position) instead
+  // of interpolating up toward the status bar — the panel now grows straight
+  // down from exactly where the trigger sits instead of visibly detaching and
+  // sliding upward to a disconnected point before it opens (and reversing
+  // that same jump on close).
   const leftTarget = Spacing.xl;
 
   const allRows: Row[] = useMemo(
@@ -83,7 +85,7 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
   const panelStyle = useAnimatedStyle(() => ({
-    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    top: origin.y,
     left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
     width: interpolate(anim.value, [0, 1], [origin.width, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 1], [origin.height, PANEL_HEIGHT]),

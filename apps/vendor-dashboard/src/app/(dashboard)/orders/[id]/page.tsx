@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { vendorApi } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
 
-const statusFlow = ['PLACED', 'CONFIRMED', 'PACKED', 'ASSIGNED_TO_DELIVERY', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const statusFlow = ['PLACED', 'CONFIRMED', 'PACKED', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DELIVERY', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'];
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -24,9 +24,23 @@ export default function OrderDetailPage() {
 
   useEffect(() => { fetchOrder(); }, [params.id]);
 
+  // status flow — added READY_FOR_PICKUP between PACKED and ASSIGNED_TO_DELIVERY
+  const orderId = String(params.id);
+  const vendorGroupId = order?.vendorGroups?.[0]?.id;
+
   const updateStatus = async (newStatus: string) => {
     setUpdating(true);
-    try { await vendorApi.updateOrderStatus(String(params.id), newStatus); fetchOrder(); }
+    try {
+      if (vendorGroupId) {
+        // Vendors update their vendor group's status (not the entire order).
+        // The backend's PATCH /orders/:id/groups/:groupId/status is the
+        // VENDOR-accessible endpoint; PATCH /orders/:id/status requires ADMIN.
+        await vendorApi.updateVendorGroupStatus(orderId, vendorGroupId, newStatus);
+      } else {
+        await vendorApi.updateOrderStatus(orderId, newStatus);
+      }
+      fetchOrder();
+    }
     catch (e) { console.error(e); }
     finally { setUpdating(false); }
   };

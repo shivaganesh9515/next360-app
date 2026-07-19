@@ -1,10 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, Linking, Image, Animated } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useDeliveryStore } from '../../store/deliveryStore';
+import { formatDeliveryFee } from '../../lib/pricing';
+import { deliveryApi } from '../../lib/api';
 
 type DeliveryStatus = 'ASSIGNED' | 'PICKING_UP' | 'IN_TRANSIT' | 'DELIVERED';
+
+const LOCATION_PUSH_INTERVAL_MS = 15000;
+const LOCATION_PUSH_DISTANCE_M = 50;
 
 export default function DeliveryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,10 +22,64 @@ export default function DeliveryDetailScreen() {
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [otp, setOtp] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [proofPhoto, setProofPhoto] = useState<string | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [failureReason, setFailureReason] = useState('');
+  const [failureDetails, setFailureDetails] = useState('');
+  const mapRef = useRef<MapView>(null);
+
+  // Spring animation for each status dot — when the status advances, the
+  // newly active dot springs with a scale pulse to signal the transition.
+  const activeDotScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(activeDotScale, { toValue: 1.2, friction: 5, tension: 300, useNativeDriver: true }),
+      Animated.spring(activeDotScale, { toValue: 1, friction: 5, tension: 300, useNativeDriver: true }),
+    ]).start();
+  }, [currentStatus]);
+  const watchSubscription = useRef<Location.LocationSubscription | null>(null);
 
   useEffect(() => {
     fetchActiveDeliveries();
   }, []);
+
+  // Push the courier's position periodically while a delivery is active, per
+  // the CLAUDE.md real-time tracking design (partner pushes lat/lng, no
+  // polling on the read side). The endpoint may not exist server-side yet —
+  // that failure is swallowed so it doesn't interrupt the delivery flow; the
+  // client-side push loop itself was previously missing entirely.
+  useEffect(() => {
+    if (currentStatus === 'DELIVERED') return;
+
+    let cancelled = false;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted' || cancelled) return;
+
+      watchSubscription.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: LOCATION_PUSH_INTERVAL_MS,
+          distanceInterval: LOCATION_PUSH_DISTANCE_M,
+        },
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setDeviceLocation({ lat: latitude, lng: longitude });
+          if (id) {
+            deliveryApi.updateLocation(latitude, longitude).catch(() => {});
+          }
+        },
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+      watchSubscription.current?.remove();
+      watchSubscription.current = null;
+    };
+  }, [currentStatus, id]);
 
   useEffect(() => {
     if (activeDeliveries.length > 0 && id) {
@@ -40,9 +102,11 @@ export default function DeliveryDetailScreen() {
       await updateDeliveryStatus(id!, newStatus);
       setCurrentStatus(newStatus);
       if (newStatus === 'DELIVERED') {
-        Alert.alert('Delivery Complete!', 'Great job! The delivery has been completed.', [
-          { text: 'OK', onPress: () => router.replace('/(tabs)') },
-        ]);
+        router.replace(
+          order?.deliveryFee != null
+            ? `/delivery/complete?earning=${order.deliveryFee}`
+            : '/delivery/complete',
+        );
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to update delivery status');
@@ -95,7 +159,60 @@ export default function DeliveryDetailScreen() {
     }));
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
+  const handleCallCustomer = () => {
+    if (order?.user?.phone) {
+      Linking.openURL(`tel:${order.user.phone}`);
+    }
+  };
+
+  // Number masking for privacy — show only last 4 digits on screen
+  // but still place the real call when tapped (per CLAUDE.md spec)
+  const maskedPhone = order?.user?.phone
+    ? `${order.user.phone.slice(0, -4).replace(/\d/g, '*')}${order.user.phone.slice(-4)}`
+    : null;
+
+  const handleTakeProofPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required to capture delivery proof photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: true,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setProofPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleCompleteWithPhoto = async () => {
+    setIsProcessing(true);
+    try {
+      // Upload proof photo if taken
+      if (proofPhoto) {
+        const formData = new FormData();
+        const filename = proofPhoto.split('/').pop() || 'delivery-proof.jpg';
+        formData.append('file', { uri: proofPhoto, name: filename, type: 'image/jpeg' } as any);
+        // Upload to backend (silent fail if endpoint not ready)
+        try {
+          await deliveryApi.upload('/upload', formData);
+        } catch {}
+      }
+      await updateDeliveryStatus(id!, 'DELIVERED');
+      setCurrentStatus('DELIVERED');
+      router.replace(
+        order?.deliveryFee != null
+          ? `/delivery/complete?earning=${order.deliveryFee}`
+          : '/delivery/complete',
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to complete delivery');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (!order) {
     return (
@@ -154,32 +271,78 @@ export default function DeliveryDetailScreen() {
         </View>
       </Modal>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Status Progress */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressSteps}>
-            {statusSteps.map((step, index) => (
-              <React.Fragment key={step.key}>
-                <View style={styles.stepContainer}>
-                  <View style={[styles.stepIcon, step.isActive && styles.stepIconActive, step.isCurrent && styles.stepIconCurrent]}>
-                    <Ionicons
-                      name={step.icon as any}
-                      size={20}
-                      color={step.isActive ? '#FFFFFF' : '#9CA3AF'}
-                    />
-                  </View>
-                  <Text style={[styles.stepLabel, step.isActive && styles.stepLabelActive]}>
-                    {step.label}
-                  </Text>
-                </View>
-                {index < statusSteps.length - 1 && (
-                  <View style={[styles.stepLine, step.isActive && styles.stepLineActive]} />
-                )}
-              </React.Fragment>
-            ))}
-          </View>
-        </View>
+      {/* Map — the screen's dominant surface, per the "map-first" design
+          rule. State changes (pickup/drop, courier position) update markers
+          in place; the screen never re-navigates. */}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={{
+          latitude: order.address?.lat || order.vendorGroups?.[0]?.vendor?.lat || 17.385,
+          longitude: order.address?.lng || order.vendorGroups?.[0]?.vendor?.lng || 78.4867,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        }}
+      >
+        {order.vendorGroups?.[0]?.vendor?.lat && order.vendorGroups?.[0]?.vendor?.lng && (
+          <Marker
+            coordinate={{
+              latitude: order.vendorGroups[0].vendor.lat,
+              longitude: order.vendorGroups[0].vendor.lng,
+            }}
+            title="Pickup"
+            description={order.vendorGroups[0].vendor.name}
+            pinColor="#10B981"
+          />
+        )}
+        {order.address?.lat && order.address?.lng && (
+          <Marker
+            coordinate={{ latitude: order.address.lat, longitude: order.address.lng }}
+            title="Drop"
+            description={order.address.street}
+            pinColor="#EF4444"
+          />
+        )}
+        {deviceLocation && (
+          <Marker
+            coordinate={{ latitude: deviceLocation.lat, longitude: deviceLocation.lng }}
+            title="You"
+            pinColor="#3B82F6"
+          />
+        )}
+      </MapView>
 
+      {/* Compact status strip overlaid on the map — active dot springs
+          with a scale pulse when the status advances, making the state
+          transition feel tactile instead of instant. */}
+      <View style={styles.statusStrip}>
+        {statusSteps.map((step, index) => {
+          const lastActiveIdx = statusSteps.reduce((last, s, i) => s.isActive ? i : last, -1);
+          const isLastActive = step.isActive && index === lastActiveIdx;
+          return (
+            <React.Fragment key={step.key}>
+              <Animated.View
+                style={[
+                  styles.stripDot, step.isActive && styles.stripDotActive,
+                  isLastActive && { transform: [{ scale: activeDotScale }] },
+                ]}
+              >
+                <Ionicons
+                  name={step.icon as any}
+                  size={14}
+                  color={step.isActive ? '#FFFFFF' : '#9CA3AF'}
+                />
+              </Animated.View>
+              {index < statusSteps.length - 1 && (
+                <View style={[styles.stripLine, step.isActive && styles.stripLineActive]} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </View>
+
+      <ScrollView style={styles.bottomPanel} contentContainerStyle={styles.content}>
         {/* Order Info */}
         <View style={styles.infoCard}>
           <View style={styles.infoHeader}>
@@ -224,7 +387,7 @@ export default function DeliveryDetailScreen() {
         {/* Earnings */}
         <View style={styles.earningsCard}>
           <Text style={styles.earningsLabel}>Your Earning</Text>
-          <Text style={styles.earningsAmount}>{formatCurrency(order.deliveryFee || 15000)}</Text>
+          <Text style={styles.earningsAmount}>{formatDeliveryFee(order.deliveryFee)}</Text>
         </View>
 
         {/* Customer Info */}
@@ -236,14 +399,124 @@ export default function DeliveryDetailScreen() {
               <Text style={styles.customerName}>{order.user.name}</Text>
             </View>
             {order.user.phone && (
-              <TouchableOpacity style={styles.callButton}>
-                <Ionicons name="call-outline" size={20} color="#10B981" />
-                <Text style={styles.callText}>Call Customer</Text>
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity style={styles.callButton} onPress={handleCallCustomer}>
+                  <Ionicons name="call-outline" size={20} color="#10B981" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.callText}>Call Customer</Text>
+                    {maskedPhone && (
+                      <Text style={styles.maskedPhone}>{maskedPhone}</Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#059669" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Proof of delivery photo — capture before marking delivered */}
+            {currentStatus === 'IN_TRANSIT' && (
+              <View style={{ marginTop: 12 }}>
+                <TouchableOpacity style={styles.cameraButton} onPress={handleTakeProofPhoto}>
+                  {proofPhoto ? (
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                      <Image source={{ uri: proofPhoto }} style={styles.proofThumb} />
+                      <Text style={[styles.cameraButtonText, { marginLeft: 8 }]}>Photo taken ✓</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Ionicons name="camera-outline" size={20} color="#10B981" />
+                      <Text style={styles.cameraButtonText}>Capture Proof of Delivery</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* Failed Delivery Modal */}
+      <Modal visible={showFailureModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delivery Issue</Text>
+            <Text style={styles.modalSubtitle}>What's the issue with this delivery?</Text>
+
+            {['CUSTOMER_UNAVAILABLE', 'WRONG_ADDRESS', 'RESCHEDULE', 'RETURNED_TO_STORE', 'OTHER'].map((r) => (
+              <TouchableOpacity
+                key={r}
+                style={[
+                  styles.failureOption,
+                  failureReason === r && styles.failureOptionSelected,
+                ]}
+                onPress={() => setFailureReason(r)}
+              >
+                <Ionicons
+                  name={failureReason === r ? 'radio-button-on' : 'radio-button-off'}
+                  size={18}
+                  color={failureReason === r ? '#10B981' : '#9CA3AF'}
+                />
+                <Text style={styles.failureOptionText}>
+                  {r === 'CUSTOMER_UNAVAILABLE' ? 'Customer Not Available' :
+                   r === 'WRONG_ADDRESS' ? 'Wrong Address' :
+                   r === 'RESCHEDULE' ? 'Reschedule Delivery' :
+                   r === 'RETURNED_TO_STORE' ? 'Return to Store' : 'Other Issue'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TextInput
+              style={styles.failureDetails}
+              value={failureDetails}
+              onChangeText={setFailureDetails}
+              placeholder="Additional details (optional)"
+              placeholderTextColor="#9CA3AF"
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowFailureModal(false);
+                  setFailureReason('');
+                  setFailureDetails('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirm, (!failureReason || isProcessing) && styles.modalConfirmDisabled]}
+                onPress={async () => {
+                  if (!failureReason) return;
+                  setIsProcessing(true);
+                  try {
+                    await deliveryApi.reportDeliveryFailure({
+                      orderId: id!,
+                      reason: failureReason,
+                      details: failureDetails || undefined,
+                    });
+                    setShowFailureModal(false);
+                    Alert.alert('Reported', 'Delivery issue has been reported. You will be assigned to the next available order.');
+                    router.replace('/(tabs)');
+                  } catch (error: any) {
+                    Alert.alert('Error', error.message || 'Failed to report issue');
+                  } finally {
+                    setIsProcessing(false);
+                  }
+                }}
+                disabled={!failureReason || isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Submit Report</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Action Buttons */}
       <View style={styles.actionContainer}>
@@ -265,23 +538,36 @@ export default function DeliveryDetailScreen() {
         )}
 
         {currentStatus === 'IN_TRANSIT' && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton]}
-            onPress={() => handleStatusUpdate('DELIVERED')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Mark Delivered</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.primaryButton]}
+              onPress={handleCompleteWithPhoto}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Mark Delivered</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {/* Failed delivery option — report an issue instead of delivering */}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.dangerButton]}
+              onPress={() => setShowFailureModal(true)}
+            >
+              <Ionicons name="alert-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>Report Issue</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        {currentStatus !== 'DELIVERED' && (
+        {/* Once a delivery is picked up and in transit, the courier must stay
+            in this screen — no exit route back to the tab bar/dashboard,
+            per the "no nav during an active delivery" design rule. */}
+        {currentStatus === 'ASSIGNED' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.secondaryButton]}
             onPress={() => router.push('/(tabs)')}
@@ -313,58 +599,50 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  progressCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+  map: {
+    height: '42%',
+    width: '100%',
   },
-  progressSteps: {
+  statusStrip: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  stepContainer: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  stepIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  stripDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stepIconActive: {
+  stripDotActive: {
     backgroundColor: '#10B981',
   },
-  stepIconCurrent: {
-    backgroundColor: '#059669',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  stepLabel: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  stepLabelActive: {
-    color: '#059669',
-    fontWeight: '500',
-  },
-  stepLine: {
+  stripLine: {
     flex: 1,
     height: 2,
     backgroundColor: '#E5E7EB',
-    marginBottom: 20,
+    marginHorizontal: 4,
   },
-  stepLineActive: {
+  stripLineActive: {
     backgroundColor: '#10B981',
+  },
+  bottomPanel: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
   },
   infoCard: {
     backgroundColor: '#FFFFFF',
@@ -481,6 +759,35 @@ const styles = StyleSheet.create({
     color: '#059669',
     marginLeft: 8,
   },
+  maskedPhone: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: 'JetBrainsMono_400Regular',
+    marginLeft: 28,
+    marginTop: 2,
+  },
+  cameraButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  cameraButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#059669',
+    marginLeft: 8,
+  },
+  proofThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+  },
   actionContainer: {
     position: 'absolute',
     bottom: 0,
@@ -505,6 +812,9 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     backgroundColor: '#F3F4F6',
+  },
+  dangerButton: {
+    backgroundColor: '#EF4444',
   },
   actionButtonText: {
     fontSize: 16,
@@ -583,6 +893,38 @@ const styles = StyleSheet.create({
   },
   modalConfirmDisabled: {
     backgroundColor: '#9CA3AF',
+  },
+  failureOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  failureOptionSelected: {
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  failureOptionText: {
+    fontSize: 15,
+    color: '#1F2937',
+    marginLeft: 12,
+  },
+  failureDetails: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 14,
+    color: '#1F2937',
+    marginTop: 8,
+    marginBottom: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   modalConfirmText: {
     fontSize: 16,

@@ -294,6 +294,29 @@ export const customerApi = {
   updateProfile: (data: { name?: string; email?: string }) =>
     api.patch<any>('/users/me', data),
 
+  // Google Login — sends the verified Google profile to the backend,
+  // which creates a new account or logs in an existing one by email.
+  // Falls back to a demo Google sign-in when the real API is unreachable,
+  // same pattern as the phone OTP demo fallback.
+  googleAuth: async (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => {
+    try {
+      return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/google', data);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return {
+        access_token: `demo-google-token-${Date.now()}`,
+        user: {
+          id: `demo-google-user-${Date.now()}`,
+          email: data.email,
+          name: data.name || 'Google User',
+          avatarUrl: data.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+        isNewUser: true,
+      };
+    }
+  },
+
   // Products — falls back to local demo data when the real API returns
   // nothing (no backend/DB wired up yet), so screens can be checked visually
   // without needing a live database.
@@ -317,6 +340,17 @@ export const customerApi = {
       const demo = findDemoProduct(id);
       if (demo) return demo;
       throw new Error('Product not found');
+    }
+  },
+
+  // Vendor Storefront — fetches a vendor's profile details. Falls back to
+  // a synthesized result from demo data when the real API isn't reachable.
+  getVendorStorefront: async (vendorId: string) => {
+    try {
+      return await api.get<any>(`/vendors/${vendorId}/storefront`);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return { id: vendorId, storeName: 'Next360 Farms', storeType: 'ORGANIC', rating: 4.5, productCount: 10 };
     }
   },
 
@@ -627,8 +661,15 @@ export const customerApi = {
   getBanners: (params?: Record<string, any>) =>
     api.get<any[]>('/cms/banners', params),
 
-  // Notifications
-  getNotifications: () => api.get<any[]>('/notifications'),
+  // Payments — Razorpay
+  createRazorpayOrder: (orderId: string) =>
+    api.post<{ key: string; amount: number; currency: string; order_id: string; receipt: string }>('/payments/razorpay/order', { orderId }),
+  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+    api.post<{ success: boolean; message: string }>('/payments/razorpay/verify', data),
+
+  // Notifications — accepts optional pagination params
+  getNotifications: (params?: { page?: number; limit?: number }) =>
+    api.get<any[]>('/notifications', params as Record<string, any>),
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
   markAllNotificationsRead: () => api.post<any>('/notifications/read-all'),

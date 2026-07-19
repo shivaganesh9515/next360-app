@@ -76,4 +76,35 @@ export class DeliveryController {
       query.limit || 20,
     );
   }
+
+  @Get('earnings')
+  getEarnings(
+    @CurrentUser('id') userId: string,
+    @Query('period') period?: string,
+  ) {
+    return this.deliveryService.getEarnings(userId, period);
+  }
+
+  @Post('setup')
+  @HttpCode(HttpStatus.CREATED)
+  setupPartner(
+    @CurrentUser('id') userId: string,
+    @Body() dto: { vehicleType: string; zoneName: string },
+  ) {
+    return this.deliveryService.setupPartner(userId, dto.vehicleType, dto.zoneName);
+  }
+
+  @Post('failure')
+  @HttpCode(HttpStatus.OK)
+  reportFailure(
+    @CurrentUser('id') userId: string,
+    @Body() dto: { orderId: string; reason: string; details?: string },
+  ) {
+    return this.deliveryService.reportFailure(
+      userId,
+      dto.orderId,
+      dto.reason,
+      dto.details,
+    );
+  }
 }

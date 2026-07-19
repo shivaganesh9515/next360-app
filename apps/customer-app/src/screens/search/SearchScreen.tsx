@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator,
-  Animated, Keyboard,
+  Animated, Keyboard, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../lib/store';
 import { useProductSheet } from '../../lib/productSheet';
 import { customerApi } from '../../lib/api';
-import { Product, StoreType } from '../../types';
+import { Product, StoreType, Category } from '../../types';
 import {
   Colors, Typography, Spacing, BorderRadius, Shadows,
   getStoreAccent, getStoreAccentDark, getStoreLabel,
@@ -29,6 +29,20 @@ const POPULAR_SEARCHES = [
   'Millet Snacks', 'Bamboo Utensils', 'Natural Soap',
 ];
 
+const STORE_FILTER_OPTIONS: { label: string; value: string | undefined }[] = [
+  { label: 'All', value: undefined },
+  { label: 'Organic', value: 'ORGANIC' },
+  { label: 'Natural', value: 'NATURAL' },
+  { label: 'Eco-Friendly', value: 'ECO_FRIENDLY' },
+];
+
+const PRICE_RANGE_OPTIONS: { label: string; min: number; max?: number }[] = [
+  { label: 'Under ₹200', min: 0, max: 200 },
+  { label: '₹200 – ₹500', min: 200, max: 500 },
+  { label: '₹500 – ₹1000', min: 500, max: 1000 },
+  { label: 'Above ₹1000', min: 1000 },
+];
+
 export default function SearchScreen({ navigation, route }: any) {
   const { t } = useTranslation();
   const { storeType } = useStore();
@@ -43,6 +57,17 @@ export default function SearchScreen({ navigation, route }: any) {
   const inputRef = useRef<TextInput>(null);
   const popupAnim = useRef(new Animated.Value(0)).current;
   const [popupVisible, setPopupVisible] = useState(false);
+
+  // Filter state — the search filters operate on the full product results
+  // (client-side refinement on top of the server query) rather than
+  // re-querying, matching how ProductListScreen handles price/stock/rating
+  // filters.
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStoreType, setFilterStoreType] = useState<string | undefined>();
+  const [filterPriceRange, setFilterPriceRange] = useState<{ min: number; max?: number } | null>(null);
+  const [filterMinRating, setFilterMinRating] = useState<number | undefined>();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [filterCategoryId, setFilterCategoryId] = useState<string | undefined>();
 
   const accent = getStoreAccent(storeType);
   const showPopup = query.trim().length > 0;
@@ -94,6 +119,39 @@ export default function SearchScreen({ navigation, route }: any) {
     }
   }, [storeType]);
 
+  // Client-side filtering — refines whatever search results are already
+  // loaded, matching how ProductListScreen applies price/rating/stock
+  // filters locally instead of re-querying.
+  const filteredResults = useMemo(() => {
+    return results.filter((p) => {
+      if (filterStoreType && p.storeType !== filterStoreType) return false;
+      if (filterCategoryId && p.categoryId !== filterCategoryId) return false;
+      if (filterPriceRange) {
+        const price = Number(p.price);
+        if (price < filterPriceRange.min) return false;
+        if (filterPriceRange.max !== undefined && price > filterPriceRange.max) return false;
+      }
+      if (filterMinRating && (p.rating || 0) < filterMinRating) return false;
+      return true;
+    });
+  }, [results, filterStoreType, filterCategoryId, filterPriceRange, filterMinRating]);
+
+  // Count how many active filters are applied — shown as a badge on the
+  // filter button so there's always a visible cue that something's active.
+  const activeFilterCount = [
+    filterStoreType,
+    filterCategoryId,
+    filterPriceRange ? true : null,
+    filterMinRating,
+  ].filter(Boolean).length;
+
+  // Load categories for filter panel
+  useEffect(() => {
+    customerApi.getCategories({ storeType: filterStoreType || storeType })
+      .then((res: any) => setCategories(Array.isArray(res) ? res : res?.data || []))
+      .catch(() => {});
+  }, [filterStoreType, storeType]);
+
   const onChangeText = (text: string) => {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -102,6 +160,13 @@ export default function SearchScreen({ navigation, route }: any) {
 
   const handleSuggestionPress = (product: Product) => {
     openProduct(product.id);
+  };
+
+  const clearFilters = () => {
+    setFilterStoreType(undefined);
+    setFilterCategoryId(undefined);
+    setFilterPriceRange(null);
+    setFilterMinRating(undefined);
   };
 
   return (
@@ -128,8 +193,13 @@ export default function SearchScreen({ navigation, route }: any) {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={[s.filterBtn, { backgroundColor: accent }]} hitSlop={8}>
+        <TouchableOpacity style={[s.filterBtn, { backgroundColor: accent }]} hitSlop={8} onPress={() => setShowFilters(true)}>
           <Ionicons name="options-outline" size={18} color={Colors.white} />
+          {activeFilterCount > 0 && (
+            <View style={s.filterBadge}>
+              <Text style={s.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -207,7 +277,7 @@ export default function SearchScreen({ navigation, route }: any) {
               </View>
             ) : (
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                {results.map((item) => (
+                {filteredResults.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     style={s.suggestionRow}
@@ -225,9 +295,155 @@ export default function SearchScreen({ navigation, route }: any) {
                 ))}
               </ScrollView>
             )}
+            {/* Active filter chips — shown below the search popup when filters
+                are applied, so the user can see at a glance what's active and
+                tap to clear a specific filter. */}
+            {activeFilterCount > 0 && searched && filteredResults.length > 0 && (
+              <View style={s.activeFilters}>
+                {!!filterStoreType && (
+                  <TouchableOpacity style={s.activeFilterChip} onPress={() => setFilterStoreType(undefined)}>
+                    <Text style={s.activeFilterLabel}>{filterStoreType}</Text>
+                    <Ionicons name="close" size={12} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+                {!!filterCategoryId && categories.find((c) => c.id === filterCategoryId) && (
+                  <TouchableOpacity style={s.activeFilterChip} onPress={() => setFilterCategoryId(undefined)}>
+                    <Text style={s.activeFilterLabel}>{categories.find((c) => c.id === filterCategoryId)!.name}</Text>
+                    <Ionicons name="close" size={12} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+                {!!filterPriceRange && (
+                  <TouchableOpacity style={s.activeFilterChip} onPress={() => setFilterPriceRange(null)}>
+                    <Text style={s.activeFilterLabel}>
+                      {PRICE_RANGE_OPTIONS.find((o) => o.min === filterPriceRange.min)?.label || 'Price'}
+                    </Text>
+                    <Ionicons name="close" size={12} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+                {!!filterMinRating && (
+                  <TouchableOpacity style={s.activeFilterChip} onPress={() => setFilterMinRating(undefined)}>
+                    <Text style={s.activeFilterLabel}>&#9733; {filterMinRating}+</Text>
+                    <Ionicons name="close" size={12} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </Animated.View>
         </>
       )}
+
+      {/* Filter Modal — slides up from the bottom when the filter button is
+          tapped. Contains store type, category, price range, and rating
+          options to refine search results client-side. */}
+      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+        <TouchableOpacity
+          style={s.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowFilters(false)}
+        />
+        <View style={[s.filterPanel, Shadows.raised]}>
+          <View style={s.filterHandle} />
+          <View style={s.filterHeader}>
+            <Text style={s.filterTitle}>Filters</Text>
+            <TouchableOpacity onPress={clearFilters}>
+              <Text style={[s.clearAllText, { color: accent }]}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Store Type */}
+            <Text style={s.filterLabel}>Store Type</Text>
+            <View style={s.filterChips}>
+              {STORE_FILTER_OPTIONS.map((opt) => {
+                const active = filterStoreType === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.label}
+                    style={[s.filterChip, active && { backgroundColor: accent }]}
+                    onPress={() => setFilterStoreType(opt.value)}
+                  >
+                    <Text style={[s.filterChipText, active && { color: Colors.white }]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Category */}
+            <Text style={s.filterLabel}>Category</Text>
+            <View style={s.filterChips}>
+              <TouchableOpacity
+                style={[s.filterChip, !filterCategoryId && { backgroundColor: accent }]}
+                onPress={() => setFilterCategoryId(undefined)}
+              >
+                <Text style={[s.filterChipText, !filterCategoryId && { color: Colors.white }]}>All</Text>
+              </TouchableOpacity>
+              {categories.map((cat) => {
+                const active = filterCategoryId === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[s.filterChip, active && { backgroundColor: accent }]}
+                    onPress={() => setFilterCategoryId(cat.id)}
+                  >
+                    <Text style={[s.filterChipText, active && { color: Colors.white }]}>{cat.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Price Range */}
+            <Text style={s.filterLabel}>Price Range</Text>
+            <View style={s.filterChips}>
+              {PRICE_RANGE_OPTIONS.map((opt) => {
+                const active = filterPriceRange?.min === opt.min && filterPriceRange?.max === opt.max;
+                return (
+                  <TouchableOpacity
+                    key={opt.label}
+                    style={[s.filterChip, active && { backgroundColor: accent }]}
+                    onPress={() => setFilterPriceRange(active ? null : opt)}
+                  >
+                    <Text style={[s.filterChipText, active && { color: Colors.white }]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Minimum Rating */}
+            <Text style={s.filterLabel}>Minimum Rating</Text>
+            <View style={s.filterChips}>
+              <TouchableOpacity
+                style={[s.filterChip, !filterMinRating && { backgroundColor: accent }]}
+                onPress={() => setFilterMinRating(undefined)}
+              >
+                <Text style={[s.filterChipText, !filterMinRating && { color: Colors.white }]}>Any</Text>
+              </TouchableOpacity>
+              {[4, 3].map((n) => {
+                const active = filterMinRating === n;
+                return (
+                  <TouchableOpacity
+                    key={n}
+                    style={[s.filterChip, active && { backgroundColor: accent }]}
+                    onPress={() => setFilterMinRating(active ? undefined : n)}
+                  >
+                    <Text style={[s.filterChipText, active && { color: Colors.white }]}>
+                      <Ionicons name="star" size={11} color={active ? Colors.white : Colors.textSecondary} /> {n}+
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[s.applyBtn, { backgroundColor: accent }]}
+            onPress={() => setShowFilters(false)}
+          >
+            <Text style={s.applyBtnText}>Apply Filters</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -309,4 +525,66 @@ const s = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   chipText: { ...Typography.caption, color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+
+  // Filter badge on the filter button — a small dot with count so there's
+  // always a visible cue that something's active.
+  filterBadge: {
+    position: 'absolute', top: -4, right: -4,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3, borderWidth: 1.5, borderColor: Colors.white,
+  },
+  filterBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white },
+
+  // Active filter chips displayed within the popup — compact removable pills.
+  activeFilters: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  activeFilterChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: Spacing.sm, paddingVertical: 2,
+    borderRadius: BorderRadius.pill,
+    backgroundColor: Colors.border + '88',
+  },
+  activeFilterLabel: { ...Typography.caption, color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+
+  // Filter Modal
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(28,27,23,0.35)' },
+  filterPanel: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    maxHeight: '75%', backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl,
+    paddingBottom: 34,
+  },
+  filterHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border, alignSelf: 'center', marginTop: Spacing.sm,
+  },
+  filterHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.md,
+  },
+  filterTitle: { ...Typography.h2, color: Colors.text },
+  clearAllText: { ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold' },
+  filterLabel: {
+    ...Typography.caption, color: Colors.textSecondary, textTransform: 'uppercase',
+    letterSpacing: 0.5, marginBottom: Spacing.sm, paddingHorizontal: Spacing.xl, marginTop: Spacing.md,
+  },
+  filterChips: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl, marginBottom: Spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background,
+  },
+  filterChipText: { ...Typography.caption, color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  applyBtn: {
+    marginHorizontal: Spacing.xl, marginTop: Spacing.lg, height: 50,
+    borderRadius: BorderRadius.pill, alignItems: 'center', justifyContent: 'center',
+  },
+  applyBtnText: { ...Typography.button, color: Colors.white },
 });

@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesGuard } from './guards/roles.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RolesGuard } from './guards/roles.guard';
         signOptions: { expiresIn: '7d' },
       }),
     }),
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard],
