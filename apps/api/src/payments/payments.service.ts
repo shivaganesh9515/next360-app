@@ -372,6 +372,85 @@ export class PaymentsService {
         return { received: true, status: 'order_paid' };
       }
 
+      case 'refund.created': {
+        const refundEntity = webhookDto.payload.refund?.entity;
+        if (!refundEntity) {
+          this.logger.warn('refund.created webhook missing refund entity — ignoring');
+          return { received: true, status: 'ignored' };
+        }
+
+        this.logger.log(
+          `refund.created received — refundId: ${refundEntity.id}, paymentId: ${refundEntity.payment_id}, status: ${refundEntity.status}`,
+        );
+
+        return { received: true, status: 'refund_created' };
+      }
+
+      case 'refund.processed': {
+        const refundEntity = webhookDto.payload.refund?.entity;
+        if (!refundEntity) {
+          this.logger.warn('refund.processed webhook missing refund entity — ignoring');
+          return { received: true, status: 'ignored' };
+        }
+
+        this.logger.log(
+          `refund.processed received — refundId: ${refundEntity.id}, paymentId: ${refundEntity.payment_id}`,
+        );
+
+        const payment = await this.prisma.payment.findFirst({
+          where: { razorpayPaymentId: refundEntity.payment_id },
+        });
+
+        if (!payment) {
+          this.logger.warn(
+            `refund.processed — no payment found for razorpayPaymentId ${refundEntity.payment_id} — ignoring`,
+          );
+          return { received: true, status: 'ignored' };
+        }
+
+        // Idempotency: skip if already refunded
+        if (payment.status === 'REFUNDED') {
+          this.logger.log(
+            `refund.processed — payment ${payment.id} already REFUNDED — skipping duplicate`,
+          );
+          return { received: true, status: 'already_refunded' };
+        }
+
+        const refundOrder = await this.prisma.order.findUnique({
+          where: { id: payment.orderId },
+        });
+
+        if (!refundOrder) {
+          this.logger.error(
+            `refund.processed — order ${payment.orderId} not found for payment ${payment.id}`,
+          );
+          return { received: true, status: 'error' };
+        }
+
+        await this.prisma.$transaction([
+          this.prisma.payment.update({
+            where: { id: payment.id },
+            data: { status: 'REFUNDED' },
+          }),
+          this.prisma.order.update({
+            where: { id: refundOrder.id },
+            data: { paymentStatus: 'REFUNDED', status: 'REFUNDED' },
+          }),
+        ]);
+
+        try {
+          await this.notificationsService.sendRefundCompletedNotification(
+            refundOrder.userId,
+            refundOrder.id,
+            Number(refundOrder.totalAmount),
+          );
+        } catch (error: any) {
+          this.logger.error(`Refund completed notification failed: ${error.message}`);
+        }
+
+        return { received: true, status: 'refund_processed' };
+      }
+
       default:
         return { received: true, event };
     }

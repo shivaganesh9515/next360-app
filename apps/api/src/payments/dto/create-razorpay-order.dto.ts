@@ -72,5 +72,17 @@ export class RazorpayWebhookDto {
         currency: string;
       };
     };
+    refund?: {
+      entity: {
+        id: string;
+        payment_id: string;
+        amount: number;
+        currency: string;
+        /** pending | processed | failed | reversed */
+        status: string;
+        notes?: Record<string, string>;
+        created_at: number;
+      };
+    };
   };
 }
