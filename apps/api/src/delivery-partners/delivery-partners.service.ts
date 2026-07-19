@@ -1,12 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-<<<<<<< HEAD
+import { NotificationsService } from '../notifications/notifications.service';
 import { DeliveryPartnerStatus, UserRole } from '@prisma/client';
 import { CreateDeliveryPartnerDto } from './dto/create-delivery-partner.dto';
-=======
-import { NotificationsService } from '../notifications/notifications.service';
-import { DeliveryPartnerStatus } from '@prisma/client';
->>>>>>> main
+
 
 @Injectable()
 export class DeliveryPartnersService {
