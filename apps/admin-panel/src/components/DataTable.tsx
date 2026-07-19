@@ -8,6 +8,7 @@ interface Column<T> {
   label: string;
   sortable?: boolean;
   render?: (item: T) => React.ReactNode;
+  headerRender?: () => React.ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -21,7 +22,7 @@ interface DataTableProps<T> {
   totalPages?: number;
   onPageChange?: (page: number) => void;
   onRowClick?: (item: T) => void;
-  emptyMessage?: string;
+  emptyMessage?: React.ReactNode;
   emptyIcon?: React.ReactNode;
 }
 
@@ -70,7 +71,7 @@ export default function DataTable<T extends Record<string, any>>({
             <tr className="border-b border-gray-100">
               {columns.map((col) => (
                 <th key={col.key} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {col.label}
+                  {col.headerRender ? col.headerRender() : col.label}
                 </th>
               ))}
             </tr>
@@ -80,7 +81,7 @@ export default function DataTable<T extends Record<string, any>>({
               <tr>
                 <td colSpan={columns.length} className="px-4 py-16 text-center text-gray-500">
                   {emptyIcon && <div className="mb-3 text-gray-300">{emptyIcon}</div>}
-                  <p className="text-sm">{emptyMessage}</p>
+                  <div className="text-sm">{emptyMessage}</div>
                 </td>
               </tr>
             ) : (

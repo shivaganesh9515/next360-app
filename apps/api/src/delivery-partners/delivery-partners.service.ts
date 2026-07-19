@@ -1,11 +1,21 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+<<<<<<< HEAD
 import { DeliveryPartnerStatus, UserRole } from '@prisma/client';
 import { CreateDeliveryPartnerDto } from './dto/create-delivery-partner.dto';
+=======
+import { NotificationsService } from '../notifications/notifications.service';
+import { DeliveryPartnerStatus } from '@prisma/client';
+>>>>>>> main
 
 @Injectable()
 export class DeliveryPartnersService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(DeliveryPartnersService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   private readonly statusMap: Record<string, DeliveryPartnerStatus> = {
     PENDING: DeliveryPartnerStatus.OFFLINE,

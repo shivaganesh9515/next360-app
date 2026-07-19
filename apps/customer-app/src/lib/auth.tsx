@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtpAndAuth: (phone: string, otp: string) => Promise<{ isNewUser: boolean }>;
+  googleSignIn: (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => Promise<{ isNewUser: boolean }>;
   signOut: () => Promise<void>;
   skipAuth: () => void;
 }
@@ -55,6 +56,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { isNewUser: !!res.isNewUser };
   }, []);
 
+  // Google Sign-In — sends the verified Google profile to the backend,
+  // which creates a new account or logs in an existing one by email.
+  const googleSignIn = useCallback(async (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => {
+    const res = await customerApi.googleAuth(data);
+    await setToken(res.access_token);
+    setUser(res.user);
+    return { isNewUser: !!res.isNewUser };
+  }, []);
+
   const signOut = useCallback(async () => {
     await unregisterPushToken().catch(() => {});
     await removeToken();
@@ -68,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, isLoading, isAuthenticated: !!user,
-      sendOtp, verifyOtpAndAuth, signOut, skipAuth,
+      sendOtp, verifyOtpAndAuth, googleSignIn, signOut, skipAuth,
     }}>
       {children}
     </AuthContext.Provider>

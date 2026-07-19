@@ -12,6 +12,18 @@ export default function OffersPage() {
   const [showModal, setShowModal] = useState(false);
   const [editOffer, setEditOffer] = useState<any>(null);
   const [form, setForm] = useState({ title: '', description: '', type: 'PERCENTAGE', value: 0, storeType: '', startDate: '', endDate: '', isActive: true });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredOffers = offers.filter((o) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      o.title?.toLowerCase().includes(q) ||
+      o.type?.toLowerCase().includes(q) ||
+      o.storeType?.toLowerCase().includes(q) ||
+      String(o.value).includes(q)
+    );
+  });
 
   useEffect(() => { loadOffers(); }, []);
 
@@ -59,7 +71,7 @@ export default function OffersPage() {
         <button onClick={() => { setEditOffer(null); setForm({ title: '', description: '', type: 'PERCENTAGE', value: 0, storeType: '', startDate: '', endDate: '', isActive: true }); setShowModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"><Plus className="w-4 h-4" /> Add Offer</button>
       </div>
 
-      <DataTable columns={columns} data={offers} loading={loading} emptyMessage="No offers" emptyIcon={<Tag className="w-10 h-10" />} />
+      <DataTable columns={columns} data={filteredOffers} loading={loading} searchable searchPlaceholder="Search offers..." onSearch={setSearchQuery} emptyMessage="No offers" emptyIcon={<Tag className="w-10 h-10" />} />
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

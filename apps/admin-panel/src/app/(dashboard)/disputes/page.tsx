@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, MessageSquare, CheckCircle2, XCircle, Clock, ArrowRight } from 'lucide-react';
+import { MessageSquare, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
 
@@ -47,49 +47,8 @@ export default function DisputesPage() {
   const loadDisputes = async () => {
     setLoading(true);
     try {
-      const [returnsRes, refundsRes] = await Promise.allSettled([
-        adminApi.getReturns({}),
-        adminApi.getRefunds({}),
-      ]);
-
-      const returnList = returnsRes.status === 'fulfilled'
-        ? (Array.isArray(returnsRes.value) ? returnsRes.value : returnsRes.value?.data || [])
-        : [];
-      const refundList = refundsRes.status === 'fulfilled'
-        ? (Array.isArray(refundsRes.value) ? refundsRes.value : refundsRes.value?.data || [])
-        : [];
-
-      const mapped: Dispute[] = [
-        ...returnList.map((r: any) => ({
-          id: r.id,
-          orderId: r.orderId,
-          orderNo: r.order?.orderNo || r.orderId?.slice(0, 8),
-          reason: r.reason || 'No reason provided',
-          status: r.status || 'PENDING',
-          type: r.type || 'RETURN',
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-          customerName: r.order?.customerName || r.order?.user?.name || '',
-          vendorName: r.order?.vendorName || '',
-          resolution: r.resolution || '',
-        })),
-        ...refundList.map((r: any) => ({
-          id: r.id,
-          orderId: r.orderId,
-          orderNo: r.order?.orderNo || r.orderId?.slice(0, 8),
-          reason: r.reason || 'Refund requested',
-          status: r.status || 'PENDING',
-          type: 'REFUND',
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-          customerName: r.order?.customerName || r.order?.user?.name || '',
-          vendorName: r.order?.vendorName || '',
-          resolution: r.resolution || '',
-        })),
-      ];
-
-      mapped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setDisputes(mapped);
+      const res = await adminApi.getDisputes();
+      setDisputes(Array.isArray(res) ? res : []);
     } catch {
       setDisputes([]);
     } finally {
@@ -100,7 +59,7 @@ export default function DisputesPage() {
   const handleResolve = async (id: string, status: string) => {
     setUpdatingId(id);
     try {
-      await adminApi.processReturn(id, status, `Resolved by admin`);
+      await adminApi.resolveDispute(id, { status, resolution: 'Resolved by admin' });
       loadDisputes();
     } catch {
       // ignore

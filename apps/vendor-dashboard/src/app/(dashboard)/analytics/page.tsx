@@ -10,7 +10,29 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getAnalytics('30d').then(setAnalytics).catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getAnalytics('30d').then((res: any) => {
+      // Backend returns { totalOrders, totalRevenue, avgOrderValue, orderStatusBreakdown, monthlyRevenue, recentOrders, ... }
+      // Transform to what the frontend expects
+      const data = res || {};
+      setAnalytics({
+        totalRevenue: data.totalRevenue || 0,
+        totalOrders: data.totalOrders || 0,
+        avgOrderValue: data.avgOrderValue || 0,
+        totalCustomers: data.totalCustomers || 0,
+        topProduct: data.recentOrders?.[0]?.items?.[0]?.name
+          ? { name: data.recentOrders[0].items[0].name }
+          : null,
+        // Transform monthlyRevenue [{month, orders, revenue}] → [{date, revenue}]
+        revenueOverTime: (data.monthlyRevenue || []).map((m: any) => ({
+          date: m.month ? new Date(m.month + '-01').toISOString() : new Date().toISOString(),
+          revenue: m.revenue || 0,
+        })),
+        // Transform orderStatusBreakdown { status: count } → [{status, count}]
+        ordersByStatus: data.orderStatusBreakdown
+          ? Object.entries(data.orderStatusBreakdown).map(([status, count]: [string, any]) => ({ status, count: Number(count) }))
+          : [],
+      });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) return (

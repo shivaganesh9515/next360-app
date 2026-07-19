@@ -23,13 +23,13 @@ const navItems = [
   ]},
   { href: '/products', label: 'Products', icon: Package, subItems: [
     { href: '/products', label: 'All Products' },
+    { href: '/products/approvals', label: 'Pending Approvals' },
     { href: '/products/add', label: 'Add Product' },
   ]},
   { href: '/categories', label: 'Categories', icon: Tag, subItems: [
     { href: '/categories', label: 'Categories' },
     { href: '/categories/sub-categories', label: 'Sub-Categories' },
   ]},
-  { href: '/brands', label: 'Brands', icon: Star },
   { href: '/orders', label: 'Orders', icon: ShoppingCart, subItems: [
     { href: '/orders', label: 'All Orders' },
     { href: '/orders/returns', label: 'Returns' },

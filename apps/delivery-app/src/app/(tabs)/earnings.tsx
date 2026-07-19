@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDeliveryStore } from '../../store/deliveryStore';
 
@@ -8,9 +8,30 @@ export default function EarningsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'all'>('all');
 
+  // Entrance and counter animations
+  const summaryAnim = useRef(new Animated.Value(0)).current;
+  const counterAnim = useRef(new Animated.Value(0)).current;
+  const [displayedEarnings, setDisplayedEarnings] = useState('₹0');
+
   useEffect(() => {
     fetchEarnings(period);
   }, [period]);
+
+  // Animate entrance
+  useEffect(() => {
+    Animated.spring(summaryAnim, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }).start();
+  }, []);
+
+  // Animated earnings counter
+  useEffect(() => {
+    const targetValue = earnings?.allTime || 0;
+    counterAnim.setValue(0);
+    Animated.timing(counterAnim, { toValue: targetValue, duration: 1200, useNativeDriver: false }).start();
+    const listener = counterAnim.addListener(({ value }) => {
+      setDisplayedEarnings(formatCurrency(Math.round(value)));
+    });
+    return () => counterAnim.removeListener(listener);
+  }, [earnings?.allTime]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -26,16 +47,16 @@ export default function EarningsScreen() {
       contentContainerStyle={styles.contentContainer}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#10B981']} />}
     >
-      {/* Earnings Summary Card */}
-      <View style={styles.summaryCard}>
+      {/* Earnings Summary Card — springs into view with animated counter */}
+      <Animated.View style={[styles.summaryCard, { opacity: summaryAnim, transform: [{ scale: summaryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>
         <Text style={styles.summaryLabel}>Total Earnings</Text>
         <Text style={styles.summaryAmount}>
-          {formatCurrency(earnings?.allTime || 0)}
+          {displayedEarnings}
         </Text>
         <Text style={styles.summarySubtext}>
           {earnings?.totalDeliveries || 0} deliveries completed
         </Text>
-      </View>
+      </Animated.View>
 
       {/* Period Filter */}
       <View style={styles.periodContainer}>

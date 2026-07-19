@@ -20,7 +20,7 @@ export default function TransactionsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getPayments({ page, limit: 20 });
-      setTransactions(res?.data || []);
+      setTransactions((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
       if (res?.summary) setStats(res.summary);
     } catch { setTransactions([]); } finally { setLoading(false); }

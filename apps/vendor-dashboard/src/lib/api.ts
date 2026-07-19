@@ -4,6 +4,12 @@ interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(handler: () => void) {
+  onUnauthorized = handler;
+}
+
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   let url = `${API_BASE}${path}`;
   if (options.params) {
@@ -30,6 +36,15 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   } catch (err: any) {
     // Network error (API not running, CORS, etc.)
     throw new Error('Unable to connect to server. Please try again later.');
+  }
+
+  // Handle 401 Unauthorized — session expired or invalid token
+  if (response.status === 401) {
+    localStorage.removeItem('vendor_token');
+    if (onUnauthorized) {
+      onUnauthorized();
+    }
+    throw new Error('Session expired. Please sign in again.');
   }
 
   if (!response.ok) {
@@ -90,7 +105,13 @@ export const vendorApi = {
   signup: (data: any) => api.post<any>('/auth/signup', { ...data, role: 'VENDOR' }),
   verifyOtp: (email: string, otp: string) =>
     api.post<any>('/auth/verify-otp', { email, otp }),
-  getProfile: () => api.get<any>('/users/me'),
+  forgotPassword: (email: string) =>
+    api.post<any>('/auth/forgot-password', { email }),
+  getProfile: () => api.get<any>('/auth/me'),
+
+  // Vendor profile — always uses authenticated identity, never a client-supplied ID
+  getMyProfile: () => api.get<any>('/vendors/my-profile'),
+  updateMyProfile: (data: any) => api.patch<any>('/vendors/my-profile', data),
 
   // Dashboard
   getDashboard: (vendorId: string) =>
@@ -109,6 +130,11 @@ export const vendorApi = {
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
   updateOrderStatus: (id: string, status: string) =>
     api.patch<any>(`/orders/${id}/status`, { status }),
+  // Vendors must update their vendor group's status (not the entire order).
+  // The PATCH /orders/:id/status endpoint requires ADMIN role — vendors
+  // must call PATCH /orders/:id/groups/:groupId/status instead.
+  updateVendorGroupStatus: (id: string, groupId: string, status: string) =>
+    api.patch<any>(`/orders/${id}/groups/${groupId}/status`, { status }),
 
   // Categories
   getCategories: (params?: any) => api.get<any>('/categories', params),
@@ -131,18 +157,15 @@ export const vendorApi = {
   // Analytics
   getAnalytics: (period?: string) =>
     api.get<any>('/vendors/me/analytics', { period }),
-  getSalesAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/sales', { period }),
-  getRevenueAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/revenue', { period }),
-
   // Earnings
   getEarnings: () => api.get<any>('/vendors/me/earnings'),
   getPayouts: () => api.get<any[]>('/vendors/me/payouts'),
   getTransactions: (params?: any) =>
     api.get<any[]>('/vendors/me/transactions', params),
 
-  // Store
+  // Store — uses authenticated vendor identity (PATCH /vendors/my-profile)
+  // The backend's PATCH /vendors/:id checks ownership via @CurrentUser, so the
+  // authenticated user can only update their own store.
   getStore: (vendorId: string) => api.get<any>(`/vendors/${vendorId}`),
   updateStore: (vendorId: string, data: any) =>
     api.patch<any>(`/vendors/${vendorId}`, data),
@@ -158,4 +181,14 @@ export const vendorApi = {
   getReturns: () => api.get<any[]>('/returns/vendor'),
   updateReturnStatus: (id: string, status: string, reason?: string) =>
     api.patch<any>(`/returns/${id}`, { status, reason }),
+
+  // Cancel a vendor group within an order (vendor rejects their portion).
+  // This is the correct endpoint for vendors — cancelling the entire order
+  // via POST /orders/:id/cancel would affect other vendors' items.
+  cancelVendorGroup: (orderId: string, groupId: string, reason?: string) =>
+    api.post<any>(`/orders/${orderId}/groups/${groupId}/cancel`, { reason }),
+
+  // Cancel the entire order (admin only, or customer self-service)
+  cancelOrder: (orderId: string, reason?: string) =>
+    api.post<any>(`/orders/${orderId}/cancel`, { reason }),
 };

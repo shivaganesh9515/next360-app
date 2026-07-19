@@ -1,17 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '../../constants/theme';
 
 export default function SplashScreen() {
+  const { t } = useTranslation();
+
   return (
     <View style={s.container}>
       <View style={s.lockup}>
         <View style={s.mark}>
           <Text style={s.markGlyph}>🌿</Text>
         </View>
-        <Text style={s.wordmark}>Next360</Text>
+        <Text style={s.wordmark}>{t('brand.name')}</Text>
       </View>
-      <Text style={s.tagline}>Organic. Natural. Eco-friendly.</Text>
+      <Text style={s.tagline}>{t('splash.tagline')}</Text>
     </View>
   );
 }

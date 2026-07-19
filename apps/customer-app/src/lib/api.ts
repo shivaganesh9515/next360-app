@@ -294,6 +294,29 @@ export const customerApi = {
   updateProfile: (data: { name?: string; email?: string }) =>
     api.patch<any>('/users/me', data),
 
+  // Google Login — sends the verified Google profile to the backend,
+  // which creates a new account or logs in an existing one by email.
+  // Falls back to a demo Google sign-in when the real API is unreachable,
+  // same pattern as the phone OTP demo fallback.
+  googleAuth: async (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => {
+    try {
+      return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/google', data);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return {
+        access_token: `demo-google-token-${Date.now()}`,
+        user: {
+          id: `demo-google-user-${Date.now()}`,
+          email: data.email,
+          name: data.name || 'Google User',
+          avatarUrl: data.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+        isNewUser: true,
+      };
+    }
+  },
+
   // Products — falls back to local demo data when the real API returns
   // nothing (no backend/DB wired up yet), so screens can be checked visually
   // without needing a live database.
@@ -317,6 +340,17 @@ export const customerApi = {
       const demo = findDemoProduct(id);
       if (demo) return demo;
       throw new Error('Product not found');
+    }
+  },
+
+  // Vendor Storefront — fetches a vendor's profile details. Falls back to
+  // a synthesized result from demo data when the real API isn't reachable.
+  getVendorStorefront: async (vendorId: string) => {
+    try {
+      return await api.get<any>(`/vendors/${vendorId}/storefront`);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return { id: vendorId, storeName: 'Next360 Farms', storeType: 'ORGANIC', rating: 4.5, productCount: 10 };
     }
   },
 
@@ -623,8 +657,46 @@ export const customerApi = {
   getActiveOffers: (storeType?: string) =>
     api.get<any[]>('/offers/active', { storeType }),
 
-  // Notifications
-  getNotifications: () => api.get<any[]>('/notifications'),
+  // CMS Banners
+  getBanners: (params?: Record<string, any>) =>
+    api.get<any[]>('/cms/banners', params),
+
+  // Delivery Slots — fetches available delivery time windows for a zone
+  getDeliverySlots: async (zoneId?: string) => {
+    try {
+      return await api.get<any>(`/delivery-slots`, { zoneId });
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      // Demo fallback: generate synthetic slots for today/tomorrow
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return {
+        today: { date: today, dayName: dayNames[now.getDay()], slots: [
+          { id: 'demo-slot-1', startTime: '09:00', endTime: '12:00', maxOrders: 20, booked: 5, available: 15, isPast: false, date: today },
+          { id: 'demo-slot-2', startTime: '14:00', endTime: '17:00', maxOrders: 20, booked: 10, available: 10, isPast: false, date: today },
+        ]},
+        tomorrow: { date: tomorrowStr, dayName: dayNames[tomorrow.getDay()], slots: [
+          { id: 'demo-slot-3', startTime: '09:00', endTime: '12:00', maxOrders: 20, booked: 2, available: 18, isPast: false, date: tomorrowStr },
+          { id: 'demo-slot-4', startTime: '14:00', endTime: '17:00', maxOrders: 20, booked: 8, available: 12, isPast: false, date: tomorrowStr },
+          { id: 'demo-slot-5', startTime: '18:00', endTime: '21:00', maxOrders: 15, booked: 0, available: 15, isPast: false, date: tomorrowStr },
+        ]},
+      };
+    }
+  },
+
+  // Payments — Razorpay
+  createRazorpayOrder: (orderId: string) =>
+    api.post<{ key: string; amount: number; currency: string; order_id: string; receipt: string }>('/payments/razorpay/order', { orderId }),
+  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+    api.post<{ success: boolean; message: string }>('/payments/razorpay/verify', data),
+
+  // Notifications — accepts optional pagination params
+  getNotifications: (params?: { page?: number; limit?: number }) =>
+    api.get<any[]>('/notifications', params as Record<string, any>),
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
   markAllNotificationsRead: () => api.post<any>('/notifications/read-all'),

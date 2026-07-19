@@ -1,13 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useDeliveryStore } from '../../store/deliveryStore';
+import { formatDeliveryFee, sumDeliveryFees } from '../../lib/pricing';
 
 export default function HistoryScreen() {
   const { deliveryHistory, fetchDeliveryHistory, isLoading } = useDeliveryStore();
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'today' | 'week'>('all');
+
+  // Stagger entrance animation for the stats summary card
+  const statsAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(statsAnim, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }).start();
+  }, []);
 
   useEffect(() => {
     fetchDeliveryHistory({ period: filter });
@@ -18,8 +25,6 @@ export default function HistoryScreen() {
     await fetchDeliveryHistory({ period: filter });
     setRefreshing(false);
   };
-
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
 
   const formatDate = (date: string) => {
     const d = new Date(date);
@@ -62,7 +67,7 @@ export default function HistoryScreen() {
       <View style={styles.cardFooter}>
         <View style={styles.earningsInfo}>
           <Text style={styles.earningsLabel}>Earned</Text>
-          <Text style={styles.earningsAmount}>{formatCurrency(order.deliveryFee || 15000)}</Text>
+          <Text style={styles.earningsAmount}>{formatDeliveryFee(order.deliveryFee)}</Text>
         </View>
         <TouchableOpacity
           style={styles.detailsBtn}
@@ -92,8 +97,8 @@ export default function HistoryScreen() {
         ))}
       </View>
 
-      {/* Stats Summary */}
-      <View style={styles.statsCard}>
+      {/* Stats Summary — springs into view */}
+      <Animated.View style={[styles.statsCard, { opacity: statsAnim, transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{deliveryHistory.length}</Text>
           <Text style={styles.statLabel}>Deliveries</Text>
@@ -101,11 +106,11 @@ export default function HistoryScreen() {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {formatCurrency(deliveryHistory.reduce((sum, o) => sum + (o.deliveryFee || 15000), 0))}
+            {sumDeliveryFees(deliveryHistory.map((o) => o.deliveryFee))}
           </Text>
           <Text style={styles.statLabel}>Total Earned</Text>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Orders List */}
       <ScrollView

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart, Search } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
@@ -18,6 +18,18 @@ export default function OrdersPage() {
 
   const statuses = ['', 'PLACED', 'CONFIRMED', 'PACKED', 'ASSIGNED_TO_DELIVERY', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 
+  const statusLabels: Record<string, string> = {
+    '': 'All',
+    PLACED: 'Placed',
+    CONFIRMED: 'Confirmed',
+    PACKED: 'Packed',
+    ASSIGNED_TO_DELIVERY: 'Assigned to Delivery',
+    PICKED_UP: 'Picked Up',
+    OUT_FOR_DELIVERY: 'Out for Delivery',
+    DELIVERED: 'Delivered',
+    CANCELLED: 'Cancelled',
+  };
+
   useEffect(() => { loadOrders(); }, [page, statusFilter]);
 
   const loadOrders = async () => {
@@ -27,7 +39,7 @@ export default function OrdersPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await adminApi.getOrders(params);
-      setOrders(res?.data || []);
+      setOrders((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setOrders([]); } finally { setLoading(false); }
   };
@@ -54,12 +66,12 @@ export default function OrdersPage() {
         {statuses.map(s => (
           <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
             className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${statusFilter === s ? 'bg-emerald-600 text-white border-emerald-600' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-            {s || 'All'}
+            {statusLabels[s] || s}
           </button>
         ))}
       </div>
 
-      <DataTable columns={columns} data={orders} loading={loading} searchable searchPlaceholder="Search orders..." onSearch={(q) => { setSearch(q); setPage(1); }} page={page} totalPages={totalPages} onPageChange={setPage} onRowClick={(o) => router.push(`/orders/${o.id}`)} emptyMessage="No orders found" emptyIcon={<ShoppingCart className="w-10 h-10" />} />
+      <DataTable columns={columns} data={orders} loading={loading} searchable searchPlaceholder="Search orders..." onSearch={(q) => { setSearch(q); setPage(1); }} page={page} totalPages={totalPages} onPageChange={setPage} onRowClick={(o) => router.push(`/orders/${o.id}`)} emptyMessage={<><p>No orders found</p><p className="text-xs text-gray-400 mt-1">Orders will appear here once customers place them.</p></>} emptyIcon={<ShoppingCart className="w-10 h-10" />} />
     </div>
   );
 }

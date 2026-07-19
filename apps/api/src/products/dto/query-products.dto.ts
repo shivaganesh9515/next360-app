@@ -37,6 +37,10 @@ export class QueryProductsDto {
 
   @IsOptional()
   @IsString()
+  isApproved?: string;
+
+  @IsOptional()
+  @IsString()
   sortBy?: string;
 
   @IsOptional()

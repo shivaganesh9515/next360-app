@@ -1,0 +1,42 @@
+/* Glass effects — light-only versions of launch-ui's utility set
+   (the dark: variants from the source are dropped, Next360 has no dark mode) */
+@utility glass-4 {
+  @apply border-border border-b-input/90 from-card/60 to-card/20 border bg-linear-to-b;
+}
+@utility glass-5 {
+  @apply border-border border-b-input from-card/100 to-card/20 border bg-linear-to-b;
+}
+
+/* Fade effects */
+@utility fade-bottom {
+  mask-image: linear-gradient(to top, transparent 0%, black 35%);
+}
+@utility fade-top {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 35%);
+}
+
+/* Hairline separators — the "sharp editorial cards, hairline borders
+   instead of shadows" rule from CLAUDE.md */
+@utility line-y {
+  @apply border-border;
+  border-width: 0 var(--line-width, 0);
+}
+
+@utility line-x {
+  @apply border-border;
+  border-width: var(--line-width, 0) 0;
+}
+
+@utility line-b {
+  @apply border-border;
+  border-width: 0 0 var(--line-width, 0);
+}
+
+@utility line-t {
+  @apply border-border;
+  border-width: var(--line-width, 0) 0;
+}
+
+@utility line-dashed {
+  @apply border-dashed;
+}

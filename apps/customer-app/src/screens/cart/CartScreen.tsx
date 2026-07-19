@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../lib/store';
 import { getDeliveryFee } from '../../lib/pricing';
 import { CartItem as CartItemType } from '../../types';
@@ -16,6 +17,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
   onQuantityChange: (id: string, qty: number) => void;
   onRemove: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const [updating, setUpdating] = useState(false);
 
   const handleQuantityChange = async (newQty: number) => {
@@ -35,8 +37,8 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
         style={styles.itemImage}
       />
       <View style={styles.itemInfo}>
-        <Text style={styles.itemName} numberOfLines={2}>{item.product?.name || 'Product'}</Text>
-        <Text style={styles.itemUnit}>{item.product?.unit || 'per unit'}</Text>
+        <Text style={styles.itemName} numberOfLines={2}>{item.product?.name || t('cart.fallback.productName')}</Text>
+        <Text style={styles.itemUnit}>{item.product?.unit || t('cart.fallback.unit')}</Text>
         <Text style={styles.itemPrice}>₹{Number(item.product?.price || 0).toFixed(0)}</Text>
       </View>
       <QuantityStepper
@@ -57,6 +59,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
 }
 
 export default function CartScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const { cartItems, fetchCart, updateCartItem, removeCartItem, clearCart, cartCount, subtotal } = useStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,10 +86,10 @@ export default function CartScreen({ navigation }: any) {
   };
 
   const handleRemove = async (itemId: string) => {
-    Alert.alert('Remove Item', 'Are you sure you want to remove this item?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('cart.alert.removeItem.title'), t('cart.alert.removeItem.message'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('common.remove'),
         style: 'destructive',
         onPress: async () => {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -97,10 +100,10 @@ export default function CartScreen({ navigation }: any) {
   };
 
   const handleClearCart = async () => {
-    Alert.alert('Clear Cart', 'Remove all items from your cart?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('cart.alert.clearCart.title'), t('cart.alert.clearCart.message'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Clear',
+        text: t('common.clear'),
         style: 'destructive',
         onPress: clearCart,
       },
@@ -125,13 +128,13 @@ export default function CartScreen({ navigation }: any) {
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
           <Ionicons name="bag-handle-outline" size={72} color={Colors.border} />
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
-          <Text style={styles.emptySubtitle}>Add some items to get started</Text>
+          <Text style={styles.emptyTitle}>{t('cart.empty.title')}</Text>
+          <Text style={styles.emptySubtitle}>{t('cart.empty.subtitle')}</Text>
           <TouchableOpacity
             style={[styles.shopButton, Shadows.button(Colors.organic)]}
             onPress={() => navigation.navigate('Home')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Text style={styles.shopButtonText}>{t('cart.empty.startShopping')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -142,9 +145,9 @@ export default function CartScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Cart ({cartCount} items)</Text>
+        <Text style={styles.headerTitle}>{t('cart.header.title', { count: cartCount })}</Text>
         <TouchableOpacity onPress={handleClearCart} hitSlop={8}>
-          <Text style={styles.clearText}>Clear All</Text>
+          <Text style={styles.clearText}>{t('cart.header.clearAll')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -168,17 +171,17 @@ export default function CartScreen({ navigation }: any) {
       {/* Bottom Summary */}
       <View style={[styles.summaryBar, Shadows.raised]}>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Subtotal</Text>
+          <Text style={styles.summaryLabel}>{t('cart.summary.subtotal')}</Text>
           <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Delivery</Text>
+          <Text style={styles.summaryLabel}>{t('cart.summary.delivery')}</Text>
           <Text style={[styles.summaryValue, DELIVERY_FEE === 0 && styles.summaryValueFree]}>
-            {DELIVERY_FEE === 0 ? 'FREE' : formatCurrency(DELIVERY_FEE)}
+            {DELIVERY_FEE === 0 ? t('common.free') : formatCurrency(DELIVERY_FEE)}
           </Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalLabel}>{t('cart.summary.total')}</Text>
           <Text style={styles.totalValue}>{formatCurrency(subtotal + DELIVERY_FEE)}</Text>
         </View>
         <TouchableOpacity
@@ -186,7 +189,7 @@ export default function CartScreen({ navigation }: any) {
           onPress={() => navigation.navigate('Checkout')}
         >
           <Text style={styles.checkoutButtonText}>
-            Proceed to Checkout ({cartCount} items)
+            {t('cart.checkout.proceed', { count: cartCount })}
           </Text>
           <Ionicons name="arrow-forward" size={16} color={Colors.white} />
         </TouchableOpacity>

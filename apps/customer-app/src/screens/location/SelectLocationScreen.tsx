@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useZone } from '../../lib/zone';
 import { SERVICEABLE_ZONES, isServiceableCity } from '../../constants/zones';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
@@ -8,6 +9,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 type Row = { city: string; locality: string };
 
 export default function SelectLocationScreen({ navigation, mandatory }: any) {
+  const { t } = useTranslation();
   const { setZone } = useZone();
   const [query, setQuery] = useState('');
 
@@ -38,7 +40,7 @@ export default function SelectLocationScreen({ navigation, mandatory }: any) {
           </TouchableOpacity>
         )}
         <Text style={s.headerTitle}>
-          {mandatory ? 'Where should we deliver?' : 'Select Delivery Location'}
+          {mandatory ? t('location.title.mandatory') : t('location.title.optional')}
         </Text>
       </View>
 
@@ -48,7 +50,7 @@ export default function SelectLocationScreen({ navigation, mandatory }: any) {
           style={s.input}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search city or area..."
+          placeholder={t('location.placeholder')}
           placeholderTextColor={Colors.textSecondary}
           autoFocus
         />
@@ -57,10 +59,9 @@ export default function SelectLocationScreen({ navigation, mandatory }: any) {
       {showOutOfZoneNotice ? (
         <View style={s.blockCard}>
           <Text style={s.blockEmoji}>🚧</Text>
-          <Text style={s.blockTitle}>We're not in your area yet</Text>
+          <Text style={s.blockTitle}>{t('location.blocked.title')}</Text>
           <Text style={s.blockText}>
-            Next360 currently delivers only in Hyderabad and Vijayawada. We're working on
-            expanding to more cities soon.
+            {t('location.blocked.text')}
           </Text>
         </View>
       ) : (
@@ -69,7 +70,7 @@ export default function SelectLocationScreen({ navigation, mandatory }: any) {
           keyExtractor={(item) => `${item.city}-${item.locality}`}
           contentContainerStyle={s.list}
           ListHeaderComponent={
-            !query.trim() ? <Text style={s.sectionLabel}>Serviceable areas</Text> : null
+            !query.trim() ? <Text style={s.sectionLabel}>{t('location.section.serviceable')}</Text> : null
           }
           renderItem={({ item }) => (
             <TouchableOpacity style={s.row} onPress={() => handleSelect(item)}>

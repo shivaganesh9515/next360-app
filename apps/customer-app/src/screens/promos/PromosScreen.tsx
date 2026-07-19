@@ -7,8 +7,10 @@ import { useStore } from '../../lib/store';
 import { Offer } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius, getStoreAccent, getStoreLabel } from '../../constants/theme';
 import ErrorState from '../../components/ErrorState';
+import { useTranslation } from 'react-i18next';
 
 export default function PromosScreen() {
+  const { t } = useTranslation();
   const { storeType } = useStore();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,17 +42,17 @@ export default function PromosScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Offers & Coupons</Text>
-        <Text style={s.headerSub}>Active in {getStoreLabel(storeType)}</Text>
+        <Text style={s.headerTitle}>{t('promos.title')}</Text>
+        <Text style={s.headerSub}>{t('promos.subtitle', { storeLabel: getStoreLabel(storeType) })}</Text>
       </View>
 
       {error ? (
-        <ErrorState message="Couldn't load offers" onRetry={load} />
+        <ErrorState message={t('promos.error.load')} onRetry={load} />
       ) : offers.length === 0 ? (
         <View style={s.center}>
           <Text style={s.emptyEmoji}>🏷️</Text>
-          <Text style={s.emptyTitle}>No active offers right now</Text>
-          <Text style={s.emptySubtitle}>Check back soon for deals in this store.</Text>
+          <Text style={s.emptyTitle}>{t('promos.empty.title')}</Text>
+          <Text style={s.emptySubtitle}>{t('promos.empty.subtitle')}</Text>
         </View>
       ) : (
         <FlatList
@@ -63,13 +65,13 @@ export default function PromosScreen() {
               <View style={[s.card, { borderColor: accent }]}>
                 <View style={[s.discountPill, { backgroundColor: accent }]}>
                   <Text style={s.discountText}>
-                    {item.discountType === 'PERCENTAGE' ? `${item.discountValue}% OFF` : `₹${item.discountValue} OFF`}
+                    {item.discountType === 'PERCENTAGE' ? t('promos.discount.percent', { value: item.discountValue }) : t('promos.discount.fixed', { value: item.discountValue })}
                   </Text>
                 </View>
                 <Text style={s.cardTitle}>{item.title}</Text>
                 {!!item.description && <Text style={s.cardDesc}>{item.description}</Text>}
                 <Text style={s.cardExpiry}>
-                  Valid till {new Date(item.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  {t('promos.validTill', { date: new Date(item.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) })}
                 </Text>
               </View>
             );

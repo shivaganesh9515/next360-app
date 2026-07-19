@@ -26,6 +26,7 @@ enum OrderStatus {
   PLACED
   CONFIRMED
   PACKED
+  READY_FOR_PICKUP
   ASSIGNED_TO_DELIVERY
   PICKED_UP
   OUT_FOR_DELIVERY
@@ -103,6 +104,7 @@ model User {
   aiLogs            AI_Log[]
   aiRecommendations AI_Recommendation[]
   pushTokens        PushToken[]
+  auditLogs         AuditLog[]
 }
 
 // Zone — city-based zone gating (MVP: Hyderabad + Vijayawada)
@@ -113,8 +115,9 @@ model Zone {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  vendors          Vendor[]
-  deliveryPartners DeliveryPartner[]
+  vendors            Vendor[]
+  deliveryPartners   DeliveryPartner[]
+  deliverySlotConfigs DeliverySlotConfig[]
 }
 
 model Vendor {
@@ -341,6 +344,7 @@ model OrderVendorGroup {
 
   items     OrderItem[]
   delivery  DeliveryAssignment?
+  slotBooking DeliverySlotBooking?
 }
 
 model OrderItem {
@@ -355,6 +359,20 @@ model OrderItem {
 }
 
 // One delivery assignment per OrderVendorGroup (not per Order)
+// Records the reason a delivery couldn't be completed — used when the
+// delivery partner marks an order as failed (customer unavailable, wrong
+// address, etc.) so the admin can review and take action instead of silently
+// abandoning the order.
+model DeliveryFailure {
+  id                 String   @id @default(uuid())
+  deliveryAssignmentId String @unique
+  deliveryAssignment DeliveryAssignment @relation(fields: [deliveryAssignmentId], references: [id])
+  reason             String   // CUSTOMER_UNAVAILABLE | WRONG_ADDRESS | RESCHEDULE | RETURNED_TO_STORE | OTHER
+  details            String?  // Free-text notes from the delivery partner
+  resolvedAt         DateTime?
+  createdAt          DateTime @default(now())
+}
+
 model DeliveryAssignment {
   id                 String           @id @default(uuid())
   orderVendorGroupId String           @unique
@@ -365,6 +383,8 @@ model DeliveryAssignment {
   otp                String           // verified on pickup
   pickedUpAt         DateTime?
   deliveredAt        DateTime?
+
+  failures DeliveryFailure[]
 }
 
 model Payment {
@@ -548,4 +568,91 @@ model Permission {
   resource  String
   action    String   // create, read, update, delete, manage
   createdAt DateTime @default(now())
+}
+
+// ── Platform Settings — single-row table for global platform configuration
+// The pattern is always: API reads the first (and only) row; admin panel
+// edits it via PATCH. Seeded automatically on first access if empty.
+model PlatformSettings {
+  id                       String  @id @default(uuid())
+
+  // General
+  platformName              String  @default("Next360")
+  supportEmail              String  @default("support@next360.com")
+
+  // Commission
+  defaultCommissionPct      Float   @default(10.0)
+
+  // COD
+  codEnabled                Boolean @default(true)
+  codCapAmount              Int     @default(2000)
+
+  // Order Limits
+  minOrderAmount            Int     @default(100)
+  maxOrderAmount            Int     @default(50000)
+
+  // Payouts
+  deliveryPartnerPayoutFreq String  @default("weekly")  // daily | weekly | biweekly | monthly
+
+  // Approvals
+  autoApproveVendors        Boolean @default(false)
+  autoApproveProducts       Boolean @default(false)
+
+  // Maintenance
+  maintenanceMode           Boolean @default(false)
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+// ── Delivery Slot — configures available delivery time windows per zone/day
+// For each day of the week a zone can have multiple slots (e.g. 9-12, 14-17).
+// The customer picks a slot at checkout; the booking reserves capacity so the
+// admin can see committed deliveries per slot and cap overselling.
+model DeliverySlotConfig {
+  id        String   @id @default(uuid())
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: [id])
+  dayOfWeek Int      // 0=Sunday … 6=Saturday
+  startTime String   // "HH:mm" in 24h format, e.g. "09:00"
+  endTime   String   // "HH:mm", e.g. "12:00"
+  maxOrders Int      @default(20)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings DeliverySlotBooking[]
+
+  @@index([zoneId, dayOfWeek])
+}
+
+model DeliverySlotBooking {
+  id                 String   @id @default(uuid())
+  orderVendorGroupId String   @unique
+  orderVendorGroup   OrderVendorGroup @relation(fields: [orderVendorGroupId], references: [id])
+  slotConfigId       String
+  slotConfig         DeliverySlotConfig @relation(fields: [slotConfigId], references: [id])
+  deliveryDate       DateTime // the calendar date the slot falls on
+  timeRange          String   // "09:00-12:00"
+  createdAt          DateTime @default(now())
+}
+
+// ── Audit Log — every meaningful admin action is recorded here
+// Keeps a permanent record of who did what to which resource, when,
+// and what changed. This is the single source of truth for compliance,
+// debugging, and transparency — never pruned or aggregated away.
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String   // APPROVE_VENDOR, REJECT_VENDOR, SUSPEND_VENDOR, APPROVE_PRODUCT, UPDATE_SETTINGS, etc.
+  resource   String   // Vendor, Product, User, Order, Settings, Coupon, etc.
+  resourceId String?  // The ID of the affected resource (vendor id, product id, etc.)
+  details    Json?    // Free-form metadata: old values, new values, reason, etc.
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([resource, resourceId])
+  @@index([action])
 }

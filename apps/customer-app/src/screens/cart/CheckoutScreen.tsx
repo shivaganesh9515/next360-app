@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../lib/store';
 import { customerApi } from '../../lib/api';
 import { getDeliveryFee } from '../../lib/pricing';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import DeliverySlotPicker from '../../components/DeliverySlotPicker';
 
 const SLIDE_THRESHOLD = 0.85;
 // Per CLAUDE.md: COD is capped at ₹2,000/order — nothing enforced this before,
@@ -16,21 +18,19 @@ const SLIDE_THRESHOLD = 0.85;
 // only alternative) isn't live yet.
 const COD_CAP = 2000;
 
-// RAZORPAY is shown but disabled — there's no real payment collection wired
-// up yet (no SDK, no live order/webhook endpoint). Selecting it silently
-// created a "paid" order that collected zero money, so it's marked
-// Coming Soon here rather than left selectable and misleading.
 const PAYMENT_OPTIONS = [
-  { key: 'COD' as const, label: 'Cash on Delivery', icon: 'cash-outline' as const, comingSoon: false },
-  { key: 'RAZORPAY' as const, label: 'Pay Online (Razorpay)', icon: 'card-outline' as const, comingSoon: true },
+  { key: 'COD' as const, labelKey: 'checkout.payment.cod', icon: 'cash-outline' as const, comingSoon: false },
+  { key: 'RAZORPAY' as const, labelKey: 'checkout.payment.razorpay', icon: 'card-outline' as const, comingSoon: false },
 ];
 
 export default function CheckoutScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { cartItems, subtotal, clearCart } = useStore();
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
-  const [paymentMethod] = useState<'COD'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY'>('COD');
   const [notes, setNotes] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState<{ slotConfigId: string; date: string; timeRange: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
 
@@ -133,7 +133,7 @@ export default function CheckoutScreen({ navigation }: any) {
       setAppliedCoupon({ code: data.code || couponInput.trim().toUpperCase(), discount: Number(data.discount) || 0 });
       setCouponInput('');
     } catch (err: any) {
-      setCouponError(err.message || 'Invalid or expired coupon code');
+      setCouponError(err.message || t('checkout.coupon.error'));
     } finally {
       setApplyingCoupon(false);
     }
@@ -146,13 +146,13 @@ export default function CheckoutScreen({ navigation }: any) {
 
   const handlePlaceOrder = async (): Promise<boolean> => {
     if (!selectedAddress) {
-      Alert.alert('Select Address', 'Please add a delivery address to continue');
+      Alert.alert(t('checkout.alert.selectAddress.title'), t('checkout.alert.selectAddress.message'));
       return false;
     }
     if (overCodCap) {
       Alert.alert(
-        'COD limit exceeded',
-        `Cash on Delivery is available up to ₹${COD_CAP.toLocaleString('en-IN')} per order. Online payment isn't live yet — please reduce your cart total to continue.`,
+        t('checkout.alert.codLimit.title'),
+        t('checkout.alert.codLimit.message', { cap: COD_CAP.toLocaleString('en-IN') }),
       );
       return false;
     }
@@ -178,7 +178,7 @@ export default function CheckoutScreen({ navigation }: any) {
       }));
       const stockIssues = stockChecks.filter((issue): issue is string => !!issue);
       if (stockIssues.length > 0) {
-        Alert.alert('Some items changed', `${stockIssues.join('\n')}\n\nPlease update your cart before continuing.`);
+        Alert.alert(t('checkout.alert.stockChanged.title'), `${stockIssues.join('\n')}\n\n${t('checkout.alert.stockChanged.message')}`);
         return false;
       }
 
@@ -193,14 +193,51 @@ export default function CheckoutScreen({ navigation }: any) {
         notes: notes || undefined,
         couponCode: appliedCoupon?.code,
         discount: discount || undefined,
+        deliverySlotId: selectedSlot?.slotConfigId,
       };
 
       const result = await customerApi.createOrder(orderData);
+      const orderId = result?.id || result?.data?.id;
+
+      // For Razorpay, open the checkout flow after order creation
+      if (paymentMethod === 'RAZORPAY') {
+        try {
+          // Get Razorpay order from backend
+          const razorpayOrder = await customerApi.createRazorpayOrder(orderId);
+
+          // Dynamically import react-native-razorpay
+          const RazorpayCheckout = require('react-native-razorpay');
+
+          const paymentResult = await RazorpayCheckout.open({
+            key: razorpayOrder.key,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            order_id: razorpayOrder.order_id,
+            name: 'Next360',
+            description: `Order ${razorpayOrder.receipt || orderId.slice(0, 8).toUpperCase()}`,
+            prefill: {},
+            theme: { color: '#5C6B4D' },
+          });
+
+          // Verify payment on backend
+          await customerApi.verifyPayment({
+            razorpayOrderId: razorpayOrder.order_id,
+            razorpayPaymentId: paymentResult.razorpay_payment_id,
+            razorpaySignature: paymentResult.razorpay_signature,
+          });
+        } catch (razorpayError: any) {
+          // Payment was cancelled or failed — don't clear cart, let user retry
+          const msg = razorpayError?.message || 'Payment was cancelled or failed';
+          Alert.alert('Payment Failed', msg);
+          return false;
+        }
+      }
+
       await clearCart();
-      navigation.replace('OrderConfirmation', { orderId: result?.id || result?.data?.id });
+      navigation.replace('OrderConfirmation', { orderId });
       return true;
     } catch (error: any) {
-      Alert.alert('Order Failed', error.message || 'Failed to place order. Please try again.');
+      Alert.alert(t('checkout.alert.orderFailed.title'), error.message || t('checkout.alert.orderFailed.message'));
       return false;
     } finally {
       setPlacing(false);
@@ -231,14 +268,14 @@ export default function CheckoutScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
+        <Text style={styles.headerTitle}>{t('checkout.title')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Delivery Address */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.section.deliveryAddress')}</Text>
           {selectedAddress ? (
             <TouchableOpacity
               style={[styles.addressCard, Shadows.card]}
@@ -248,7 +285,7 @@ export default function CheckoutScreen({ navigation }: any) {
                 <Ionicons name="location" size={18} color={Colors.organic} />
               </View>
               <View style={styles.addressInfo}>
-                <Text style={styles.addressName}>{selectedAddress.label || 'Address'}</Text>
+                <Text style={styles.addressName}>{selectedAddress.label || t('checkout.fallback.address')}</Text>
                 <Text style={styles.addressText}>
                   {selectedAddress.fullAddress}, {selectedAddress.city}, {selectedAddress.state} - {selectedAddress.pincode}
                 </Text>
@@ -261,19 +298,31 @@ export default function CheckoutScreen({ navigation }: any) {
               onPress={() => navigation.navigate('AddressList')}
             >
               <Ionicons name="add-circle-outline" size={22} color={Colors.organic} />
-              <Text style={styles.addAddressText}>Add Delivery Address</Text>
+              <Text style={styles.addAddressText}>{t('checkout.addAddress')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
+        {/* Delivery Slot */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('checkout.section.deliverySlot')}</Text>
+          <View style={[styles.card, Shadows.card, { padding: Spacing.md }]}>
+            <DeliverySlotPicker
+              zoneId={selectedAddress?.zoneId || selectedAddress?.id}
+              selectedSlotId={selectedSlot?.slotConfigId}
+              onSelect={setSelectedSlot}
+            />
+          </View>
+        </View>
+
         {/* Order Items */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Items ({cartItems.length})</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.section.orderItems', { count: cartItems.length })}</Text>
           <View style={[styles.card, Shadows.card]}>
             {cartItems.map((item: any, i: number) => (
               <View key={item.id} style={[styles.orderItem, i === cartItems.length - 1 && { borderBottomWidth: 0 }]}>
                 <Text style={styles.orderItemName} numberOfLines={1}>
-                  {item.product?.name || 'Product'} × {item.quantity}
+                  {item.product?.name || t('checkout.fallback.product')} × {item.quantity}
                 </Text>
                 <Text style={styles.orderItemPrice}>
                   {formatCurrency((item.product?.price || 0) * item.quantity)}
@@ -285,7 +334,7 @@ export default function CheckoutScreen({ navigation }: any) {
 
         {/* Payment Method */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.section.paymentMethod')}</Text>
           {PAYMENT_OPTIONS.map((opt) => {
             const active = paymentMethod === opt.key;
             return (
@@ -296,16 +345,17 @@ export default function CheckoutScreen({ navigation }: any) {
                   active && styles.paymentOptionActive,
                   opt.comingSoon && styles.paymentOptionDisabled,
                 ]}
+                onPress={() => !opt.comingSoon && setPaymentMethod(opt.key)}
                 disabled={opt.comingSoon}
                 activeOpacity={opt.comingSoon ? 1 : 0.7}
               >
                 <Ionicons name={opt.icon} size={20} color={active ? Colors.organic : Colors.textSecondary} />
                 <Text style={[styles.paymentText, active && { color: Colors.text, fontFamily: 'Inter_600SemiBold' }]}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </Text>
                 {opt.comingSoon ? (
                   <View style={styles.comingSoonPill}>
-                    <Text style={styles.comingSoonText}>Coming soon</Text>
+                    <Text style={styles.comingSoonText}>{t('common.comingSoon')}</Text>
                   </View>
                 ) : (
                   <View style={[styles.checkCircle, active && styles.checkCircleActive]}>
@@ -319,16 +369,16 @@ export default function CheckoutScreen({ navigation }: any) {
 
         {/* Coupon */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Coupon</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.section.coupon')}</Text>
           {appliedCoupon ? (
             <View style={[styles.couponAppliedCard, Shadows.card]}>
               <Ionicons name="pricetag" size={18} color={Colors.organic} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.couponAppliedCode}>{appliedCoupon.code}</Text>
-                <Text style={styles.couponAppliedSavings}>You saved {formatCurrency(appliedCoupon.discount)}</Text>
+                <Text style={styles.couponAppliedSavings}>{t('checkout.coupon.saved', { amount: formatCurrency(appliedCoupon.discount) })}</Text>
               </View>
               <TouchableOpacity onPress={handleRemoveCoupon} hitSlop={8}>
-                <Text style={styles.couponRemove}>Remove</Text>
+                <Text style={styles.couponRemove}>{t('common.remove')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -338,7 +388,7 @@ export default function CheckoutScreen({ navigation }: any) {
                   style={styles.couponInput}
                   value={couponInput}
                   onChangeText={(t) => { setCouponInput(t); setCouponError(null); }}
-                  placeholder="Enter coupon code"
+                  placeholder={t('checkout.coupon.placeholder')}
                   placeholderTextColor={Colors.textSecondary}
                   autoCapitalize="characters"
                 />
@@ -349,7 +399,7 @@ export default function CheckoutScreen({ navigation }: any) {
                 >
                   {applyingCoupon
                     ? <ActivityIndicator color={Colors.white} size="small" />
-                    : <Text style={styles.couponApplyText}>Apply</Text>}
+                    : <Text style={styles.couponApplyText}>{t('checkout.coupon.apply')}</Text>}
                 </TouchableOpacity>
               </View>
               {couponError && <Text style={styles.couponErrorText}>{couponError}</Text>}
@@ -359,12 +409,12 @@ export default function CheckoutScreen({ navigation }: any) {
 
         {/* Order Notes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Notes (Optional)</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.section.orderNotes')}</Text>
           <TextInput
             style={styles.notesInput}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Delivery instructions..."
+            placeholder={t('checkout.notes.placeholder')}
             placeholderTextColor={Colors.textSecondary}
             multiline
             numberOfLines={3}
@@ -373,28 +423,28 @@ export default function CheckoutScreen({ navigation }: any) {
 
         {/* Price Summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Price Summary</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.section.priceSummary')}</Text>
           <View style={[styles.card, Shadows.card, { padding: Spacing.lg }]}>
             <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Subtotal</Text>
+              <Text style={styles.priceLabel}>{t('checkout.price.subtotal')}</Text>
               <Text style={styles.priceValue}>{formatCurrency(subtotal)}</Text>
             </View>
             {appliedCoupon && (
               <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Coupon ({appliedCoupon.code})</Text>
+                <Text style={styles.priceLabel}>{t('checkout.price.coupon', { code: appliedCoupon.code })}</Text>
                 <Text style={styles.discountValue}>-{formatCurrency(discount)}</Text>
               </View>
             )}
             <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Delivery Fee</Text>
+              <Text style={styles.priceLabel}>{t('checkout.price.deliveryFee')}</Text>
               {deliveryFee === 0 ? (
-                <Text style={styles.discountValue}>FREE</Text>
+                <Text style={styles.discountValue}>{t('common.free')}</Text>
               ) : (
                 <Text style={styles.priceValue}>{formatCurrency(deliveryFee)}</Text>
               )}
             </View>
             <View style={[styles.priceRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalLabel}>{t('checkout.price.total')}</Text>
               <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
             </View>
           </View>
@@ -402,7 +452,7 @@ export default function CheckoutScreen({ navigation }: any) {
             <View style={styles.codWarning}>
               <Ionicons name="alert-circle" size={16} color={Colors.error} />
               <Text style={styles.codWarningText}>
-                Cash on Delivery is available up to {formatCurrency(COD_CAP)} per order. Online payment isn't live yet — please remove some items to continue.
+                {t('checkout.codWarning', { cap: COD_CAP.toLocaleString('en-IN') })}
               </Text>
             </View>
           )}
@@ -456,12 +506,12 @@ export default function CheckoutScreen({ navigation }: any) {
             <Ionicons name="arrow-forward" size={16} color={Colors.white} style={{ opacity: 0.5 }} />
             <Text style={styles.slideText}>
               {placing
-                ? 'Placing order...'
+                ? t('checkout.slide.placing')
                 : !selectedAddress
-                ? 'Add address to continue'
+                ? t('checkout.slide.noAddress')
                 : overCodCap
-                ? `COD limit is ${formatCurrency(COD_CAP)}`
-                : 'Slide to confirm'}
+                ? t('checkout.slide.codLimit', { cap: COD_CAP.toLocaleString('en-IN') })
+                : t('checkout.slide.confirm')}
             </Text>
           </View>
           {/* Draggable thumb */}

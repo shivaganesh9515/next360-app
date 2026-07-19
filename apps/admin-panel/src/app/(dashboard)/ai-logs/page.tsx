@@ -93,6 +93,12 @@ export default function AiLogsPage() {
           >
             Apply
           </button>
+          <button
+            onClick={() => { setFilters({ type: '', userId: '', startDate: '', endDate: '' }); setPage(1); }}
+            className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+          >
+            Reset Filters
+          </button>
         </div>
       </div>
 
@@ -111,9 +117,20 @@ export default function AiLogsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="py-12 text-center text-slate-400">Loading...</td></tr>
+                <>
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={5} className="px-4 py-3">
+                        <div className="h-8 bg-slate-100 rounded animate-pulse" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ) : logs.length === 0 ? (
-                <tr><td colSpan={5} className="py-12 text-center text-slate-400">No logs found</td></tr>
+                <tr><td colSpan={5} className="py-12 text-center text-slate-400">
+                  <div className="text-sm">No AI logs found</div>
+                  <div className="text-xs text-slate-400 mt-1">AI activity will appear here once users interact with AI features.</div>
+                </td></tr>
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">

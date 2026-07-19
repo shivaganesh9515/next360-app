@@ -110,6 +110,7 @@ export const adminApi = {
   // Vendors
   getVendors: (params?: any) => api.get<any>('/vendors', params),
   getVendor: (id: string) => api.get<any>(`/vendors/${id}`),
+  getVendorDetail: (id: string) => api.get<any>(`/vendors/${id}/detail`),
   // No generic status endpoint or DTO field — VendorsController only exposes
   // one-way /:id/approve. Real gap for reject/suspend specifically.
   updateVendorStatus: (id: string, status: string) =>
@@ -161,6 +162,11 @@ export const adminApi = {
     api.patch<any>(`/orders/${id}/status`, { status }),
   cancelOrder: (id: string, reason: string) =>
     api.post<any>(`/orders/${id}/cancel`, { reason }),
+
+  // Disputes — dedicated disputes endpoints
+  getDisputes: () => api.get<any>('/disputes'),
+  resolveDispute: (id: string, payload: { status: string; resolution?: string }) =>
+    api.patch<any>(`/disputes/${id}/resolve`, payload),
 
   // Returns
   getReturns: (params?: any) => api.get<any>('/returns', params),
@@ -243,9 +249,10 @@ export const adminApi = {
   // Was /roles/permissions — actual route is the bare /permissions (a
   // sibling resource on the same controller, not nested under roles).
   getPermissions: (params?: any) => api.get<any>('/permissions', params),
-  // No separate /roles/:id/permissions route — permissions live on the Role
-  // record itself (CreateRoleDto.permissions: string[]), updated through the
-  // same PATCH /roles/:id updateRole already uses.
+  createPermission: (data: any) => api.post<any>('/permissions', data),
+  deletePermission: (id: string) => api.delete<any>(`/permissions/${id}`),
+  // Permissions live on the Role record (CreateRoleDto.permissions: string[]),
+  // updated through the same PATCH /roles/:id updateRole already uses.
   updatePermissions: (roleId: string, permissions: string[]) =>
     api.patch<any>(`/roles/${roleId}`, { permissions }),
 
@@ -254,6 +261,10 @@ export const adminApi = {
   createZone: (data: any) => api.post<any>('/zones', data),
   updateZone: (id: string, data: any) => api.patch<any>(`/zones/${id}`, data),
   deleteZone: (id: string) => api.delete<any>(`/zones/${id}`),
+
+  // Audit Logs
+  getAuditLogs: (params?: any) => api.get<any>('/audit-logs', params),
+  getAuditLogsSummary: (params?: any) => api.get<any>('/audit-logs/summary', params),
 
   // Analytics — no /admin/analytics route exists. The closest real endpoint
   // is /ai/admin/analytics (AI-usage analytics specifically, not general
@@ -295,6 +306,7 @@ export const adminApi = {
   // only has POST, my/product listings, and delete). Real gap.
   getRatings: (params?: any) => api.get<any>('/reviews/ratings', params),
 
-  // Settings — no /admin/settings route exists. Real gap.
+  // Settings — endpoints now exist via AdminModule
+  getSettings: () => api.get<any>('/admin/settings'),
   updateSettings: (settings: any) => api.patch<any>('/admin/settings', settings),
 };

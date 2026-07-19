@@ -12,6 +12,10 @@ export class CreateOrderDto {
   couponCode?: string;
 
   @IsOptional()
+  @IsUUID()
+  offerId?: string;
+
+  @IsOptional()
   @IsString()
   notes?: string;
 }

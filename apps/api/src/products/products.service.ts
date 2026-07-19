@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -35,6 +35,8 @@ export class ProductsService {
         stock: dto.stock,
         images: dto.images || [],
         isActive: dto.isActive ?? true,
+        // New products require admin approval before appearing in public listings
+        isApproved: dto.isApproved ?? false,
       },
       include: {
         category: { select: { name: true } },
@@ -52,6 +54,7 @@ export class ProductsService {
       maxPrice,
       search,
       isActive,
+      isApproved,
       sortBy = 'createdAt',
       sortOrder = 'desc',
       page = 1,
@@ -78,6 +81,15 @@ export class ProductsService {
     } else {
       // By default, show only active products for public browsing
       where.isActive = true;
+    }
+    if (isApproved !== undefined) {
+      where.isApproved = isApproved === 'true';
+    } else if (!vendorId) {
+      // Only filter by approval for public (cross-vendor) browsing.
+      // When viewing a specific vendor's catalog (vendor dashboard, admin
+      // vendor view), show all products regardless of approval status so
+      // the list isn't silently empty for new vendors.
+      where.isApproved = true;
     }
 
     const skip = (page - 1) * limit;
@@ -151,9 +163,14 @@ export class ProductsService {
       }
     }
 
+    // Strip isApproved from the update data — product approval must go through
+    // the dedicated PATCH /products/:id/approve endpoint (admin-only) to prevent
+    // vendors from self-approving their own products.
+    const { isApproved, ...safeDto } = dto;
+
     return this.prisma.product.update({
       where: { id: productId },
-      data: dto,
+      data: safeDto,
       include: {
         category: { select: { name: true } },
         vendor: { select: { storeName: true } },
@@ -177,6 +194,21 @@ export class ProductsService {
     return this.prisma.product.update({
       where: { id: productId },
       data: { isActive: false },
+    });
+  }
+
+  async approve(productId: string) {
+    const product = await this.prisma.product.findUnique({ where: { id: productId } });
+    if (!product) throw new NotFoundException('Product not found');
+    if (product.isApproved) throw new ConflictException('Product is already approved');
+
+    return this.prisma.product.update({
+      where: { id: productId },
+      data: { isApproved: true, isActive: true },
+      include: {
+        category: { select: { name: true } },
+        vendor: { select: { storeName: true } },
+      },
     });
   }
 

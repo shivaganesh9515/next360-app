@@ -1,12 +1,23 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../lib/auth';
 import { Colors } from '../../constants/theme';
+import { setLanguage } from '../../i18n';
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
+  const { i18n } = useTranslation();
+  const [showLangModal, setShowLangModal] = React.useState(false);
+
+  const currentLang = i18n.language === 'te' ? 'తెలుగు' : 'English';
+
+  const handleLanguageChange = async (lang: 'en' | 'te') => {
+    await setLanguage(lang);
+    setShowLangModal(false);
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -49,6 +60,11 @@ export default function ProfileScreen({ navigation }: any) {
       icon: 'notifications-outline',
       label: 'Notifications',
       onPress: () => navigation.navigate('Notifications'),
+    },
+    {
+      icon: 'language-outline',
+      label: `Language (${currentLang})`,
+      onPress: () => setShowLangModal(true),
     },
     {
       icon: 'help-circle-outline',
@@ -99,6 +115,40 @@ export default function ProfileScreen({ navigation }: any) {
       </TouchableOpacity>
 
       <Text style={styles.version}>Next360 v1.0.0</Text>
+
+      {/* Language Selection Modal */}
+      <Modal visible={showLangModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Language</Text>
+              <TouchableOpacity onPress={() => setShowLangModal(false)}>
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.langOption}
+              onPress={() => handleLanguageChange('en')}
+            >
+              <Text style={styles.langText}>English</Text>
+              {i18n.language === 'en' && (
+                <Ionicons name="checkmark" size={22} color={Colors.organic} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.langOption}
+              onPress={() => handleLanguageChange('te')}
+            >
+              <Text style={styles.langText}>తెలుగు</Text>
+              {i18n.language === 'te' && (
+                <Ionicons name="checkmark" size={22} color={Colors.organic} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -201,5 +251,39 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     marginTop: 24,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  langOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  langText: {
+    fontSize: 16,
+    color: Colors.text,
   },
 });

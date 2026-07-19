@@ -2,13 +2,22 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentsService } from '../payments/payments.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReturnDto, ProcessReturnDto } from './dto/return.dto';
 
 @Injectable()
 export class ReturnsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ReturnsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentsService: PaymentsService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async create(userId: string, dto: CreateReturnDto) {
     // Verify order exists and belongs to user
@@ -31,7 +40,7 @@ export class ReturnsService {
       throw new BadRequestException('Return request already exists for this order');
     }
 
-    return this.prisma.returnRequest.create({
+    const returnRequest = await this.prisma.returnRequest.create({
       data: {
         orderId: dto.orderId,
         userId,
@@ -40,6 +49,15 @@ export class ReturnsService {
       },
       include: { order: true },
     });
+
+    // Notify customer that refund has been initiated
+    try {
+      await this.notificationsService.sendRefundInitiatedNotification(userId, dto.orderId);
+    } catch (error: any) {
+      this.logger.error(`Refund initiated notification failed: ${error.message}`);
+    }
+
+    return returnRequest;
   }
 
   async findAll(userId: string, role: string) {
@@ -92,12 +110,72 @@ export class ReturnsService {
       throw new BadRequestException(`Return is already ${ret.status.toLowerCase()}`);
     }
 
-    return this.prisma.returnRequest.update({
+    const refundAmount = dto.refundAmount ?? ret.refundAmount;
+
+    if (dto.status === 'APPROVED') {
+      const order = await this.prisma.order.findUnique({
+        where: { id: ret.orderId },
+        include: {
+          vendorGroups: { include: { items: true } },
+        },
+      });
+
+      if (!order) throw new NotFoundException('Order not found');
+
+      // Razorpay orders: trigger refund via Razorpay API
+      // (initiateRefund already updates Payment + Order status to REFUNDED)
+      if (order.paymentMethod === 'RAZORPAY') {
+        try {
+          await this.paymentsService.initiateRefund(order.id, 'Return approved');
+        } catch (error: any) {
+          this.logger.error(
+            `Razorpay refund failed for order ${order.id}: ${error.message}`,
+          );
+          throw new BadRequestException(`Refund failed: ${error.message}`);
+        }
+      }
+
+      // COD orders: update order status directly (no Razorpay payment to refund)
+      if (order.paymentMethod === 'COD') {
+        await this.prisma.order.update({
+          where: { id: order.id },
+          data: { status: 'REFUNDED' },
+        });
+      }
+
+      // Restore product stock
+      for (const group of order.vendorGroups) {
+        for (const item of group.items || []) {
+          await this.prisma.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      }
+    }
+
+    const updated = await this.prisma.returnRequest.update({
       where: { id },
       data: {
         status: dto.status,
-        refundAmount: dto.refundAmount ?? ret.refundAmount,
+        refundAmount,
       },
     });
+
+    // Send notifications based on status change
+    try {
+      if (dto.status === 'APPROVED') {          await this.notificationsService.sendRefundInitiatedNotification(ret.userId, ret.orderId);
+      } else if (dto.status === 'REFUNDED' as string) {
+        await this.notificationsService.sendRefundCompletedNotification(
+          ret.userId,
+          ret.orderId,
+          Number(refundAmount),
+        );
+      }
+    } catch (error: any) {
+      this.logger.error(`Return status notification failed: ${error.message}`);
+    }
+
+    return updated;
   }
 }

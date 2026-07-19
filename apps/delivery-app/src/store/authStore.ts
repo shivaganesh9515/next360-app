@@ -21,6 +21,8 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  sendPhoneOtp: (phone: string) => Promise<void>;
+  verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
   signOut: () => Promise<void>;
   loadSession: () => Promise<void>;
   loadProfile: () => Promise<void>;
@@ -37,6 +39,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = await deliveryApi.login(email, password);
 
       // Validate role
+      const profile = await deliveryApi.getProfile();
+      if (profile.role !== 'DELIVERY_PARTNER') {
+        await supabase.auth.signOut();
+        throw new Error('This account is not registered as a delivery partner');
+      }
+
+      set({
+        user: profile,
+        session: data.session,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  sendPhoneOtp: async (phone: string) => {
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) throw error;
+  },
+
+  verifyPhoneOtp: async (phone: string, otp: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+      if (error) throw error;
+
       const profile = await deliveryApi.getProfile();
       if (profile.role !== 'DELIVERY_PARTNER') {
         await supabase.auth.signOut();

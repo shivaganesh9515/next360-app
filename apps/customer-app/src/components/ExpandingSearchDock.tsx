@@ -5,11 +5,10 @@ import {
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../lib/api';
 import { useProductSheet } from '../lib/productSheet';
+import PopoverBackdrop from './PopoverBackdrop';
 import { Product, StoreType } from '../types';
 import {
   Colors, Spacing, Typography, BorderRadius, REANIMATED_SPRING_CONFIG,
@@ -57,7 +56,6 @@ export default function ExpandingSearchDock({
   dockBg = 'rgba(255,255,255,0.12)',
   navigation,
 }: Props) {
-  const insets = useSafeAreaInsets();
   const { open: openProduct } = useProductSheet();
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
@@ -70,7 +68,11 @@ export default function ExpandingSearchDock({
   const anim = useSharedValue(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const topTarget = insets.top + Spacing.md;
+  // top is pinned to origin.y (the dock icon's own measured position) instead
+  // of interpolating up toward the status bar — the panel now grows straight
+  // down from exactly where the icon sits instead of visibly detaching and
+  // sliding upward to a disconnected point before it opens (and reversing
+  // that same jump on close).
 
   const runSearch = async (text: string) => {
     if (!text.trim()) {
@@ -154,7 +156,7 @@ export default function ExpandingSearchDock({
   // (and the other three expand-in-place popovers) feel laggy on real devices.
   const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
   const panelStyle = useAnimatedStyle(() => ({
-    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    top: origin.y,
     left: interpolate(anim.value, [0, 1], [origin.x, Spacing.xl]),
     width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
@@ -178,10 +180,11 @@ export default function ExpandingSearchDock({
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Reanimated.View style={[styles.backdrop, backdropStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Reanimated.View>
+        <PopoverBackdrop
+          style={[styles.backdrop, backdropStyle]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          onPress={close}
+        />
 
         <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
           <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">

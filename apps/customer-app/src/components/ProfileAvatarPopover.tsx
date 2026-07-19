@@ -5,11 +5,10 @@ import {
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
 import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
+import PopoverBackdrop from './PopoverBackdrop';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -32,7 +31,6 @@ interface Props {
 // depth — left-anchored instead of right-anchored since the trigger lives at
 // the top-left of the hero, not the top-right icon cluster.
 export default function ProfileAvatarPopover({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
@@ -40,11 +38,11 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
   const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60 });
   const anim = useSharedValue(0);
 
-  // Was a hardcoded Spacing.xl + 44 — didn't match the actual device status
-  // bar height the way LocationPopover/NotificationsPopover's insets.top-based
-  // math does, so this panel landed at a visibly different height than its
-  // siblings on real devices (only matched by coincidence in the simulator).
-  const topTarget = insets.top + Spacing.md;
+  // top is pinned to origin.y (the dock icon's own measured position) instead
+  // of interpolating up toward the status bar — the panel now grows straight
+  // down from exactly where the icon sits instead of visibly detaching and
+  // sliding upward to a disconnected point before it opens (and reversing
+  // that same jump on close).
   const leftTarget = Spacing.xl;
 
   const open = () => {
@@ -92,7 +90,7 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
   const panelStyle = useAnimatedStyle(() => ({
-    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    top: origin.y,
     left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
     width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
@@ -113,10 +111,7 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Reanimated.View style={[styles.backdrop, backdropStyle]}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Reanimated.View>
+        <PopoverBackdrop style={[styles.backdrop, backdropStyle]} onPress={close} />
 
         <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
           <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">

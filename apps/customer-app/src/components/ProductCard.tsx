@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import {
-  View, Text, Image, TouchableOpacity, StyleSheet, Dimensions,
+  View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../types';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, getStoreAccent, getStoreAccentLight, getStoreCardBorder } from '../constants/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, getStoreAccent, getStoreAccentLight, getStoreCardBorder, SPRING_CONFIG } from '../constants/theme';
 import { useFlyToCart } from '../lib/flyToCart';
 
 const { width } = Dimensions.get('window');
@@ -26,10 +26,13 @@ interface Props {
   // like an in-stock one, with no visual indication it was unavailable.
   isNotifying?: boolean;
   onNotifyRestock?: (product: Product) => void;
+  // Navigates to the Vendor Storefront screen for this product's vendor —
+  // shown as a tap-able vendor name below the product name.
+  onVendorPress?: (vendorId: string, vendorName: string) => void;
 }
 
 export default function ProductCard({
-  product, onPress, onQuickAdd, isWishlisted, onToggleWishlist, cardWidth, isNotifying, onNotifyRestock,
+  product, onPress, onQuickAdd, isWishlisted, onToggleWishlist, cardWidth, isNotifying, onNotifyRestock, onVendorPress,
 }: Props) {
   const isOutOfStock = product.status === 'OUT_OF_STOCK' || product.stock <= 0;
   const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price;
@@ -43,6 +46,27 @@ export default function ProductCard({
   const resolvedWidth = cardWidth ?? CARD_WIDTH;
   const imageRef = useRef<View>(null);
   const { fly } = useFlyToCart();
+
+  // Spring micro-interactions — heart button pops on wishlist toggle,
+  // quick-add button scales down on press and springs back on release.
+  const heartScale = useRef(new Animated.Value(1)).current;
+  const addScale = useRef(new Animated.Value(1)).current;
+
+  const handleHeartPress = useCallback(() => {
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.3, ...SPRING_CONFIG, useNativeDriver: true }),
+      Animated.spring(heartScale, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }),
+    ]).start();
+    onToggleWishlist?.(product);
+  }, [product, onToggleWishlist]);
+
+  const handleQuickAddPressIn = () => {
+    Animated.spring(addScale, { toValue: 0.85, ...SPRING_CONFIG, useNativeDriver: true }).start();
+  };
+
+  const handleQuickAddPressOut = () => {
+    Animated.spring(addScale, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }).start();
+  };
 
   const handleQuickAdd = () => {
     imageRef.current?.measureInWindow((x, y, w, h) => {
@@ -84,19 +108,32 @@ export default function ProductCard({
             <Text style={styles.outOfStockText}>Out of Stock</Text>
           </View>
         )}
-        {/* Wishlist */}
+        {/* Organic certification badge — shown when the product has a
+            certification label attached (USDA Organic, India Organic, etc.)
+            differentiating it from uncertified products. */}
+        {product.certification && (
+          <View style={styles.certBadge}>
+            <Ionicons name="leaf" size={10} color="#FFFFFF" />
+            <Text style={styles.certBadgeText}>{product.certification}</Text>
+          </View>
+        )}
+        {/* Wishlist — springs 1→1.3→1 on tap for tactile heart-pulse
+            feedback that makes the toggle feel responsive even before the
+            network round-trip resolves. */}
         {onToggleWishlist && (
-          <TouchableOpacity
-            style={styles.wishlistBtn}
-            onPress={() => onToggleWishlist(product)}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <Ionicons
-              name={isWishlisted ? 'heart' : 'heart-outline'}
-              size={15}
-              color={isWishlisted ? Colors.error : Colors.textSecondary}
-            />
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+            <TouchableOpacity
+              style={styles.wishlistBtn}
+              onPress={handleHeartPress}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons
+                name={isWishlisted ? 'heart' : 'heart-outline'}
+                size={15}
+                color={isWishlisted ? Colors.error : Colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </Animated.View>
         )}
       </View>
 
@@ -119,17 +156,21 @@ export default function ProductCard({
           </TouchableOpacity>
         )
       ) : (
-        <TouchableOpacity
-          style={[
-            styles.addBtn,
-            Shadows.button(accent),
-            { backgroundColor: accent, top: resolvedWidth * 0.95 - 20 },
-          ]}
-          onPress={handleQuickAdd}
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-          <Ionicons name="add" size={20} color={Colors.white} />
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: addScale }] }}>
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              Shadows.button(accent),
+              { backgroundColor: accent, top: resolvedWidth * 0.95 - 20 },
+            ]}
+            onPress={handleQuickAdd}
+            onPressIn={handleQuickAddPressIn}
+            onPressOut={handleQuickAddPressOut}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons name="add" size={20} color={Colors.white} />
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* Info */}
@@ -137,6 +178,22 @@ export default function ProductCard({
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
+        {/* Vendor name — tappable, navigates to the vendor storefront.
+            Previously there was no way to see or find the vendor of a
+            product from the card at all — this is the missing connection
+            between a product and the store that sells it. */}
+        {product.vendor?.storeName && onVendorPress && (
+          <TouchableOpacity
+            onPress={() => onVendorPress(product.vendor!.id, product.vendor!.storeName)}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            style={styles.vendorRow}
+          >
+            <Ionicons name="storefront-outline" size={11} color={accent} />
+            <Text style={[styles.vendorName, { color: accent }]} numberOfLines={1}>
+              {product.vendor.storeName}
+            </Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.metaRow}>
           <Text style={styles.unit}>{product.unit}</Text>
           {!!product.rating && (
@@ -233,6 +290,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
+  certBadge: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#5C6B4D',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  certBadgeText: {
+    fontSize: 8,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
   wishlistBtn: {
     position: 'absolute',
     top: Spacing.sm,
@@ -247,6 +323,19 @@ const styles = StyleSheet.create({
   info: {
     padding: Spacing.md,
     paddingTop: Spacing.md + 6,
+  },
+  // Vendor name link — sits between the product name and the meta row,
+  // giving users a way to explore a store's full catalog from any card.
+  vendorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
+  vendorName: {
+    ...Typography.caption,
+    fontFamily: 'Inter_600SemiBold',
+    textDecorationLine: 'underline',
   },
   name: {
     ...Typography.bodySmall,

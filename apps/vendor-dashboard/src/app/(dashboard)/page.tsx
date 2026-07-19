@@ -70,29 +70,56 @@ export default function DashboardPage() {
       const earningsData = earnings.status === 'fulfilled' ? earnings.value : null;
       const analyticsData = analytics.status === 'fulfilled' ? analytics.value : null;
 
-      const orderList = Array.isArray(ordersData) ? ordersData : ordersData?.data || [];
-      const productList = Array.isArray(productsData) ? productsData : productsData?.data || [];
+      // Orders: backend returns { data: [...vendorGroups], meta: {...} }
+      const rawOrders = ordersData?.data || (Array.isArray(ordersData) ? ordersData : []);
+      const orderList = Array.isArray(rawOrders) ? rawOrders : [];
+      const rawProducts = productsData?.data || productsData || [];
+      const productList = Array.isArray(rawProducts) ? rawProducts : [];
 
-      // Today-scoped revenue
+      // Today-scoped revenue — use group subtotal and order.createdAt
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayOrders = orderList.filter((o: any) => new Date(o.createdAt) >= today);
-      const revenueToday = todayOrders.reduce((sum: number, o: any) => sum + Number(o.totalAmount || 0), 0);
+      const todayOrders = orderList.filter((o: any) => {
+        const d = o.order?.createdAt || o.createdAt;
+        return d ? new Date(d) >= today : false;
+      });
+      const revenueToday = todayOrders.reduce((sum: number, o: any) => sum + Number(o.subtotal || 0), 0);
 
-      // New orders = PLACED or CONFIRMED (not yet fulfilled)
+      // New orders = PLACED or CONFIRMED (check group status)
       const newOrders = orderList.filter((o: any) =>
         o.status === 'PLACED' || o.status === 'CONFIRMED'
       ).length;
+
+      // Earnings: backend returns { totalEarnings, paidEarnings, pendingEarnings, ... }
+      const pendingPayout = earningsData?.pendingEarnings || earningsData?.pendingPayout || earningsData?.pendingAmount || 0;
+
+      // Analytics: backend returns { monthlyRevenue, orderStatusBreakdown, ... }
+      // Transform monthlyRevenue [{month, orders, revenue}] → weeklyRevenue [{day, revenue}]
+      const weeklyRevenue = (analyticsData?.monthlyRevenue || []).slice(-7).map((m: any) => ({
+        day: m.month ? new Date(m.month + '-01').toLocaleDateString('en-IN', { month: 'short' }) : '',
+        revenue: m.revenue || 0,
+      }));
+
+      // Transform orderStatusBreakdown { status: count } → [{status, count}]
+      const ordersByStatus = analyticsData?.orderStatusBreakdown
+        ? Object.entries(analyticsData.orderStatusBreakdown).map(([status, count]: [string, any]) => ({ status, count }))
+        : [];
+
+      // Top products from recentOrders or product list
+      const topProducts = analyticsData?.recentOrders?.slice(0, 5).map((o: any) => ({
+        name: o.items?.[0]?.name || `Order #${o.orderNo || o.id?.slice(0, 8)}`,
+        price: o.subtotal || 0,
+      })) || productList.slice(0, 5);
 
       setData({
         newOrders,
         revenueToday,
         lowStockCount: productList.filter((p: any) => p.stock !== undefined && p.stock <= 5).length,
-        pendingPayout: earningsData?.pendingPayout || earningsData?.pendingAmount || 0,
+        pendingPayout,
         recentOrders: orderList.slice(0, 5),
-        weeklyRevenue: analyticsData?.revenueOverTime || [],
-        ordersByStatus: analyticsData?.ordersByStatus || [],
-        topProducts: analyticsData?.topProducts || productList.slice(0, 5),
+        weeklyRevenue,
+        ordersByStatus,
+        topProducts,
       });
     } catch {
       // Dashboard unavailable — show empty state

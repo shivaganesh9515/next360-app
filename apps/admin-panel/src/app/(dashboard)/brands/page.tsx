@@ -13,6 +13,17 @@ export default function BrandsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', slug: '', storeType: 'ORGANIC' });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredBrands = brands.filter((b) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      b.name?.toLowerCase().includes(q) ||
+      b.slug?.toLowerCase().includes(q) ||
+      b.storeType?.toLowerCase().includes(q)
+    );
+  });
 
   useEffect(() => { loadBrands(); }, []);
 
@@ -20,7 +31,7 @@ export default function BrandsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getBrands();
-      setBrands(res?.data || []);
+      setBrands((Array.isArray(res) ? res : (res as any)?.data) || []);
     } catch { setBrands([]); } finally { setLoading(false); }
   };
 
@@ -77,7 +88,7 @@ export default function BrandsPage() {
         </form>
       )}
 
-      <DataTable columns={columns} data={brands} loading={loading} searchable searchPlaceholder="Search brands..." emptyMessage="No brands found" emptyIcon={<Star className="w-10 h-10" />} />
+      <DataTable columns={columns} data={filteredBrands} loading={loading} searchable searchPlaceholder="Search brands..." onSearch={setSearchQuery} emptyMessage="No brands found" emptyIcon={<Star className="w-10 h-10" />} />
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
