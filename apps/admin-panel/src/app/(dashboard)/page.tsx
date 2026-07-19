@@ -53,15 +53,18 @@ const EMPTY_DATA: DashboardData = {
   recentOrders: [],
 };
 
-const PIPELINE_STAGES = [
-  { key: 'PLACED', label: 'Placed', color: '#3B82F6' },
-  { key: 'CONFIRMED', label: 'Confirmed', color: '#8B5CF6' },
-  { key: 'PACKED', label: 'Packed', color: '#F59E0B' },
-  { key: 'ASSIGNED_TO_DELIVERY', label: 'Assigned', color: '#6366F1' },
-  { key: 'PICKED_UP', label: 'Picked Up', color: '#14B8A6' },
-  { key: 'OUT_FOR_DELIVERY', label: 'In Transit', color: '#10B981' },
-  { key: 'DELIVERED', label: 'Delivered', color: '#22C55E' },
-];
+// Mapping from backend pipeline stage keys to human-readable labels + colors.
+// Covers the full 10-state model; stages with 0 count are hidden in the UI.
+const PIPELINE_LABELS: Record<string, string> = {
+  PLACED: 'Placed', CONFIRMED: 'Confirmed', PACKED: 'Packed',
+  READY_FOR_PICKUP: 'Ready', ASSIGNED_TO_DELIVERY: 'Assigned', PICKED_UP: 'Picked Up',
+  OUT_FOR_DELIVERY: 'In Transit', DELIVERED: 'Delivered', CANCELLED: 'Cancelled', REFUNDED: 'Refunded',
+};
+const PIPELINE_COLORS: Record<string, string> = {
+  PLACED: '#3B82F6', CONFIRMED: '#8B5CF6', PACKED: '#F59E0B',
+  READY_FOR_PICKUP: '#EC4899', ASSIGNED_TO_DELIVERY: '#6366F1', PICKED_UP: '#14B8A6',
+  OUT_FOR_DELIVERY: '#10B981', DELIVERED: '#22C55E', CANCELLED: '#EF4444', REFUNDED: '#6B7280',
+};
 
 function getTimeAgo(dateStr: string): string {
   const now = new Date();
@@ -82,118 +85,59 @@ export default function DashboardPage() {
 
   const loadDashboard = async () => {
     try {
-      const [vendors, orders, users, products, deliveryPartners] = await Promise.allSettled([
-        adminApi.getVendors({}),
-        adminApi.getOrders({}),
-        adminApi.getUsers({}),
-        adminApi.getProducts({}),
-        adminApi.getDeliveryPartners({}),
-      ]);
+      const result = await adminApi.getDashboard();
+      // The backend returns the full dashboard payload directly (the response
+      // interceptor unwraps the { success, data } envelope automatically).
+      const d = result?.data || result;
 
-      const vendorList = vendors.status === 'fulfilled'
-        ? (Array.isArray(vendors.value) ? vendors.value : vendors.value?.data || [])
-        : [];
-      const orderList = orders.status === 'fulfilled'
-        ? (Array.isArray(orders.value) ? orders.value : orders.value?.data || [])
-        : [];
-      const productList = products.status === 'fulfilled'
-        ? (Array.isArray(products.value) ? products.value : products.value?.data || [])
-        : [];
-      const deliveryList = deliveryPartners.status === 'fulfilled'
-        ? (Array.isArray(deliveryPartners.value) ? deliveryPartners.value : deliveryPartners.value?.data || [])
-        : [];
-
-      // Today's pulse
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayOrders = orderList.filter((o: any) => new Date(o.createdAt) >= today);
-      const gmvToday = todayOrders.reduce((sum: number, o: any) => sum + Number(o.totalAmount || 0), 0);
-
-      // Pending actions
-      const pendingVendorApprovals = vendorList
-        .filter((v: any) => v.status === 'PENDING')
-        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-        .slice(0, 3)
-        .map((v: any) => ({ id: v.id, storeName: v.storeName || v.name, email: v.email, createdAt: v.createdAt }));
-
-      const pendingProductApprovals = productList
-        .filter((p: any) => p.isApproved === false)
-        .slice(0, 3)
-        .map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          vendorName: p.vendor?.storeName || p.vendor?.name || '',
-          createdAt: p.createdAt,
-        }));
-
-      const openDisputes = orderList
-        .filter((o: any) => o.status === 'CANCELLED' || o.status === 'REFUNDED')
-        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-        .slice(0, 3)
-        .map((o: any) => ({
-          id: o.id,
-          orderId: o.id,
-          orderNo: o.orderNo || o.id?.slice(0, 8),
-          reason: o.cancelReason || o.status,
-          createdAt: o.createdAt,
-        }));
-
-      const pendingDeliveryAssignments = orderList
-        .filter((o: any) => o.status === 'PACKED')
-        .slice(0, 3)
-        .map((o: any) => ({
-          id: o.id,
-          orderNo: o.orderNo || o.id?.slice(0, 8),
-          vendorName: o.vendor?.storeName || '',
-          createdAt: o.createdAt,
-        }));
-
-      const pendingCount = pendingVendorApprovals.length + pendingProductApprovals.length +
-        openDisputes.length + pendingDeliveryAssignments.length;
-
-      // Active delivery partners
-      const activeDelivery = deliveryList.filter((d: any) => d.status === 'AVAILABLE' || d.status === 'ON_DELIVERY');
-
-      // Pipeline
-      const pipelineCounts: Record<string, number> = {};
-      orderList.forEach((o: any) => { pipelineCounts[o.status] = (pipelineCounts[o.status] || 0) + 1; });
-      const pipeline = PIPELINE_STAGES.map(s => ({
-        stage: s.label,
-        count: pipelineCounts[s.key] || 0,
-        color: s.color,
-      }));
-
-      // Weekly orders
-      const weeklyOrders = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (6 - i));
-        const dayStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-        const dayOrders = orderList.filter((o: any) =>
-          new Date(o.createdAt).toDateString() === date.toDateString()
-        );
-        return {
-          day: dayStr,
-          orders: dayOrders.length,
-          revenue: dayOrders.reduce((sum: number, o: any) => sum + Number(o.totalAmount || 0), 0),
-        };
-      });
+      // Map backend pipeline stages to the UI's { stage, count, color } format.
+      const pipeline = (d.pipeline || []).map((s: any) => ({
+        stage: PIPELINE_LABELS[s.stage] || s.stage,
+        count: s.count,
+        color: PIPELINE_COLORS[s.stage] || '#94A3B8',
+      })).filter((s: any) => s.count > 0);
 
       setData({
-        gmvToday,
-        ordersToday: todayOrders.length,
-        pendingActions: pendingCount,
-        activeDeliveryPartners: activeDelivery.length,
-        totalDeliveryPartners: deliveryList.length,
-        pendingVendorApprovals,
-        pendingProductApprovals,
-        openDisputes,
-        pendingDeliveryAssignments,
+        gmvToday: d.gmvToday ?? 0,
+        ordersToday: d.ordersToday ?? 0,
+        pendingActions: d.pendingActions ?? 0,
+        activeDeliveryPartners: d.activeDeliveryPartners ?? 0,
+        totalDeliveryPartners: d.totalDeliveryPartners ?? 0,
+        pendingVendorApprovals: (d.pendingVendorApprovals || []).map((v: any) => ({
+          id: v.id,
+          storeName: v.storeName,
+          email: v.email || '',
+          createdAt: v.createdAt,
+        })),
+        pendingProductApprovals: (d.pendingProductApprovals || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          vendorName: p.vendorName,
+          createdAt: p.createdAt,
+        })),
+        openDisputes: (d.openDisputes || []).map((di: any) => ({
+          id: di.id,
+          orderId: di.orderId,
+          orderNo: di.orderNo,
+          reason: di.reason,
+          createdAt: di.createdAt,
+        })),
+        pendingDeliveryAssignments: (d.pendingDeliveryAssignments || []).map((a: any) => ({
+          id: a.id,
+          orderNo: a.orderNo,
+          vendorName: a.vendorName,
+          createdAt: a.createdAt,
+        })),
         pipeline,
-        weeklyOrders,
-        recentOrders: orderList.slice(0, 5),
+        weeklyOrders: (d.weeklyOrders || []).map((w: any) => ({
+          day: w.day,
+          orders: w.orders,
+          revenue: w.revenue,
+        })),
+        recentOrders: (d.recentOrders || []).slice(0, 5),
       });
     } catch {
-      // Dashboard unavailable
+      // Dashboard unavailable — state stays at EMPTY_DATA defaults
     } finally {
       setLoading(false);
     }

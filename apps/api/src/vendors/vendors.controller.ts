@@ -136,8 +136,29 @@ export class VendorsController {
   @Post(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async approve(@Param('id') id: string) {
-    return this.vendorsService.approve(id);
+  async approve(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.vendorsService.approve(id, adminId);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.vendorsService.updateStatus(id, status, adminId);
+  }
+
+  @Get(':id/detail')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminDetail(@Param('id') id: string) {
+    return this.vendorsService.getAdminDetail(id);
   }
 
   @Get(':id/stats')

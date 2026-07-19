@@ -1,30 +1,79 @@
 'use client';
 
-import { useState } from 'react';
-import { Settings, Save, Key, Bell, Globe, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, Save, Key, Bell, Globe, Shield, Loader2 } from 'lucide-react';
 import { adminApi } from '@/lib/api';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 bg-slate-100 rounded-lg animate-pulse" />
+        <div className="flex gap-1 p-1 rounded-lg w-fit">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-9 w-24 bg-slate-100 rounded-md animate-pulse" />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-48 bg-slate-100 rounded-xl animate-pulse" />)}
+        </div>
+      </div>
+    );
+  }
   const [settings, setSettings] = useState({
-    platformName: 'Next360',
-    supportEmail: 'support@next360.com',
-    defaultCommissionPct: 15,
+    platformName: '',
+    supportEmail: '',
+    defaultCommissionPct: 10,
     codEnabled: true,
     codCapAmount: 2000,
     minOrderAmount: 100,
     maxOrderAmount: 50000,
-    deliveryPartnerPayoutFrequency: 'weekly',
+    deliveryPartnerPayoutFreq: 'weekly',
     autoApproveVendors: false,
     autoApproveProducts: false,
     maintenanceMode: false,
   });
 
+  useEffect(() => { loadSettings(); }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await adminApi.getSettings();
+      const d = res?.data || res;
+      if (d) {
+        setSettings({
+          platformName: d.platformName || 'Next360',
+          supportEmail: d.supportEmail || 'support@next360.com',
+          defaultCommissionPct: d.defaultCommissionPct ?? 10,
+          codEnabled: d.codEnabled ?? true,
+          codCapAmount: d.codCapAmount ?? 2000,
+          minOrderAmount: d.minOrderAmount ?? 100,
+          maxOrderAmount: d.maxOrderAmount ?? 50000,
+          deliveryPartnerPayoutFreq: d.deliveryPartnerPayoutFreq || 'weekly',
+          autoApproveVendors: d.autoApproveVendors ?? false,
+          autoApproveProducts: d.autoApproveProducts ?? false,
+          maintenanceMode: d.maintenanceMode ?? false,
+        });
+      }
+    } catch {
+      // Use defaults if server unavailable
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    try { await adminApi.updateSettings(settings); alert('Settings saved'); }
-    catch (err: any) { alert(err.message); } finally { setSaving(false); }
+    try {
+      await adminApi.updateSettings(settings);
+      alert('Settings saved successfully');
+    } catch (err: any) {
+      alert(err.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -84,7 +133,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             <h3 className="font-semibold text-gray-800">Payouts</h3>
             <div><label className="text-sm text-gray-600 mb-1 block">Partner Payout Frequency</label>
-              <select value={settings.deliveryPartnerPayoutFrequency} onChange={e => setSettings({ ...settings, deliveryPartnerPayoutFrequency: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+              <select value={settings.deliveryPartnerPayoutFreq} onChange={e => setSettings({ ...settings, deliveryPartnerPayoutFreq: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
                 <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="biweekly">Bi-weekly</option><option value="monthly">Monthly</option>
               </select>
             </div>
