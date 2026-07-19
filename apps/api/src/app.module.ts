@@ -34,6 +34,7 @@ import { DisputesModule } from './disputes/disputes.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -84,6 +85,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     DisputesModule,
     AuditModule,
     AdminModule,
+    DeliverySlotModule,
     DeliveryModule,
   ],
   providers: [

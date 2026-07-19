@@ -115,8 +115,9 @@ model Zone {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  vendors          Vendor[]
-  deliveryPartners DeliveryPartner[]
+  vendors            Vendor[]
+  deliveryPartners   DeliveryPartner[]
+  deliverySlotConfigs DeliverySlotConfig[]
 }
 
 model Vendor {
@@ -343,6 +344,7 @@ model OrderVendorGroup {
 
   items     OrderItem[]
   delivery  DeliveryAssignment?
+  slotBooking DeliverySlotBooking?
 }
 
 model OrderItem {
@@ -601,6 +603,38 @@ model PlatformSettings {
 
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
+}
+
+// ── Delivery Slot — configures available delivery time windows per zone/day
+// For each day of the week a zone can have multiple slots (e.g. 9-12, 14-17).
+// The customer picks a slot at checkout; the booking reserves capacity so the
+// admin can see committed deliveries per slot and cap overselling.
+model DeliverySlotConfig {
+  id        String   @id @default(uuid())
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: [id])
+  dayOfWeek Int      // 0=Sunday … 6=Saturday
+  startTime String   // "HH:mm" in 24h format, e.g. "09:00"
+  endTime   String   // "HH:mm", e.g. "12:00"
+  maxOrders Int      @default(20)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings DeliverySlotBooking[]
+
+  @@index([zoneId, dayOfWeek])
+}
+
+model DeliverySlotBooking {
+  id                 String   @id @default(uuid())
+  orderVendorGroupId String   @unique
+  orderVendorGroup   OrderVendorGroup @relation(fields: [orderVendorGroupId], references: [id])
+  slotConfigId       String
+  slotConfig         DeliverySlotConfig @relation(fields: [slotConfigId], references: [id])
+  deliveryDate       DateTime // the calendar date the slot falls on
+  timeRange          String   // "09:00-12:00"
+  createdAt          DateTime @default(now())
 }
 
 // ── Audit Log — every meaningful admin action is recorded here
