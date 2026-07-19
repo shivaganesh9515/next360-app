@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Animated,
   ActivityIndicator, Alert, Image, LayoutAnimation, RefreshControl,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +13,15 @@ import { CartItem as CartItemType } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import QuantityStepper from '../../components/QuantityStepper';
 
+function SwipeDeleteAction() {
+  return (
+    <View style={styles.swipeAction}>
+      <Ionicons name="trash-outline" size={22} color={Colors.white} />
+      <Text style={styles.swipeActionText}>Remove</Text>
+    </View>
+  );
+}
+
 function CartItemRow({ item, onQuantityChange, onRemove }: {
   item: CartItemType;
   onQuantityChange: (id: string, qty: number) => void;
@@ -19,9 +29,16 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
 }) {
   const { t } = useTranslation();
   const [updating, setUpdating] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
+  const entranceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(entranceAnim, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }).start();
+  }, []);
 
   const handleQuantityChange = async (newQty: number) => {
     if (newQty < 1) {
+      swipeableRef.current?.close();
       onRemove(item.id);
       return;
     }
@@ -30,31 +47,46 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
     setUpdating(false);
   };
 
+  const handleSwipeDelete = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    onRemove(item.id);
+  };
+
   return (
-    <View style={[styles.cartItem, Shadows.card]}>
-      <Image
-        source={{ uri: item.product?.images?.[0] || 'https://via.placeholder.com/80' }}
-        style={styles.itemImage}
-      />
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName} numberOfLines={2}>{item.product?.name || t('cart.fallback.productName')}</Text>
-        <Text style={styles.itemUnit}>{item.product?.unit || t('cart.fallback.unit')}</Text>
-        <Text style={styles.itemPrice}>₹{Number(item.product?.price || 0).toFixed(0)}</Text>
-      </View>
-      <QuantityStepper
-        value={item.quantity}
-        onDecrement={() => handleQuantityChange(item.quantity - 1)}
-        onIncrement={() => handleQuantityChange(item.quantity + 1)}
-        disabled={updating}
-      />
-      <TouchableOpacity
-        style={styles.removeButton}
-        onPress={() => onRemove(item.id)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    <Animated.View style={{ opacity: entranceAnim, transform: [{ translateX: entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }}>
+      <Swipeable
+        ref={swipeableRef}
+        renderRightActions={() => (
+          <TouchableOpacity
+            style={styles.swipeActionContainer}
+            onPress={handleSwipeDelete}
+            activeOpacity={0.85}
+          >
+            <SwipeDeleteAction />
+          </TouchableOpacity>
+        )}
+        overshootRight={false}
+        onSwipeableOpen={handleSwipeDelete}
       >
-        <Ionicons name="trash-outline" size={17} color={Colors.error} />
-      </TouchableOpacity>
-    </View>
+        <View style={[styles.cartItem, Shadows.card]}>
+          <Image
+            source={{ uri: item.product?.images?.[0] || 'https://via.placeholder.com/80' }}
+            style={styles.itemImage}
+          />
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemName} numberOfLines={2}>{item.product?.name || t('cart.fallback.productName')}</Text>
+            <Text style={styles.itemUnit}>{item.product?.unit || t('cart.fallback.unit')}</Text>
+            <Text style={styles.itemPrice}>₹{Number(item.product?.price || 0).toFixed(0)}</Text>
+          </View>
+          <QuantityStepper
+            value={item.quantity}
+            onDecrement={() => handleQuantityChange(item.quantity - 1)}
+            onIncrement={() => handleQuantityChange(item.quantity + 1)}
+            disabled={updating}
+          />
+        </View>
+      </Swipeable>
+    </Animated.View>
   );
 }
 
@@ -86,17 +118,8 @@ export default function CartScreen({ navigation }: any) {
   };
 
   const handleRemove = async (itemId: string) => {
-    Alert.alert(t('cart.alert.removeItem.title'), t('cart.alert.removeItem.message'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.remove'),
-        style: 'destructive',
-        onPress: async () => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          await removeCartItem(itemId);
-        },
-      },
-    ]);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    await removeCartItem(itemId);
   };
 
   const handleClearCart = async () => {
@@ -263,9 +286,23 @@ const styles = StyleSheet.create({
     color: Colors.brass,
     marginTop: 4,
   },
-  removeButton: {
-    padding: Spacing.xs,
+  swipeActionContainer: {
     marginLeft: Spacing.sm,
+    justifyContent: 'center',
+  },
+  swipeAction: {
+    width: 80,
+    height: '100%',
+    backgroundColor: Colors.error,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  swipeActionText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    color: Colors.white,
   },
   emptyContainer: {
     flex: 1,

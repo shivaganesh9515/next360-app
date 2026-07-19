@@ -35,8 +35,7 @@ function SwatchPill({ store, isActive, onPress }: { store: StoreType; isActive: 
   return (
     <TouchableOpacity style={styles.pill} onPress={onPress} activeOpacity={0.7}>
       <Animated.View
-        pointerEvents="none"
-        style={[styles.pillFill, { backgroundColor: accent, opacity: fade }]}
+        style={[styles.pillFill, { backgroundColor: accent, opacity: fade, pointerEvents: 'none' }]}
       />
       <Animated.Text
         style={[

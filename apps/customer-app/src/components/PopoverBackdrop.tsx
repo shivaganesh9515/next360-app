@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import Reanimated from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
+import { Colors } from '../constants/theme';
 
 interface Props {
   style: any;
@@ -9,23 +10,24 @@ interface Props {
   pointerEvents?: 'auto' | 'none';
 }
 
-// Shared by all four expand-in-place popovers (search dock, notifications,
-// location, profile). Real-time Gaussian blur is cheap on iOS (hardware
-// accelerated) but was the actual cause of "way too laggy" popover
-// animations reported on a budget/mid-range Android device (MediaTek
-// Dimensity mt6886) — moving the open/close animation to Reanimated's UI
-// thread wasn't enough on its own, because a full-screen blur layer redrawing
-// every frame is expensive regardless of which thread drives the layout
-// animation around it. Falls back to the base rgba scrim with no blur on
-// Android instead of paying for an effect most Android GPUs can't render
-// smoothly.
+// Shared backdrop — inspired by the Framer Motion FloatingPanel pattern.
+// Uses a warm dark scrim (rgba(10,10,8,0.4)) with iOS-only Gaussian blur.
+// The blur intensity ramps up with the panel animation (0→40) so the
+// backdrop feels connected to the panel, not like two separate layers.
 export default function PopoverBackdrop({ style, onPress, pointerEvents }: Props) {
   return (
-    <Reanimated.View style={style} pointerEvents={pointerEvents}>
+    <Reanimated.View style={[s.backdrop, style, pointerEvents ? { pointerEvents: pointerEvents } : undefined]}>
       {Platform.OS === 'ios' && (
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       )}
       <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onPress} />
     </Reanimated.View>
   );
 }
+
+const s = StyleSheet.create({
+  backdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(10,10,8,0.4)',
+  },
+});

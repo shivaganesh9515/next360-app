@@ -162,8 +162,7 @@ function MiniCartBar() {
 
   return (
     <Animated.View
-      pointerEvents={cartCount > 0 && !hideMiniCart ? 'auto' : 'none'}
-      style={{ width: '100%', height: hideMiniCart ? 0 : height, marginBottom: hideMiniCart ? 0 : marginBottom, opacity: hideMiniCart ? 0 : anim, overflow: 'hidden', transform: [{ translateY }] }}
+      style={{ width: '100%', height: hideMiniCart ? 0 : height, marginBottom: hideMiniCart ? 0 : marginBottom, opacity: hideMiniCart ? 0 : anim, overflow: 'hidden', transform: [{ translateY }], pointerEvents: cartCount > 0 && !hideMiniCart ? 'auto' : 'none' }}
     >
       <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
         <Animated.View style={{ transform: [{ scale: bump }] }}>
@@ -209,12 +208,23 @@ function TabButton({
   badge?: number;
 }) {
   const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  // Badge springs out when count changes (e.g. wishlist item added)
+  const badgeBump = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.sequence([
       Animated.spring(anim, { toValue: focused ? 1 : 0, useNativeDriver: true, friction: 6, tension: 260 }),
     ]).start();
   }, [focused]);
+
+  useEffect(() => {
+    if (badge && badge > 0) {
+      Animated.sequence([
+        Animated.spring(badgeBump, { toValue: 1.35, useNativeDriver: true, friction: 5, tension: 300 }),
+        Animated.spring(badgeBump, { toValue: 1, useNativeDriver: true, friction: 5, tension: 300 }),
+      ]).start();
+    }
+  }, [badge]);
 
   const scale = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.18, 1.05] });
 
@@ -227,9 +237,9 @@ function TabButton({
           color={focused ? Colors.organic : Colors.textSecondary}
         />
         {!!badge && badge > 0 && (
-          <View style={pill.badge}>
+          <Animated.View style={[pill.badge, { transform: [{ scale: badgeBump }] }]}>
             <Text style={pill.badgeText}>{badge > 99 ? '99+' : badge}</Text>
-          </View>
+          </Animated.View>
         )}
       </Animated.View>
     </TouchableOpacity>
@@ -280,10 +290,9 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
         >
           {tabWidth > 0 && (
             <Animated.View
-              pointerEvents="none"
               style={[
                 pill.indicator,
-                { width: tabWidth, opacity: isOnHiddenTab ? 0 : 1, transform: [{ translateX: indicatorX }] },
+                { width: tabWidth, opacity: isOnHiddenTab ? 0 : 1, transform: [{ translateX: indicatorX }], pointerEvents: 'none' },
               ]}
             >
               <BlurView intensity={40} tint="light" style={pill.indicatorBlur} />

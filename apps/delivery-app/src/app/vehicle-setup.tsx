@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { deliveryApi } from '../lib/api';
+import { Colors, Spacing, BorderRadius, Shadow } from '../constants/theme';
+import { useSpringEntrance } from '../hooks/useDeliveryAnimation';
 
-// MVP is zone-gated to exactly these two cities (CLAUDE.md: "Zone-Gated
-// Launch: MVP restricted to Hyderabad and Vijayawada only"). There's no
-// zones list endpoint yet, so this is a fixed list rather than a fetch.
 const ZONES = ['Hyderabad', 'Vijayawada'];
 
 const VEHICLE_TYPES: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -21,6 +22,7 @@ export default function VehicleSetupScreen() {
   const [zoneName, setZoneName] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const fadeAnim = useSpringEntrance(0);
   const canSave = !!vehicleType && !!zoneName;
 
   const handleSave = async () => {
@@ -41,146 +43,154 @@ export default function VehicleSetupScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Vehicle & Zone</Text>
-      <Text style={styles.subtitle}>Tell us what you drive and where you'll deliver.</Text>
-
-      <Text style={styles.sectionLabel}>VEHICLE TYPE</Text>
-      <View style={styles.grid}>
-        {VEHICLE_TYPES.map((v) => (
-          <TouchableOpacity
-            key={v.key}
-            style={[styles.optionCard, vehicleType === v.key && styles.optionCardActive]}
-            onPress={() => setVehicleType(v.key)}
-          >
-            <Ionicons name={v.icon} size={28} color={vehicleType === v.key ? '#10B981' : '#6B7280'} />
-            <Text style={[styles.optionLabel, vehicleType === v.key && styles.optionLabelActive]}>
-              {v.label}
-            </Text>
+      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
-        ))}
-      </View>
+          <View>
+            <Text style={styles.title}>Vehicle & Zone</Text>
+            <Text style={styles.subtitle}>Tell us what you drive and where you'll deliver.</Text>
+          </View>
+        </View>
 
-      <Text style={styles.sectionLabel}>DELIVERY ZONE</Text>
-      <View style={styles.zoneList}>
-        {ZONES.map((zone) => (
-          <TouchableOpacity
-            key={zone}
-            style={[styles.zoneRow, zoneName === zone && styles.zoneRowActive]}
-            onPress={() => setZoneName(zone)}
-          >
-            <Text style={[styles.zoneText, zoneName === zone && styles.zoneTextActive]}>{zone}</Text>
-            {zoneName === zone && <Ionicons name="checkmark-circle" size={22} color="#10B981" />}
-          </TouchableOpacity>
-        ))}
-      </View>
+        {/* Vehicle Type */}
+        <Text style={styles.sectionLabel}>
+          <Ionicons name="car-outline" size={14} color={Colors.textTertiary} /> VEHICLE TYPE
+        </Text>
+        <View style={styles.vehicleGrid}>
+          {VEHICLE_TYPES.map((v) => (
+            <TouchableOpacity
+              key={v.key}
+              style={[styles.optionCard, vehicleType === v.key && styles.optionCardActive]}
+              onPress={() => setVehicleType(v.key)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.optionIconWrap, vehicleType === v.key && styles.optionIconWrapActive]}>
+                <Ionicons name={v.icon} size={26} color={vehicleType === v.key ? Colors.white : Colors.textSecondary} />
+              </View>
+              <Text style={[styles.optionLabel, vehicleType === v.key && styles.optionLabelActive]}>
+                {v.label}
+              </Text>
+              {vehicleType === v.key && (
+                <View style={styles.selectedCheck}>
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <TouchableOpacity
-        style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={!canSave || isSaving}
-      >
-        {isSaving ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.saveText}>Save</Text>
-        )}
-      </TouchableOpacity>
+        {/* Delivery Zone */}
+        <Text style={styles.sectionLabel}>
+          <Ionicons name="location-outline" size={14} color={Colors.textTertiary} /> DELIVERY ZONE
+        </Text>
+        <View style={styles.zoneList}>
+          {ZONES.map((zone) => (
+            <TouchableOpacity
+              key={zone}
+              style={[styles.zoneRow, zoneName === zone && styles.zoneRowActive]}
+              onPress={() => setZoneName(zone)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.zoneLeft}>
+                <View style={[styles.zoneIcon, zoneName === zone && styles.zoneIconActive]}>
+                  <Ionicons name="location" size={16} color={zoneName === zone ? Colors.primary : Colors.textSecondary} />
+                </View>
+                <Text style={[styles.zoneText, zoneName === zone && styles.zoneTextActive]}>{zone}</Text>
+              </View>
+              {zoneName === zone && (
+                <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Info */}
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle-outline" size={18} color={Colors.textTertiary} />
+          <Text style={styles.infoText}>
+            You can update these details later from your profile settings.
+          </Text>
+        </View>
+
+        {/* Save */}
+        <TouchableOpacity
+          style={[styles.saveButton, !canSave && styles.saveDisabled]}
+          onPress={handleSave}
+          disabled={!canSave || isSaving}
+          activeOpacity={0.85}
+        >
+          {isSaving ? (
+            <ActivityIndicator color={Colors.white} />
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={18} color={Colors.white} />
+              <Text style={styles.saveText}>Save Details</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 28,
-  },
+  container: { flex: 1, backgroundColor: Colors.background, padding: Spacing.xxl },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.lg, marginBottom: Spacing.xxl },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center', ...Shadow.sm, marginTop: 4 },
+  title: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.3 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, marginTop: 4, lineHeight: 20 },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: Colors.textTertiary, letterSpacing: 0.8, marginBottom: Spacing.md, gap: 4, flexDirection: 'row', alignItems: 'center' },
+  // Vehicle Grid
+  vehicleGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.xxl, gap: 12 },
   optionCard: {
-    width: '47%',
-    aspectRatio: 1.4,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: '6%',
-    marginBottom: 12,
+    width: '47%', paddingVertical: Spacing.xl, paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
+    borderWidth: 2, borderColor: Colors.border, alignItems: 'center',
+    position: 'relative',
   },
-  optionCardActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#D1FAE5',
+  optionCardActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  optionIconWrap: {
+    width: 52, height: 52, borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center',
+    marginBottom: Spacing.md,
   },
-  optionLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  optionLabelActive: {
-    color: '#059669',
-  },
-  zoneList: {
-    marginBottom: 32,
-  },
+  optionIconWrapActive: { backgroundColor: Colors.primary },
+  optionLabel: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  optionLabelActive: { color: Colors.primaryDark },
+  selectedCheck: { position: 'absolute', top: Spacing.sm, right: Spacing.sm },
+  // Zone
+  zoneList: { marginBottom: Spacing.xxl },
   zoneRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 10,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.lg, paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md, borderWidth: 2, borderColor: Colors.border,
   },
-  zoneRowActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#D1FAE5',
+  zoneRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  zoneLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  zoneIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center',
   },
-  zoneText: {
-    fontSize: 16,
-    color: '#374151',
+  zoneIconActive: { backgroundColor: Colors.white },
+  zoneText: { fontSize: 16, fontWeight: '500', color: Colors.textPrimary },
+  zoneTextActive: { color: Colors.primaryDark, fontWeight: '600' },
+  // Info
+  infoCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: Colors.white, borderRadius: BorderRadius.md,
+    padding: Spacing.lg, marginBottom: Spacing.xxl, ...Shadow.sm,
   },
-  zoneTextActive: {
-    color: '#059669',
-    fontWeight: '600',
-  },
+  infoText: { flex: 1, fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
+  // Save
   saveButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
+    paddingVertical: 16, gap: 8,
   },
-  saveButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  saveText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  saveDisabled: { backgroundColor: Colors.textTertiary },
+  saveText: { fontSize: 16, fontWeight: '600', color: Colors.white },
 });

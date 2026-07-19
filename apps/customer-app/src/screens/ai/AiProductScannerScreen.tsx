@@ -65,11 +65,11 @@ export default function AiProductScannerScreen({ navigation }: any) {
           <Text style={styles.permissionText}>
             {t('ai.scanner.permission.description')}
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <TouchableOpacity style={[styles.permissionButton, { backgroundColor: accent }]} onPress={requestPermission}>
             <Text style={styles.permissionButtonText}>{t('ai.scanner.permission.grant')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.galleryButton} onPress={pickImage}>
-            <Text style={styles.galleryButtonText}>{t('ai.scanner.permission.gallery')}</Text>
+            <Text style={[styles.galleryButtonText, { color: accent }]}>{t('ai.scanner.permission.gallery')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -93,10 +93,10 @@ export default function AiProductScannerScreen({ navigation }: any) {
           {/* Scan Frame Overlay */}
           <View style={styles.overlay}>
             <View style={styles.scanFrame}>
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
+              <View style={[styles.corner, styles.topLeft, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.topRight, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.bottomLeft, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.bottomRight, { borderColor: accent }]} />
             </View>
             <Text style={styles.instructionText}>
               {scanning ? t('ai.scanner.instruction.scanning') : t('ai.scanner.instruction.idle')}
@@ -113,7 +113,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.scanButton, scanning && styles.scanButtonDisabled]}
+          style={[styles.scanButton, { backgroundColor: accent }, scanning && styles.scanButtonDisabled]}
           onPress={takePicture}
           disabled={scanning}
         >
@@ -140,7 +140,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
 
             <View style={styles.resultHeader}>
               <View style={styles.confidenceBadge}>
-                <Text style={styles.confidenceText}>
+                <Text style={[styles.confidenceText, { color: accent }]}>
                   {t('ai.scanner.confidence', { confidence: Math.round(result.confidence * 100) })}
                 </Text>
               </View>
@@ -155,7 +155,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
                 <View style={styles.nutritionGrid}>
                   {Object.entries(result.nutritionalInfo).map(([key, value]) => (
                     <View key={key} style={styles.nutritionItem}>
-                      <Text style={styles.nutritionValue}>{String(value)}</Text>
+                      <Text style={[styles.nutritionValue, { color: accent }]}>{String(value)}</Text>
                       <Text style={styles.nutritionLabel}>{key}</Text>
                     </View>
                   ))}
@@ -166,7 +166,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
             <View style={styles.resultActions}>
               {result.matchedProductId && (
                 <TouchableOpacity
-                  style={styles.viewButton}
+                  style={[styles.viewButton, { backgroundColor: accent }]}
                   onPress={() => {
                     setResult(null);
                     navigation.navigate('ProductDetail', { productId: result.matchedProductId });
@@ -217,7 +217,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   permissionButton: {
-    backgroundColor: accent,
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -233,7 +232,6 @@ const styles = StyleSheet.create({
   },
   galleryButtonText: {
     fontSize: 14,
-    color: accent,
   },
   header: {
     flexDirection: 'row',
@@ -270,7 +268,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: accent,
   },
   topLeft: {
     top: -2,
@@ -325,7 +322,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: accent,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -376,7 +372,6 @@ const styles = StyleSheet.create({
   confidenceText: {
     fontSize: 14,
     fontWeight: '600',
-    color: accent,
   },
   productName: {
     fontSize: 24,
@@ -412,7 +407,6 @@ const styles = StyleSheet.create({
   nutritionValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: accent,
   },
   nutritionLabel: {
     fontSize: 12,
@@ -425,7 +419,6 @@ const styles = StyleSheet.create({
   },
   viewButton: {
     flex: 1,
-    backgroundColor: accent,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

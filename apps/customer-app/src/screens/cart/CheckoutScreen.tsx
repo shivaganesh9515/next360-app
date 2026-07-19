@@ -249,6 +249,21 @@ export default function CheckoutScreen({ navigation }: any) {
   // notes. Keeping the ref pointed at the latest function fixes both.
   liveRef.current.handlePlaceOrder = handlePlaceOrder;
 
+  // Create animated values for each section for stagger-reveal effect
+  const SECTION_KEYS = ['address', 'slot', 'items', 'payment', 'coupon', 'notes', 'summary'];
+  const sectionAnims = useRef(SECTION_KEYS.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    Animated.stagger(60, sectionAnims.map((anim, i) =>
+      Animated.spring(anim, {
+        toValue: 1,
+        friction: 7,
+        tension: 80,
+        useNativeDriver: true,
+      })
+    )).start();
+  }, []);
+
   const formatCurrency = (amount: number) => `₹${amount.toFixed(0)}`;
 
   if (loading) {
@@ -273,8 +288,8 @@ export default function CheckoutScreen({ navigation }: any) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Delivery Address */}
-        <View style={styles.section}>
+        {/* Delivery Address — staggered reveal */}
+        <Animated.View style={[styles.section, { opacity: sectionAnims[0], transform: [{ translateY: sectionAnims[0].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.deliveryAddress')}</Text>
           {selectedAddress ? (
             <TouchableOpacity
@@ -301,10 +316,10 @@ export default function CheckoutScreen({ navigation }: any) {
               <Text style={styles.addAddressText}>{t('checkout.addAddress')}</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </Animated.View>
 
         {/* Delivery Slot */}
-        <View style={styles.section}>
+        <Animated.View style={[styles.section, { opacity: sectionAnims[1], transform: [{ translateY: sectionAnims[1].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.deliverySlot')}</Text>
           <View style={[styles.card, Shadows.card, { padding: Spacing.md }]}>
             <DeliverySlotPicker
@@ -313,10 +328,10 @@ export default function CheckoutScreen({ navigation }: any) {
               onSelect={setSelectedSlot}
             />
           </View>
-        </View>
+        </Animated.View>
 
         {/* Order Items */}
-        <View style={styles.section}>
+        <Animated.View style={[styles.section, { opacity: sectionAnims[2], transform: [{ translateY: sectionAnims[2].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.orderItems', { count: cartItems.length })}</Text>
           <View style={[styles.card, Shadows.card]}>
             {cartItems.map((item: any, i: number) => (
@@ -330,10 +345,10 @@ export default function CheckoutScreen({ navigation }: any) {
               </View>
             ))}
           </View>
-        </View>
+        </Animated.View>
 
         {/* Payment Method */}
-        <View style={styles.section}>
+        <Animated.View style={[styles.section, { opacity: sectionAnims[3], transform: [{ translateY: sectionAnims[3].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.paymentMethod')}</Text>
           {PAYMENT_OPTIONS.map((opt) => {
             const active = paymentMethod === opt.key;
@@ -364,11 +379,11 @@ export default function CheckoutScreen({ navigation }: any) {
                 )}
               </TouchableOpacity>
             );
-          })}
-        </View>
+          }          )}
+        </Animated.View>
 
         {/* Coupon */}
-        <View style={styles.section}>
+        <Animated.View style={[styles.section, { opacity: sectionAnims[4], transform: [{ translateY: sectionAnims[4].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.coupon')}</Text>
           {appliedCoupon ? (
             <View style={[styles.couponAppliedCard, Shadows.card]}>
@@ -405,10 +420,10 @@ export default function CheckoutScreen({ navigation }: any) {
               {couponError && <Text style={styles.couponErrorText}>{couponError}</Text>}
             </>
           )}
-        </View>
+        </Animated.View>
 
         {/* Order Notes */}
-        <View style={styles.section}>
+        <Animated.View style={[styles.section, { opacity: sectionAnims[5], transform: [{ translateY: sectionAnims[5].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.orderNotes')}</Text>
           <TextInput
             style={styles.notesInput}
@@ -419,10 +434,10 @@ export default function CheckoutScreen({ navigation }: any) {
             multiline
             numberOfLines={3}
           />
-        </View>
+        </Animated.View>
 
         {/* Price Summary */}
-        <View style={styles.section}>
+        <Animated.View style={[styles.section, { opacity: sectionAnims[6], transform: [{ translateY: sectionAnims[6].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
           <Text style={styles.sectionTitle}>{t('checkout.section.priceSummary')}</Text>
           <View style={[styles.card, Shadows.card, { padding: Spacing.lg }]}>
             <View style={styles.priceRow}>
@@ -456,7 +471,7 @@ export default function CheckoutScreen({ navigation }: any) {
               </Text>
             </View>
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Slide-to-Confirm — positioned above the floating pill nav */}
@@ -502,7 +517,7 @@ export default function CheckoutScreen({ navigation }: any) {
             ]}
           />
           {/* Static text behind the thumb */}
-          <View style={styles.slideTextWrap} pointerEvents="none">
+          <View style={[styles.slideTextWrap, { pointerEvents: 'none' }]}>
             <Ionicons name="arrow-forward" size={16} color={Colors.white} style={{ opacity: 0.5 }} />
             <Text style={styles.slideText}>
               {placing
@@ -796,8 +811,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.sm,
     padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: '#FDECEC',
+    borderRadius: BorderRadius.md,            backgroundColor: Colors.organicLight,
   },
   codWarningText: {
     ...Typography.caption,
@@ -809,7 +823,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: '#1E8C3A',
+    backgroundColor: Colors.success,
     borderRadius: 28,
   },
   slideTextWrap: {

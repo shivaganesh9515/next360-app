@@ -1,15 +1,19 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, Dimensions,
 } from 'react-native';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+  useAnimatedStyle, useSharedValue, interpolate, interpolateColor, withSpring,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useZone } from '../lib/zone';
 import PopoverBackdrop from './PopoverBackdrop';
 import { SERVICEABLE_ZONES, isServiceableCity } from '../constants/zones';
-import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
+import {
+  usePanelAnimation, PanelOrigin, StaggeredItem,
+  useBodyStaggerStyle, useHeaderStaggerStyle, PRESS_SPRING_CONFIG,
+} from '../lib/panelAnimation';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -22,26 +26,26 @@ interface Props {
   accent?: string;
 }
 
-// Same expand-in-place language as ExpandingSearchDock / NotificationsPopover —
-// measured origin, spring-grows into a blurred-backdrop panel with real depth
-// — except the "dock" here is the existing text trigger ("Delivery to" +
-// locality), not a fixed icon circle, so origin size is measured live instead
-// of a constant. Replaces navigating to a separate SelectLocation page.
 export default function LocationPopover({ accent = Colors.organic }: Props) {
   const { city, locality, setZone } = useZone();
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState('');
-  const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60, width: 120, height: 40 });
-  const anim = useSharedValue(0);
+  const [origin, setOrigin] = useState<PanelOrigin>({ x: Spacing.xl, y: 60, width: 120, height: 40 });
 
-  // top is pinned to origin.y (the trigger's own measured position) instead
-  // of interpolating up toward the status bar — the panel now grows straight
-  // down from exactly where the trigger sits instead of visibly detaching and
-  // sliding upward to a disconnected point before it opens (and reversing
-  // that same jump on close).
-  const leftTarget = Spacing.xl;
+  // ── Trigger press scale ──
+  const triggerScale = useSharedValue(1);
+  const triggerAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: triggerScale.value }],
+  }));
+
+  const {
+    anim, open: animOpen, close: animClose, backdropStyle, triggerGhostStyle,
+  } = usePanelAnimation();
+
+  const headerStyle = useHeaderStaggerStyle(anim);
+  const bodyStyle = useBodyStaggerStyle(anim);
 
   const allRows: Row[] = useMemo(
     () => SERVICEABLE_ZONES.flatMap((zone) => zone.localities.map((loc) => ({ city: zone.city, locality: loc }))),
@@ -56,53 +60,62 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
 
   const showOutOfZoneNotice = query.trim().length > 2 && results.length === 0 && !isServiceableCity(query);
 
-  const open = () => {
+  const open = useCallback(() => {
+    triggerScale.value = withSpring(0.92, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y, width, height) => {
-      setOrigin({ x, y, width, height });
+      const o: PanelOrigin = { x, y, width, height };
+      setOrigin(o);
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
+        animOpen(o);
+        triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
       });
     });
-  };
+  }, [animOpen]);
 
-  const close = () => {
-    const finishClose = () => {
-      setExpanded(false);
-      setVisible(false);
-      setQuery('');
-    };
-    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
-      if (finished) runOnJS(finishClose)();
-    });
-  };
+  const finishClose = useCallback(() => {
+    setExpanded(false);
+    setVisible(false);
+    setQuery('');
+  }, []);
 
-  const handleSelect = async (row: Row) => {
+  const close = useCallback(() => {
+    animClose(finishClose);
+  }, [animClose]);
+
+  const handleSelect = useCallback(async (row: Row) => {
     await setZone(row.city, row.locality);
     close();
-  };
+  }, [setZone, close]);
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
-  const panelStyle = useAnimatedStyle(() => ({
-    top: origin.y,
-    left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
-    width: interpolate(anim.value, [0, 1], [origin.width, PANEL_WIDTH]),
-    height: interpolate(anim.value, [0, 1], [origin.height, PANEL_HEIGHT]),
-    borderRadius: interpolate(anim.value, [0, 1], [BorderRadius.md, BorderRadius.xl]),
-    // Transparent -> white in lockstep with growth, same fix as the other docks —
-    // a static color snap showed a flash of solid white for a frame on collapse.
-    backgroundColor: interpolateColor(anim.value, [0, 1], ['rgba(255,255,255,0)', Colors.white]),
+  // ── Panel position style (anchored to trigger initially, settles at a fixed y) ──
+  const panelPositionStyle = useAnimatedStyle(() => ({
+    left: Spacing.xl,
+    right: Spacing.xl,
+    top: interpolate(anim.value, [0, 1], [origin.y, 100]),
   }));
-  const triggerStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
+
+  // ── Panel width/height style for the expand-in-place effect ──
+  const panelSizeStyle = useAnimatedStyle(() => ({
+    width: interpolate(anim.value, [0, 0.4, 1], [origin.width, PANEL_WIDTH, PANEL_WIDTH]),
+    height: interpolate(anim.value, [0, 0.4, 1], [origin.height, origin.height * 2, PANEL_HEIGHT]),
+    borderRadius: interpolate(anim.value, [0, 1], [BorderRadius.md, BorderRadius.xl]),
+    backgroundColor: interpolateColor(anim.value, [0, 0.3, 1],
+      ['rgba(255,255,255,0)', 'rgba(255,255,255,0.95)', Colors.white],
+    ),
+  }));
 
   const currentLabel = locality || city || 'Select location';
 
   return (
     <>
-      <View ref={dockRef} collapsable={false}>
-        <TouchableOpacity style={styles.trigger} activeOpacity={0.7} onPress={open}>
+      <Reanimated.View ref={dockRef} collapsable={false} style={triggerAnimStyle}>
+        <TouchableOpacity
+          style={styles.trigger}
+          activeOpacity={1}
+          onPress={open}
+        >
           <Text style={styles.triggerLabel}>Delivery to</Text>
           <View style={styles.triggerRow}>
             <Ionicons name="location" size={12} color={accent} />
@@ -110,15 +123,14 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
             <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.6)" />
           </View>
         </TouchableOpacity>
-      </View>
+      </Reanimated.View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <PopoverBackdrop style={[styles.backdrop, backdropStyle]} onPress={close} />
+        <PopoverBackdrop style={backdropStyle} onPress={close} />
 
-        <Reanimated.View
-          style={[styles.panel, styles.panelShadow, panelStyle]}
-        >
-          <Reanimated.View style={[styles.triggerOnly, triggerStyle]} pointerEvents="none">
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelSizeStyle, panelPositionStyle]}>
+          {/* Trigger ghost — fades out as panel opens */}
+          <Reanimated.View style={[styles.triggerGhost, triggerGhostStyle, { pointerEvents: 'none' }]}>
             <Text style={styles.triggerLabel}>Delivery to</Text>
             <View style={styles.triggerRow}>
               <Ionicons name="location" size={12} color={accent} />
@@ -127,13 +139,16 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
             </View>
           </Reanimated.View>
 
-          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Select Delivery Location</Text>
-              <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={8}>
-                <Ionicons name="close" size={18} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
+          {/* Content — staggers in */}
+          <Reanimated.View style={[StyleSheet.absoluteFill, bodyStyle, { pointerEvents: expanded ? 'auto' : 'none' }]}>
+            <Reanimated.View style={headerStyle}>
+              <View style={styles.header}>
+                <Text style={styles.headerTitle}>Select Delivery Location</Text>
+                <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={8}>
+                  <Ionicons name="close" size={18} color={Colors.text} />
+                </TouchableOpacity>
+              </View>
+            </Reanimated.View>
 
             <View style={styles.searchBar}>
               <Ionicons name="search" size={16} color={Colors.textSecondary} />
@@ -165,14 +180,16 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={!query.trim() ? <Text style={styles.sectionLabel}>Serviceable areas</Text> : null}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
-                    <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.rowLocality}>{item.locality}</Text>
-                      <Text style={styles.rowCity}>{item.city}</Text>
-                    </View>
-                  </TouchableOpacity>
+                renderItem={({ item, index }) => (
+                  <StaggeredItem anim={anim} index={index}>
+                    <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)} activeOpacity={0.6}>
+                      <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.rowLocality}>{item.locality}</Text>
+                        <Text style={styles.rowCity}>{item.city}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </StaggeredItem>
                 )}
               />
             )}
@@ -189,16 +206,14 @@ const styles = StyleSheet.create({
   triggerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   triggerName: { ...Typography.bodySmall, color: Colors.white, fontFamily: 'Inter_600SemiBold', maxWidth: 160 },
 
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,10,8,0.35)' },
   panel: { position: 'absolute', overflow: 'hidden' },
   panelShadow: {
     shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,
   },
-  triggerOnly: {
+  triggerGhost: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center', gap: 3,
   },
-  content: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -216,8 +231,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background, borderRadius: BorderRadius.md,
     height: 44, paddingHorizontal: Spacing.md,
   },
-  // outlineStyle/outlineWidth are web-only (react-native-web) — without them the
-  // browser draws its own default black focus ring around the <input>.
   input: {
     flex: 1, ...Typography.body, color: Colors.text, padding: 0,
     borderWidth: 0, outlineStyle: 'none' as any, outlineWidth: 0,
