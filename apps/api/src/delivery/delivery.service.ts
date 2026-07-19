@@ -14,6 +14,23 @@ function generateOtp(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
+const AUTO_ASSIGN_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 @Injectable()
 export class DeliveryService {
   private readonly logger = new Logger(DeliveryService.name);
@@ -529,6 +546,168 @@ export class DeliveryService {
       },
       vendor: assignment.orderVendorGroup.vendor,
     };
+  }
+
+  /**
+   * Auto-assign the nearest available Delivery Partner to an OrderVendorGroup
+   * that is in READY_FOR_PICKUP status. Uses haversine distance from the
+   * delivery address to each partner's last known GPS coordinates.
+   * If no partner is available, schedules a fallback retry after AUTO_ASSIGN_TIMEOUT_MS.
+   */
+  async autoAssign(orderVendorGroupId: string) {
+    const group = await this.prisma.orderVendorGroup.findUnique({
+      where: { id: orderVendorGroupId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNo: true,
+            totalAmount: true,
+            paymentMethod: true,
+            createdAt: true,
+            address: { select: { lat: true, lng: true } },
+            user: { select: { id: true, name: true, phone: true } },
+          },
+        },
+        vendor: { select: { id: true, storeName: true, zoneId: true } },
+        delivery: true,
+      },
+    });
+
+    if (!group) {
+      this.logger.warn(`Auto-assign: OrderVendorGroup ${orderVendorGroupId} not found`);
+      return null;
+    }
+
+    if (group.status !== OrderStatus.READY_FOR_PICKUP) {
+      this.logger.warn(`Auto-assign: Group ${orderVendorGroupId} is ${group.status}, not READY_FOR_PICKUP`);
+      return null;
+    }
+
+    if (group.delivery) {
+      this.logger.warn(`Auto-assign: Group ${orderVendorGroupId} already has a DeliveryAssignment`);
+      return null;
+    }
+
+    const orderAddress = group.order.address;
+    if (!orderAddress?.lat == null|| !orderAddress?.lng == null) {
+      this.logger.warn(`Auto-assign: Order ${group.order.id} has no delivery coordinates`);
+      this.scheduleAutoAssignment(orderVendorGroupId);
+      return null;
+    }
+
+    const availablePartners = await this.prisma.deliveryPartner.findMany({
+      where: {
+        zoneId: group.vendor.zoneId,
+        status: DeliveryPartnerStatus.AVAILABLE,
+        currentLat: { not: null },
+        currentLng: { not: null },
+      },
+      select: {
+        id: true,
+        userId: true,
+        currentLat: true,
+        currentLng: true,
+      },
+    });
+
+    if (availablePartners.length === 0) {
+      this.logger.warn(`Auto-assign: No available DPs in zone ${group.vendor.zoneId} for group ${orderVendorGroupId}`);
+      this.scheduleAutoAssignment(orderVendorGroupId);
+      return null;
+    }
+
+    const partnersWithDistance = availablePartners
+      .filter((p) => p.currentLat != null && p.currentLng != null)
+      .map((p) => ({
+        ...p,
+        distance: haversineDistance(
+          orderAddress.lat!,
+          orderAddress.lng!,
+          p.currentLat!,
+          p.currentLng!,
+        ),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+      if (partnersWithDistance.length === 0) {
+        this.logger.warn(
+          `Auto-assign: No delivery partners with valid coordinates found`,
+        );
+        this.scheduleAutoAssignment(orderVendorGroupId);
+        return null;
+      }
+    const nearest = partnersWithDistance[0];
+    const otp = generateOtp();
+
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.deliveryAssignment.create({
+        data: {
+          orderVendorGroupId: group.id,
+          deliveryPartnerId: nearest.id,
+          otp,
+        },
+      });
+
+      await tx.orderVendorGroup.update({
+        where: { id: group.id },
+        data: { status: OrderStatus.ASSIGNED_TO_DELIVERY },
+      });
+
+      await tx.deliveryPartner.update({
+        where: { id: nearest.id },
+        data: { status: DeliveryPartnerStatus.ON_DELIVERY },
+      });
+
+      return created;
+    });
+
+    this.logger.log(
+      `Auto-assigned DP ${nearest.id} (${nearest.distance.toFixed(1)}km) to group ${orderVendorGroupId}`,
+    );
+
+    return {
+      id: assignment.id,
+      otp: assignment.otp,
+      assignedAt: assignment.assignedAt,
+      orderVendorGroupId: group.id,
+      status: 'AUTO_ASSIGNED',
+      partner: { id: nearest.id, distance: nearest.distance },
+      order: {
+        id: group.order.id,
+        orderNumber: group.order.orderNo,
+        total: Number(group.order.totalAmount),
+        user: group.order.user,
+        address: group.order.address,
+      },
+      vendor: group.vendor,
+    };
+  }
+
+  /**
+   * Schedule a delayed auto-assign retry for an OrderVendorGroup.
+   * After AUTO_ASSIGN_TIMEOUT_MS, if the group is still in READY_FOR_PICKUP
+   * with no assignment, autoAssign will be called again. If still no DP is
+   * available, the order remains in READY_FOR_PICKUP for manual assignment.
+   */
+  private scheduleAutoAssignment(orderVendorGroupId: string) {
+    setTimeout(async () => {
+      try {
+        const group = await this.prisma.orderVendorGroup.findUnique({
+          where: { id: orderVendorGroupId },
+          select: { status: true, delivery: true },
+        });
+
+        if (!group) return;
+        if (group.status !== OrderStatus.READY_FOR_PICKUP) return;
+        if (group.delivery) return;
+
+        this.logger.log(`Auto-assign fallback: retrying for group ${orderVendorGroupId}`);
+        await this.autoAssign(orderVendorGroupId);
+      } catch (error: any) {
+        this.logger.error(`Auto-assign fallback failed for group ${orderVendorGroupId}: ${error.message}`);
+      }
+    }, AUTO_ASSIGN_TIMEOUT_MS);
   }
 
   /**
