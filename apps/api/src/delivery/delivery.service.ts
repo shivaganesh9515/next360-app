@@ -870,70 +870,104 @@ export class DeliveryService {
 
   /**
    * GET /delivery/earnings
-   * Calculate earnings for a delivery partner, optionally filtered by period.
-   * Period: 'today' | 'week' | 'month' | 'all' (default)
+   * Calculate earnings for a delivery partner across all time windows.
+   * Returns today, thisWeek, thisMonth, allTime, totalDeliveries, averagePerDelivery.
    */
-  async getEarnings(userId: string, period?: string) {
+  async getEarnings(userId: string, period?: 'today' | 'week' | 'month') {
     const partner = await this.getPartnerByUserId(userId);
+    const DELIVERY_FEE = 40;
 
     const now = new Date();
-    let dateFilter: Date | null = null;
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    switch (period) {
-      case 'today':
-        dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case 'week': {
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay());
-        weekStart.setHours(0, 0, 0, 0);
-        dateFilter = weekStart;
-        break;
-      }
-      case 'month':
-        dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      default:
-        // 'all' or any other value — no date filter, include all time
-        break;
-    }
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    const where: any = {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const buildWhere = (deliveredFrom?: Date) => ({
       deliveryPartnerId: partner.id,
-      deliveredAt: { not: null },
-    };
-    if (dateFilter) {
-      where.deliveredAt = { gte: dateFilter };
-    }
+      deliveredAt: deliveredFrom
+        ? { gte: deliveredFrom, not: null }
+        : { not: null },
+    });
 
-    const completedDeliveries = await this.prisma.deliveryAssignment.findMany({
-      where,
-      include: {
-        orderVendorGroup: {
-          select: {
-            id: true,
-            items: true,
+    const computeEarnings = (assignments: any[]) => {
+      const itemTotal = assignments.reduce((sum, a) => {
+        const groupTotal = a.orderVendorGroup.items.reduce(
+          (s: number, item: any) => s + Number(item.priceAtPurchase) * item.quantity,
+          0,
+        );
+        return sum + groupTotal;
+      }, 0);
+      return itemTotal + assignments.length * DELIVERY_FEE;
+    };
+
+    const include = {
+      orderVendorGroup: {
+        select: {
+          items: {
+            select: { priceAtPurchase: true, quantity: true },
           },
         },
       },
-    });
+    };
 
-    const totalEarnings = completedDeliveries.reduce((sum, a) => {
-      const earnings = a.orderVendorGroup.items.reduce(
-        (itemSum, item: any) =>
-          itemSum + Number(item.priceAtPurchase) * item.quantity,
-        0,
-      );
-      return sum + earnings;
-    }, 0);
+    if (period) {
+      const dateMap: Record<string, Date> = {
+        today: startOfToday,
+        week: startOfWeek,
+        month: startOfMonth,
+      };
+      const filtered = await this.prisma.deliveryAssignment.findMany({
+        where: buildWhere(dateMap[period]),
+        include,
+      });
 
-    const deliveryFeeEarnings = completedDeliveries.length * 40; // ₹40 per delivery
+      const totalDeliveries = filtered.length;
+      const earnings = computeEarnings(filtered);
+      return {
+        earnings,
+        totalDeliveries,
+        averagePerDelivery: totalDeliveries > 0 ? earnings / totalDeliveries : 0,
+        period,
+      };
+    }
+
+    const [todayDeliveries, weekDeliveries, monthDeliveries, allDeliveries] =
+      await Promise.all([
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(startOfToday),
+          include,
+        }),
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(startOfWeek),
+          include,
+        }),
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(startOfMonth),
+          include,
+        }),
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(),
+          include,
+        }),
+      ]);
+
+    const today = computeEarnings(todayDeliveries);
+    const thisWeek = computeEarnings(weekDeliveries);
+    const thisMonth = computeEarnings(monthDeliveries);
+    const allTime = computeEarnings(allDeliveries);
+    const totalDeliveries = allDeliveries.length;
 
     return {
-      earnings: totalEarnings + deliveryFeeEarnings,
-      deliveryFeeEarnings,
-      totalDeliveries: completedDeliveries.length,
-      period: period || 'all',
+      today,
+      thisWeek,
+      thisMonth,
+      allTime,
+      totalDeliveries,
+      averagePerDelivery: totalDeliveries > 0 ? allTime / totalDeliveries : 0,
     };
   }
 
