@@ -166,7 +166,8 @@ export const vendorApi = {
     api.patch<any>(`/vendors/${vendorId}`, data),
 
   // Notifications
-  getNotifications: () => api.get<any[]>('/notifications'),
+  getNotifications: () => api.get<any>('/notifications'),
+  getUnreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
   markAllNotificationsRead: () =>

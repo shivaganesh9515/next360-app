@@ -3,6 +3,9 @@
 import { Bell, LogOut, Menu, Store } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { vendorApi } from '@/lib/api';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -10,6 +13,25 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, vendorProfile, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await vendorApi.getUnreadCount();
+        if (active && res?.count !== undefined) {
+          setUnreadCount(res.count);
+        }
+      } catch (e) {
+        // Silently fail — badge just won't show
+      }
+    };
+    fetchUnreadCount();
+    // Poll every 60 seconds to keep badge current
+    const interval = setInterval(fetchUnreadCount, 60000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
@@ -20,10 +42,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
       </div>
       <div className="flex items-center gap-3">
-        <button className="p-2 hover:bg-slate-100 rounded-full relative transition-colors">
+        <Link href="/notifications" className="p-2 hover:bg-slate-100 rounded-full relative transition-colors">
           <Bell className="w-5 h-5 text-slate-600" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Link>
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
             {vendorProfile?.logoUrl ? (

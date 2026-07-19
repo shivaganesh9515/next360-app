@@ -1,21 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, CheckCheck } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getNotifications().then((res: any) => setNotifications(Array.isArray(res) ? res : []))
-      .catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getNotifications().then((res: any) => {
+      // Backend returns { notifications: [...], total, unreadCount } or an array
+      const items = res?.notifications || (Array.isArray(res) ? res : []);
+      setNotifications(Array.isArray(items) ? items : []);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const markRead = async (id: string) => {
-    try { await vendorApi.markNotificationRead(id); setNotifications(prev => prev.map(n => n.id === id ? {...n, isRead: true} : n)); }
-    catch (e) { console.error(e); }
+  const handleClick = async (n: any) => {
+    // Mark as read first
+    if (!n.isRead) {
+      try {
+        await vendorApi.markNotificationRead(n.id);
+        setNotifications(prev => prev.map(x => x.id === n.id ? {...x, isRead: true} : x));
+      } catch (e) { console.error(e); }
+    }
+
+    // Navigate to order detail if notification has an order reference in its data
+    const orderId = n.data?.orderId;
+    if (orderId) {
+      router.push(`/orders/${orderId}`);
+    }
   };
 
   const markAllRead = async () => {
@@ -50,17 +66,29 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {notifications.map((n) => (
-            <div key={n.id} onClick={() => !n.isRead && markRead(n.id)} className={`bg-white rounded-xl border p-4 cursor-pointer transition-colors ${n.isRead ? 'border-slate-200' : 'border-emerald-200 bg-emerald-50/30'}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className={`text-sm ${n.isRead ? 'text-slate-600' : 'text-slate-900 font-medium'}`}>{n.title}</p>
-                  <p className="text-xs text-slate-400 mt-1">{n.body}</p>
+          {notifications.map((n) => {
+            const hasOrderLink = !!n.data?.orderId;
+            return (
+              <div
+                key={n.id}
+                onClick={() => handleClick(n)}
+                className={`bg-white rounded-xl border p-4 cursor-pointer transition-colors ${
+                  n.isRead ? 'border-slate-200' : 'border-emerald-200 bg-emerald-50/30'
+                } ${hasOrderLink && !n.isRead ? 'hover:border-emerald-400' : 'hover:border-slate-300'}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate ${n.isRead ? 'text-slate-600' : 'text-slate-900 font-medium'}`}>{n.title}</p>
+                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">{n.body}</p>
+                    {hasOrderLink && (
+                      <span className="text-xs text-emerald-600 mt-1 inline-block font-medium">View order →</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400 flex-shrink-0 ml-4">{new Date(n.createdAt).toLocaleDateString()}</span>
                 </div>
-                <span className="text-xs text-slate-400 flex-shrink-0 ml-4">{new Date(n.createdAt).toLocaleDateString()}</span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
