@@ -72,6 +72,49 @@ export class DeliveryPartnersService {
     });
   }
 
+  async setup(userId: string, dto: { vehicleType: string; zoneId: string }) {
+    const existing = await this.prisma.deliveryPartner.findUnique({
+      where: { userId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Delivery partner profile already exists');
+    }
+
+    const zone = await this.prisma.zone.findUnique({
+      where: { id: dto.zoneId },
+    });
+
+    if (!zone) {
+      throw new NotFoundException('Zone not found');
+    }
+
+    if (!zone.isActive) {
+      throw new BadRequestException('Zone is not active');
+    }
+
+    return this.prisma.deliveryPartner.create({
+      data: {
+        userId,
+        vehicleType: dto.vehicleType,
+        zoneId: dto.zoneId,
+        status: DeliveryPartnerStatus.AVAILABLE,
+      },
+      include: {
+        user: {
+          select: this.userSelect,
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+          },
+        },
+      },
+    });
+  }
+
   async findAll(params: {
     page: number;
     limit: number;
