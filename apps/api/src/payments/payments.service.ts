@@ -638,6 +638,105 @@ export class PaymentsService {
   }
 
   /**
+   * Get settlement information for a vendor — last paid date, pending amount,
+   * payout history summary. Uses parallel queries to avoid N+1.
+   */
+  async getVendorSettlementInfo(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: {
+        id: true,
+        storeName: true,
+        storeType: true,
+        commissionPct: true,
+        zoneId: true,
+      },
+    });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const [lastPaidPayout, pendingAgg, statusBreakdown, recentPayouts] =
+      await Promise.all([
+        this.prisma.payout.findFirst({
+          where: {
+            vendorId,
+            status: { in: ['PROCESSED', 'PAID'] },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { amount: true, createdAt: true, paidAt: true },
+        }),
+        this.prisma.payout.aggregate({
+          where: { vendorId, status: 'PENDING' },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        this.prisma.payout.groupBy({
+          by: ['status'],
+          where: { vendorId },
+          _count: true,
+          _sum: { amount: true },
+        }),
+        this.prisma.payout.findMany({
+          where: { vendorId },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            orderId: true,
+            periodStart: true,
+            periodEnd: true,
+            paidAt: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        }),
+      ]);
+
+    const totalSettled = Number(
+      statusBreakdown
+        .filter((s) => s.status === 'PROCESSED' || s.status === 'PAID')
+        .reduce((sum, s) => sum + Number(s._sum.amount || 0), 0),
+    );
+
+    const totalPending = Number(pendingAgg._sum.amount || 0);
+    const pendingCount = pendingAgg._count;
+
+    return {
+      vendor: {
+        id: vendor.id,
+        storeName: vendor.storeName,
+        storeType: vendor.storeType,
+        commissionPct: vendor.commissionPct,
+        zoneId: vendor.zoneId,
+      },
+      settlement: {
+        totalSettled,
+        totalPending,
+        pendingCount,
+        lastPaidAt: lastPaidPayout?.paidAt || lastPaidPayout?.createdAt || null,
+        lastPaidAmount: lastPaidPayout ? Number(lastPaidPayout.amount) : null,
+      },
+      statusBreakdown: statusBreakdown.map((s) => ({
+        status: s.status,
+        count: s._count,
+        totalAmount: Number(s._sum.amount || 0),
+      })),
+      recentPayouts: recentPayouts.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        status: p.status,
+        orderId: p.orderId,
+        period:
+          p.periodStart && p.periodEnd
+            ? `${p.periodStart.toISOString().split('T')[0]} – ${p.periodEnd.toISOString().split('T')[0]}`
+            : null,
+        paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+        createdAt: p.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  /**
    * Initiate a refund for a payment.
    */
   async initiateRefund(orderId: string, reason?: string) {

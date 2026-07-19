@@ -113,6 +113,13 @@ export class PaymentsController {
     );
   }
 
+  @Get('settlements/:vendorId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  getVendorSettlementInfo(@Param('vendorId') vendorId: string) {
+    return this.paymentsService.getVendorSettlementInfo(vendorId);
+  }
+
   @Get(':orderId')
   @UseGuards(JwtAuthGuard)
   getPayments(@Param('orderId') orderId: string) {
