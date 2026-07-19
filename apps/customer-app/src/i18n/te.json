@@ -221,11 +221,20 @@
     },
     "section": {
       "deliveryAddress": "డెలివరీ చిరునామా",
+      "deliverySlot": "డెలివరీ షెడ్యూల్",
       "orderItems": "ఆర్డర్ అంశాలు ({{count}})",
       "paymentMethod": "చెల్లింపు విధానం",
       "coupon": "కూపన్",
       "orderNotes": "ఆర్డర్ గమనికలు (ఐచ్ఛికం)",
       "priceSummary": "ధర సారాంశం"
+    },
+    "deliverySlot": {
+      "today": "ఈ రోజు",
+      "tomorrow": "రేపు",
+      "unavailable": "మీ ప్రాంతానికి ప్రస్తుతం డెలివరీ స్లాట్లు అందుబాటులో లేవు.",
+      "noSlots": "ఈ రోజుకు స్లాట్లు లేవు.",
+      "full": "పూర్తి",
+      "available": "{{n}} అందుబాటులో ఉన్నాయి"
     },
     "fallback": {
       "address": "చిరునామా",

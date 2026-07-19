@@ -221,11 +221,20 @@
     },
     "section": {
       "deliveryAddress": "Delivery Address",
+      "deliverySlot": "Delivery Schedule",
       "orderItems": "Order Items ({{count}})",
       "paymentMethod": "Payment Method",
       "coupon": "Coupon",
       "orderNotes": "Order Notes (Optional)",
       "priceSummary": "Price Summary"
+    },
+    "deliverySlot": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "unavailable": "Delivery slots are not available for your area right now.",
+      "noSlots": "No slots available for this day.",
+      "full": "Full",
+      "available": "{{n}} available"
     },
     "fallback": {
       "address": "Address",

@@ -10,6 +10,7 @@ import { useStore } from '../../lib/store';
 import { customerApi } from '../../lib/api';
 import { getDeliveryFee } from '../../lib/pricing';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import DeliverySlotPicker from '../../components/DeliverySlotPicker';
 
 const SLIDE_THRESHOLD = 0.85;
 // Per CLAUDE.md: COD is capped at ₹2,000/order — nothing enforced this before,
@@ -29,6 +30,7 @@ export default function CheckoutScreen({ navigation }: any) {
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY'>('COD');
   const [notes, setNotes] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState<{ slotConfigId: string; date: string; timeRange: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
 
@@ -191,6 +193,7 @@ export default function CheckoutScreen({ navigation }: any) {
         notes: notes || undefined,
         couponCode: appliedCoupon?.code,
         discount: discount || undefined,
+        deliverySlotId: selectedSlot?.slotConfigId,
       };
 
       const result = await customerApi.createOrder(orderData);
@@ -298,6 +301,18 @@ export default function CheckoutScreen({ navigation }: any) {
               <Text style={styles.addAddressText}>{t('checkout.addAddress')}</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Delivery Slot */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('checkout.section.deliverySlot')}</Text>
+          <View style={[styles.card, Shadows.card, { padding: Spacing.md }]}>
+            <DeliverySlotPicker
+              zoneId={selectedAddress?.zoneId || selectedAddress?.id}
+              selectedSlotId={selectedSlot?.slotConfigId}
+              onSelect={setSelectedSlot}
+            />
+          </View>
         </View>
 
         {/* Order Items */}

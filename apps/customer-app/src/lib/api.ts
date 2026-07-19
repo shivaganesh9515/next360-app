@@ -661,6 +661,33 @@ export const customerApi = {
   getBanners: (params?: Record<string, any>) =>
     api.get<any[]>('/cms/banners', params),
 
+  // Delivery Slots — fetches available delivery time windows for a zone
+  getDeliverySlots: async (zoneId?: string) => {
+    try {
+      return await api.get<any>(`/delivery-slots`, { zoneId });
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      // Demo fallback: generate synthetic slots for today/tomorrow
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return {
+        today: { date: today, dayName: dayNames[now.getDay()], slots: [
+          { id: 'demo-slot-1', startTime: '09:00', endTime: '12:00', maxOrders: 20, booked: 5, available: 15, isPast: false, date: today },
+          { id: 'demo-slot-2', startTime: '14:00', endTime: '17:00', maxOrders: 20, booked: 10, available: 10, isPast: false, date: today },
+        ]},
+        tomorrow: { date: tomorrowStr, dayName: dayNames[tomorrow.getDay()], slots: [
+          { id: 'demo-slot-3', startTime: '09:00', endTime: '12:00', maxOrders: 20, booked: 2, available: 18, isPast: false, date: tomorrowStr },
+          { id: 'demo-slot-4', startTime: '14:00', endTime: '17:00', maxOrders: 20, booked: 8, available: 12, isPast: false, date: tomorrowStr },
+          { id: 'demo-slot-5', startTime: '18:00', endTime: '21:00', maxOrders: 15, booked: 0, available: 15, isPast: false, date: tomorrowStr },
+        ]},
+      };
+    }
+  },
+
   // Payments — Razorpay
   createRazorpayOrder: (orderId: string) =>
     api.post<{ key: string; amount: number; currency: string; order_id: string; receipt: string }>('/payments/razorpay/order', { orderId }),

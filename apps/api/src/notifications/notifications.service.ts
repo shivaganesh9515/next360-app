@@ -513,6 +513,19 @@ export class NotificationsService {
   }
 
   /**
+   * V7b. Vendor Rejected — sent when admin rejects the vendor's application.
+   */
+  async sendVendorRejectedNotification(vendorUserId: string, storeName: string) {
+    return this.notify(
+      vendorUserId,
+      'Application Not Approved',
+      `Thank you for your interest in joining Next360. Unfortunately, "${storeName}" was not approved at this time. Please contact support for more details.`,
+      'VENDOR_REJECTED',
+      { screen: 'Support' },
+    );
+  }
+
+  /**
    * V8. Vendor Suspended — sent when admin suspends the vendor.
    */
   async sendVendorSuspendedNotification(vendorUserId: string, storeName: string) {
