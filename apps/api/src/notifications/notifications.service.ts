@@ -866,4 +866,44 @@ export class NotificationsService {
 
     return tokens.map(t => ({ userId: t.user.id, token: t.token, role: t.user.role }));
   }
+
+  // ─── Admin Broadcast ────────────────────────────────────────────────────
+
+  async broadcast(dto: {
+    title: string;
+    body: string;
+    type?: string;
+    targetRole?: string;
+  }) {
+    const type = dto.type || 'BROADCAST';
+    const targetRole = dto.targetRole || 'ALL';
+
+    const where: any = {};
+    if (targetRole !== 'ALL') {
+      where.role = targetRole;
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+      select: { id: true },
+    });
+
+    let createdCount = 0;
+    let pushSentCount = 0;
+
+    for (const user of users) {
+      await this.create(user.id, dto.title, dto.body, type, { broadcast: true });
+      createdCount++;
+
+      const pushResult = await this.sendPushToUser(user.id, dto.title, dto.body, { broadcast: true });
+      if (pushResult) pushSentCount++;
+    }
+
+    return {
+      message: `Broadcast sent to ${users.length} users (${pushSentCount} push notifications delivered)`,
+      totalTargeted: users.length,
+      notificationsCreated: createdCount,
+      pushDelivered: pushSentCount,
+    };
+  }
 }

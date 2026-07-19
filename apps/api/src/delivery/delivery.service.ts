@@ -5,12 +5,13 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
 
 function generateOtp(): string {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return randomInt(1000, 9999).toString();
 }
 
 @Injectable()

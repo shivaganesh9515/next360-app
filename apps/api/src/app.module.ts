@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard } from './common/guards/throttler.guard';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -35,6 +36,9 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
+import { ReportsModule } from './reports/reports.module';
+import { PayoutsAdminModule } from './payouts-admin/payouts-admin.module';
+import { SupportModule } from './support/support.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -87,6 +91,9 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     AdminModule,
     DeliverySlotModule,
     DeliveryModule,
+    ReportsModule,
+    PayoutsAdminModule,
+    SupportModule,
   ],
   providers: [
     {
@@ -100,6 +107,10 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

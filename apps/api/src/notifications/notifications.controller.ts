@@ -10,10 +10,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
+import { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -71,8 +73,15 @@ export class NotificationsController {
 
   @Get('tokens')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN)
   getAllPushTokens(@Query('role') role?: string) {
     return this.notificationsService.getAllPushTokens(role);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  broadcast(@Body() dto: BroadcastNotificationDto) {
+    return this.notificationsService.broadcast(dto);
   }
 }

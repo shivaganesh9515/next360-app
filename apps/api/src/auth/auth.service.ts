@@ -1,6 +1,7 @@
 import { Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { randomInt, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SignupDto } from './dto/signup.dto';
@@ -83,9 +84,12 @@ export class AuthService {
       role: user.role,
     });
 
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     return {
       user: this.sanitizeUser(user),
       access_token: token,
+      refresh_token: refreshToken,
     };
   }
 
@@ -127,9 +131,12 @@ export class AuthService {
       ...(supabaseUser ? { supabaseId: supabaseUser.id } : {}),
     });
 
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     return {
       user: this.sanitizeUser(user),
       access_token: token,
+      refresh_token: refreshToken,
     };
   }
 
@@ -137,7 +144,7 @@ export class AuthService {
   // verify-otp-login together replace signup/login for that client entirely
   // (email+password above stays as-is for vendor/admin, which still use it).
   async sendOtp(dto: SendOtpDto) {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 999999));
     this.otpStore.set(dto.phone, { code, expiresAt: Date.now() + AuthService.OTP_TTL_MS });
 
     // No SMS gateway wired up yet (see CLAUDE.md's open decisions register) —
@@ -177,9 +184,12 @@ export class AuthService {
 
     const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
 
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     return {
       user: this.sanitizeUser(user),
       access_token: token,
+      refresh_token: refreshToken,
       isNewUser,
     };
   }
@@ -265,9 +275,12 @@ export class AuthService {
 
     const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
 
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     return {
       user: this.sanitizeUser(user),
       access_token: token,
+      refresh_token: refreshToken,
       isNewUser,
     };
   }
@@ -294,6 +307,66 @@ export class AuthService {
     }
 
     return { message: 'Password reset successfully' };
+  }
+
+  async refresh(refreshTokenValue: string) {
+    const record = await this.prisma.refreshToken.findUnique({
+      where: { token: refreshTokenValue },
+      include: { user: { select: { id: true, email: true, role: true, isActive: true } } },
+    });
+
+    if (!record) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (record.isRevoked) {
+      // Potential token reuse — revoke all tokens for this user
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: record.userId, isRevoked: false },
+        data: { isRevoked: true },
+      });
+      this.logger.warn(`Refresh token reuse detected for user ${record.userId} — all tokens revoked`);
+      throw new UnauthorizedException('Refresh token has been revoked');
+    }
+
+    if (record.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    if (!record.user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Revoke old token, issue new pair (rotation)
+    await this.prisma.refreshToken.update({
+      where: { id: record.id },
+      data: { isRevoked: true },
+    });
+
+    const newAccessToken = this.jwtService.sign({
+      sub: record.user.id,
+      email: record.user.email,
+      role: record.user.role,
+    });
+
+    const newRefreshToken = await this.generateRefreshToken(record.user.id);
+
+    return {
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
+    };
+  }
+
+  async generateRefreshToken(userId: string): Promise<string> {
+    const token = randomBytes(40).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30-day expiry
+
+    await this.prisma.refreshToken.create({
+      data: { userId, token, expiresAt },
+    });
+
+    return token;
   }
 
   private sanitizeUser(user: any) {

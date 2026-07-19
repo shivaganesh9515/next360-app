@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Body, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -60,5 +60,14 @@ export class AdminController {
     });
 
     return updated;
+  }
+
+  @Get('analytics')
+  async getAnalytics(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('period') period?: string,
+  ) {
+    return this.adminService.getAnalytics(startDate, endDate, period);
   }
 }
