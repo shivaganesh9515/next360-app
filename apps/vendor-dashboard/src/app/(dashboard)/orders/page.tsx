@@ -5,7 +5,23 @@ import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { vendorApi } from '@/lib/api';
-import { Bell } from 'lucide-react';
+import { Bell, BellRing } from 'lucide-react';
+
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function showBrowserNotification(title: string, body: string) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    // If the tab is focused, skip the popup notification (avoids spam when actively viewing)
+    if (document.visibilityState === 'visible') return;
+    new Notification(title, { body, icon: '/favicon.ico', tag: 'new-order' });
+  }
+}
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -15,6 +31,11 @@ export default function OrdersPage() {
   const previousCountRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   const fetchOrders = useCallback(async (isInitial = false) => {
     try {
@@ -33,9 +54,18 @@ export default function OrdersPage() {
         items: g.items || [],
       }));
 
-      // Detect new orders for pulse animation (skip on initial load)
+      // Detect new orders for pulse animation and browser notification
       if (!isInitial && previousCountRef.current > 0 && normalized.length > previousCountRef.current) {
-        setNewOrderCount(prev => prev + (normalized.length - previousCountRef.current));
+        const diff = normalized.length - previousCountRef.current;
+        setNewOrderCount(prev => prev + diff);
+
+        // Browser notification for new orders
+        if (diff === 1) {
+          showBrowserNotification('New Order!', 'You have 1 new order to process.');
+        } else {
+          showBrowserNotification('New Orders!', `You have ${diff} new orders to process.`);
+        }
+
         // Auto-clear the pulse after 5 seconds (clear any previous timeout to avoid race)
         if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
         pulseTimeoutRef.current = setTimeout(() => setNewOrderCount(0), 5000);
@@ -77,6 +107,11 @@ export default function OrdersPage() {
     router.push(`/orders/${item.orderId || item.id}`);
   };
 
+  // Check notification permission status
+  const notificationStatus = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+  const notificationsEnabled = notificationStatus === 'granted';
+  const notificationsDenied = notificationStatus === 'denied';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -87,17 +122,38 @@ export default function OrdersPage() {
         <div className="flex items-center gap-2">
           {newOrderCount > 0 && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full animate-pulse">
-              <Bell className="w-4 h-4 text-emerald-600" />
+              <BellRing className="w-4 h-4 text-emerald-600" />
               <span className="text-sm font-medium text-emerald-700">{newOrderCount} new</span>
             </div>
           )}
           <button
-            onClick={() => { setNewOrderCount(0); if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current); fetchOrders(true); }}
+            onClick={() => {
+              setNewOrderCount(0);
+              if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+              fetchOrders(true);
+            }}
             className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             title="Refresh now"
           >
             Refresh
           </button>
+          {notificationsEnabled ? (
+            <span className="text-xs text-emerald-600 flex items-center gap-1" title="Browser notifications enabled">
+              <Bell className="w-3.5 h-3.5" /> Notifications on
+            </span>
+          ) : notificationsDenied ? (
+            <span className="text-xs text-slate-400 flex items-center gap-1" title="Notifications were blocked. Enable them in your browser settings.">
+              <Bell className="w-3.5 h-3.5" /> Notifications blocked
+            </span>
+          ) : (
+            <button
+              onClick={requestNotificationPermission}
+              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+              title="Enable browser notifications for new orders"
+            >
+              <Bell className="w-3.5 h-3.5" /> Enable alerts
+            </button>
+          )}
         </div>
       </div>
       <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
