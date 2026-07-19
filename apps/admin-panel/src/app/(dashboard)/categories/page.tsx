@@ -26,7 +26,7 @@ export default function CategoriesPage() {
       const params: any = {};
       if (storeTypeFilter !== 'ALL') params.storeType = storeTypeFilter;
       const res = await adminApi.getCategories(params);
-      setCategories(res?.data || []);
+      setCategories((Array.isArray(res) ? res : (res as any)?.data) || []);
     } catch {
       setCategories([]);
     } finally {

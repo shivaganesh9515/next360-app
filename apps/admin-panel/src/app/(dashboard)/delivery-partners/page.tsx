@@ -22,7 +22,7 @@ export default function DeliveryPartnersPage() {
     setLoading(true);
     try {
       const res = await adminApi.getDeliveryPartners({ page, limit: 20, search });
-      setPartners(res?.data || []);
+      setPartners((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setPartners([]); } finally { setLoading(false); }
   };

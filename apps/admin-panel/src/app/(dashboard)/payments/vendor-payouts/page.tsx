@@ -20,7 +20,7 @@ export default function VendorPayoutsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getPayouts({ page, limit: 20, type: 'vendor' });
-      setPayouts(res?.data || []);
+      setPayouts((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setPayouts([]); } finally { setLoading(false); }
   };

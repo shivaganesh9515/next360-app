@@ -26,8 +26,8 @@ export default function SubCategoriesPage() {
         adminApi.getSubCategories(),
         adminApi.getCategories()
       ]);
-      setSubCategories(subRes?.data || []);
-      setCategories(catRes?.data || []);
+      setSubCategories((Array.isArray(subRes) ? subRes : (subRes as any)?.data) || []);
+      setCategories((Array.isArray(catRes) ? catRes : (catRes as any)?.data) || []);
     } catch {
       setSubCategories([]);
     } finally {

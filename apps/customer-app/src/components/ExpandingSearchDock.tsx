@@ -1,15 +1,18 @@
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Keyboard, Dimensions, Modal, ActivityIndicator, ScrollView,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, Dimensions, Modal, ActivityIndicator, ScrollView,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../lib/api';
 import { useProductSheet } from '../lib/productSheet';
+import PopoverBackdrop from './PopoverBackdrop';
 import { Product, StoreType } from '../types';
 import {
-  Colors, Spacing, Typography, BorderRadius, SPRING_CONFIG,
+  Colors, Spacing, Typography, BorderRadius, REANIMATED_SPRING_CONFIG,
   getStoreAccentDark, getStoreLabel,
 } from '../constants/theme';
 
@@ -64,7 +67,7 @@ export default function ExpandingSearchDock({
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [origin, setOrigin] = useState({ x: SCREEN_WIDTH - Spacing.xl - DOCK_SIZE, y: 100 });
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useSharedValue(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const topTarget = insets.top + Spacing.md;
@@ -99,7 +102,7 @@ export default function ExpandingSearchDock({
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        Animated.spring(anim, { toValue: 1, useNativeDriver: false, ...SPRING_CONFIG }).start();
+        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
       });
     });
   };
@@ -107,14 +110,15 @@ export default function ExpandingSearchDock({
   const close = () => {
     Keyboard.dismiss();
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    Animated.spring(anim, { toValue: 0, useNativeDriver: false, ...SPRING_CONFIG }).start(({ finished }) => {
-      if (finished) {
-        setExpanded(false);
-        setVisible(false);
-        setQuery('');
-        setResults([]);
-        setSearched(false);
-      }
+    const finishClose = () => {
+      setExpanded(false);
+      setVisible(false);
+      setQuery('');
+      setResults([]);
+      setSearched(false);
+    };
+    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
+      if (finished) runOnJS(finishClose)();
     });
   };
 
@@ -143,17 +147,25 @@ export default function ExpandingSearchDock({
     runSearch(term);
   };
 
-  const top = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.y, topTarget] });
-  const left = anim.interpolate({ inputRange: [0, 1], outputRange: [origin.x, Spacing.xl] });
-  const width = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE, PANEL_WIDTH] });
-  const height = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE, PANEL_HEIGHT] });
-  const borderRadius = anim.interpolate({ inputRange: [0, 1], outputRange: [DOCK_SIZE / 2, BorderRadius.xl] });
-  const iconOnlyOpacity = anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] });
-  const contentOpacity = anim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
-  // Interpolated in lockstep with the shrink/grow instead of snapping between
-  // dockBg and white at the end — that boolean snap was showing a plain white
-  // circle for a frame right as it collapsed back into the nav bar.
-  const backgroundColor = anim.interpolate({ inputRange: [0, 1], outputRange: [dockBg, Colors.white] });
+  // Combined into useAnimatedStyle blocks (Reanimated, UI-thread) instead of
+  // the classic Animated API's useNativeDriver:false — top/left/width/height/
+  // borderRadius can't run on the native thread with the old API, so every
+  // frame previously required a JS-bridge round trip, which is what made this
+  // (and the other three expand-in-place popovers) feel laggy on real devices.
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
+  const panelStyle = useAnimatedStyle(() => ({
+    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    left: interpolate(anim.value, [0, 1], [origin.x, Spacing.xl]),
+    width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
+    height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
+    borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
+    // Interpolated in lockstep with the shrink/grow instead of snapping between
+    // dockBg and white at the end — that boolean snap was showing a plain white
+    // circle for a frame right as it collapsed back into the nav bar.
+    backgroundColor: interpolateColor(anim.value, [0, 1], [dockBg, Colors.white]),
+  }));
+  const iconOnlyStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
 
   const showSuggestions = query.trim().length > 0;
 
@@ -166,17 +178,18 @@ export default function ExpandingSearchDock({
       </View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <Animated.View style={[styles.backdrop, { opacity: anim }]} pointerEvents={expanded ? 'auto' : 'none'}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-        </Animated.View>
+        <PopoverBackdrop
+          style={[styles.backdrop, backdropStyle]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          onPress={close}
+        />
 
-        <Animated.View style={[styles.panel, styles.panelShadow, { top, left, width, height, borderRadius, backgroundColor }]}>
-          <Animated.View style={[styles.iconOnly, { opacity: iconOnlyOpacity }]} pointerEvents="none">
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
+          <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">
             <Ionicons name="search" size={17} color={iconColor} />
-          </Animated.View>
+          </Reanimated.View>
 
-          <Animated.View style={[styles.content, { opacity: contentOpacity }]} pointerEvents={expanded ? 'auto' : 'none'}>
+          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
             <View style={styles.searchRow}>
               <Ionicons name="search" size={16} color={Colors.textSecondary} style={styles.searchIcon} />
               <TextInput
@@ -253,8 +266,8 @@ export default function ExpandingSearchDock({
                 </View>
               </ScrollView>
             )}
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </Modal>
     </>
   );

@@ -13,7 +13,7 @@ export default function InventoryPage() {
     setLoading(true);
     try {
       const res = await vendorApi.getProducts({ limit: 100 });
-      setProducts(res.data || []);
+      setProducts((Array.isArray(res) ? res : (res as any)?.data) || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

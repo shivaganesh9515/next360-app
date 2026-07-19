@@ -107,6 +107,17 @@ export const SPRING_CONFIG = {
   tension: 80,
 };
 
+// Reanimated's withSpring uses damping/stiffness/mass, not the classic
+// Animated API's friction/tension (SPRING_CONFIG above) — approximated to
+// match the same house spring feel, for components animated on the UI thread
+// via Reanimated (the four expand-in-place popovers: search dock,
+// notifications, location, profile).
+export const REANIMATED_SPRING_CONFIG = {
+  damping: 20,
+  stiffness: 200,
+  mass: 0.5,
+};
+
 // Soft, warm-tinted shadows (not pure black) — the depth cue that reads as "premium"
 // rather than flat. Use `card` for product cards/tiles, `raised` for floating nav/sheets,
 // `button` for primary CTAs so they visually lift off the page.

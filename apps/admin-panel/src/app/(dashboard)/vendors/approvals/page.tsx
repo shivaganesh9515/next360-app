@@ -19,7 +19,7 @@ export default function VendorApprovalsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getVendors({ status: 'PENDING', limit: 50 });
-      setVendors(res?.data || []);
+      setVendors((Array.isArray(res) ? res : (res as any)?.data) || []);
     } catch { setVendors([]); } finally { setLoading(false); }
   };
 

@@ -10,20 +10,24 @@ Multi-vendor organic/natural/eco-friendly marketplace with 3 storefronts (Organi
 | Soumya, Manaswini | Vendor Dashboard + Admin Panel | **Web** | Next.js 14+ (App Router) | **32 + 35 screens** |
 | Abhinaya, Srinitha, Harshitha | Backend API | — | NestJS + Prisma | 25 modules |
 | Ashwanth | PM / coordinator | — | tracks progress, unblocks the above three tracks | — |
+| **Designer (TBD)** | Visual assets — banners, posters, video content, loyalty tier illustrations | — | Figma / Canva / motion tools | — |
 
-### Current Task Division (as of 2026-07-15)
-Backend audit (apps/api, apps/vendor-dashboard, apps/admin-panel) found the two web apps are structurally complete (all required screens exist, real implementations) but blocked on missing backend modules/endpoints.
+### Current Task Division (as of 2026-07-16)
+A local live backend now exists (Docker Postgres, migrated + seeded, `apps/api` running on `:4000`) and all 3 apps are actually connected to it for the first time — see `.claude/memory/STATUS.md` for the full "what's live now" detail. Most of the team's assigned work landed and got merged (`tasks/MERGE_REPORT_2026-07-16.md`). Two things are still open:
 
-**Backend (Abhinaya, Srinitha, Harshitha)** — split by owner:
-- **Abhinaya**: build `brands/`, `kyc/`, `sub-categories/`, `roles/`, `cms/` modules (dirs missing or unregistered in `app.module.ts`; Prisma models already exist). Fix `apps/api/package.json` — missing `@nestjs/jwt`, `@nestjs/mapped-types`, `@nestjs/passport`, `passport-jwt`, `@supabase/supabase-js`, `class-validator`, `class-transformer`, `dotenv`, `multer` (build currently breaks on a fresh install).
-- **Srinitha**: build `delivery-partners/`, `zones/`, `disputes/` modules (zero backend support today despite admin-panel screens existing for all three) + vendor analytics/earnings/payouts endpoints (`/vendors/me/analytics`, `/vendors/me/earnings`, `/vendors/me/payouts`, `/vendors/me/transactions`, `/vendors/me/customers`, `/vendors/:id/stats` — called by vendor-dashboard, not implemented).
-- **Harshitha**: Razorpay Route multi-vendor payout automation (split payout logic doesn't exist yet — order/webhook/refund flow is otherwise real) + `inventory/` module (dedicated stock endpoints beyond raw product fields).
+- **Srinitha**: `brands/kyc/sub-categories/roles/cms` (was Abhinaya's) and `delivery-partners/zones/disputes` (yours) are done and merged. Still needed: vendor analytics/earnings/payouts endpoints — `/vendors/me/analytics`, `/vendors/me/earnings`, `/vendors/me/transactions`, `/vendors/me/customers`, `/vendors/:id/stats` (called by vendor-dashboard, not implemented; `/vendors/me/payouts` already exists via Harshitha).
+- **Manaswini**: your branch didn't get merged (touched vendors/orders/ai-logs/products-approvals instead of your assigned 7 pages) — but turns out that's moot: those 7 pages (`delivery-partners`, `zones`, `disputes`, `roles`, `cms`, `brands`, `sub-categories`) were **already wired to real `adminApi.*` calls on `main`**, just never tested against a live backend. Connecting one surfaced and fixed the actual bug (response-envelope unwrapping, broken in ~19 pages across the app) — all 7 should work now. See `tasks/manaswini.md` for the corrected per-page status and what's still genuinely open (payouts oversight has no backend support at all; a few other calls are flagged as real gaps too).
 
-**Frontend (Soumya, Manaswini)** — both apps are missing `shadcn/ui`, `@supabase/supabase-js`, and (per CLAUDE.md's intended stack) zustand/axios from `package.json`:
-- **Soumya**: `apps/vendor-dashboard` — wire up shadcn/ui + Supabase client; once Srinitha's endpoints land, replace the empty-state payouts/analytics/earnings pages with live data.
-- **Manaswini**: `apps/admin-panel` — wire up shadcn/ui + Supabase client; once backend lands, replace empty-state delivery-partners/zones/disputes/roles/cms/brands/sub-categories pages with live data.
+Everyone else's assigned work (Abhinaya, Harshitha, Soumya) is done and merged.
 
-**Ashwanth (PM/coordinator)**: track the backend module handoffs above against the frontend pages waiting on them, keep `.claude/memory/STATUS.md` and this section current as items close, unblock whoever's stuck.
+**Ashwanth (PM/coordinator)**: track the two items above, keep `.claude/memory/STATUS.md` and this section current as they close.
+
+**Designer (TBD — role open, needs hire/assignment)**: no code, deliverables only — hand off finished assets to the app owners for wiring:
+- Home-screen banner creatives (`CMS_Page`/`Banner` model already exists — admin panel has a banner-upload screen, needs real creative content, not just the upload mechanism)
+- Category-storefront hero imagery (Organic / Natural / Eco-friendly — 3 sets, matching the swatch theming in `categoryThemes`)
+- **Loyalty tier illustrations (new, Phase 12):** 8 tree-growth stage graphics — Seed → Seedling → Sapling → Plant → Young Tree → Tree → Mature Tree → Forest — for the Customer App loyalty screen tier badge/progress bar
+- Onboarding carousel illustrations (3 slides, one per category — listed as open decision #6 in Risk Register)
+- Short promo/video content for in-app placement (format/length TBD once a designer is assigned)
 
 Not in this pass (still just you, on customer-app): map-based address picker, crash reporting tool choice, hero-banner CMS wiring — see `.claude/memory/` for detail. AI screens are explicitly on hold.
 
@@ -60,7 +64,8 @@ next360-app/
 │   ├── customer-app/     # Expo Customer App (port 8081)
 │   ├── delivery-app/     # Expo Delivery App (port 8082)
 │   ├── vendor-dashboard/ # Next.js Vendor Dashboard (port 3001)
-│   └── admin-panel/      # Next.js Admin Panel (port 3002)
+│   ├── admin-panel/      # Next.js Admin Panel (port 3002)
+│   └── marketing/        # Next.js Marketing Site (port 3100)
 ├── packages/
 │   └── shared/           # Shared types, constants, utilities
 ├── prisma/
@@ -174,7 +179,7 @@ Each `OrderVendorGroup` has its own `status` (tracks that vendor's fulfilment in
 - **NestJS:** Feature modules, DTOs with class-validator, guards for RBAC
 - **Expo:** Expo SDK 52, React Navigation, Zustand for state, SecureStore for tokens
 - **Next.js:** App Router, shadcn/ui, Tailwind CSS, server + client components
-- **API Ports:** 4000 (API), 3001 (Vendor), 3002 (Admin), 8081/8082 (Expo dev)
+- **API Ports:** 4000 (API), 3001 (Vendor), 3002 (Admin), 3100 (Marketing), 8081/8082 (Expo dev)
 - **All API responses** wrapped in `{ success, data, meta }` envelope
 - **All errors** go through global exception filter (consistent format)
 - **Auth tokens** stored in SecureStore (Expo) / localStorage (Next.js) — auto-attached to API calls

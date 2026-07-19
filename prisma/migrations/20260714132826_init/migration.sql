@@ -46,6 +46,8 @@ CREATE TABLE "Zone" (
     "name" TEXT NOT NULL,
     "city" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Zone_pkey" PRIMARY KEY ("id")
 );
@@ -658,3 +660,9 @@ ALTER TABLE "AI_Recommendation" ADD CONSTRAINT "AI_Recommendation_userId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "AI_Recommendation" ADD CONSTRAINT "AI_Recommendation_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "Zone"
+ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "Zone"
+ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

@@ -20,7 +20,7 @@ export default function CommissionsPage() {
     setLoading(true);
     try {
       const res = await adminApi.getCommissions({ page, limit: 20 });
-      setCommissions(res?.data || []);
+      setCommissions((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
       if (res?.summary) setSummary(res.summary);
     } catch { setCommissions([]); } finally { setLoading(false); }

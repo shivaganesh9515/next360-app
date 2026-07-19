@@ -18,7 +18,7 @@ export default function ProductsPage() {
     setLoading(true);
     try {
       const res = await vendorApi.getProducts({ search, page, limit: 20 });
-      setProducts(res.data || []);
+      setProducts((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res.meta?.totalPages || 1);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }

@@ -24,7 +24,7 @@ export default function InventoryPage() {
       const params: any = { page, limit: 20 };
       if (stockFilter !== 'all') params.status = stockFilter;
       const res = await adminApi.getInventory(params);
-      setInventory(res?.data || []);
+      setInventory((Array.isArray(res) ? res : (res as any)?.data) || []);
       setTotalPages(res?.meta?.totalPages || 1);
       setLowStockCount(res?.summary?.lowStockCount || 0);
     } catch { setInventory([]); } finally { setLoading(false); }

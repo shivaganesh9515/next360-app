@@ -8,13 +8,20 @@ import { Colors, Typography } from '../../constants/theme';
 import BigButton from '../../components/BigButton';
 
 const CODE_LENGTH = 6;
+const RESEND_SECONDS = 30;
 
+// The primary login/signup action itself, not a secondary verification step —
+// success flips isAuthenticated (via AuthProvider), which unmounts the whole
+// AuthStack and mounts the main app, so there's no navigation call needed on
+// success. Whether this created a new account or logged an existing one in
+// happens server-side (or in the demo fallback); this screen doesn't care.
 export default function VerificationCodeScreen({ navigation, route }: any) {
-  const { verifyOtp } = useAuth();
-  const email: string = route.params?.email || '';
+  const { sendOtp, verifyOtpAndAuth } = useAuth();
+  const phone: string = route.params?.phone || '';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
-  const [countdown, setCountdown] = useState(30);
+  const [resending, setResending] = useState(false);
+  const [countdown, setCountdown] = useState(RESEND_SECONDS);
   const refs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -45,8 +52,9 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
     }
     setLoading(true);
     try {
-      await verifyOtp(email, otp);
-      navigation.goBack();
+      await verifyOtpAndAuth(phone, otp);
+      // No navigation.goBack() here — AuthProvider's user state flipping to
+      // non-null makes AppNavigator swap AuthStack for the main app itself.
     } catch (err: any) {
       Alert.alert('Invalid code', err.message || 'That code did not match. Try again.');
       setCode(Array(CODE_LENGTH).fill(''));
@@ -56,12 +64,24 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
     }
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await sendOtp(phone);
+      setCountdown(RESEND_SECONDS);
+    } catch (err: any) {
+      Alert.alert('Could not resend code', err.message || 'Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <SafeAreaView style={s.root} edges={['top', 'bottom']}>
       <View style={s.content}>
         <Text style={s.title}>Verification Code</Text>
         <Text style={s.subtitle}>
-          Enter the code we sent to{email ? ` ${email}` : ' your email'}.
+          Enter the code we sent to{phone ? ` +91 ${phone}` : ' your number'}.
         </Text>
 
         <View style={s.codeRow}>
@@ -81,9 +101,9 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
           ))}
         </View>
 
-        <TouchableOpacity disabled={countdown > 0} onPress={() => setCountdown(30)} hitSlop={8}>
+        <TouchableOpacity disabled={countdown > 0 || resending} onPress={handleResend} hitSlop={8}>
           <Text style={countdown > 0 ? s.resendMuted : s.resend}>
-            {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend Code'}
+            {countdown > 0 ? `Resend code in ${countdown}s` : resending ? 'Resending...' : 'Resend Code'}
           </Text>
         </TouchableOpacity>
 

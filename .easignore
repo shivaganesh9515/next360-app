@@ -1,0 +1,9 @@
+# Irrelevant to building the mobile app, and .agents/.claude/skills caused an
+# upload failure on Windows (EAS tried to recreate a symlink between the two
+# identical skill-content copies, which needs elevated privileges Windows
+# doesn't grant by default).
+.agents/
+.claude/
+.planning/
+tasks/
+organic-preview/

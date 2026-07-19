@@ -4,22 +4,19 @@ Area: `apps/api`. Prisma models for all of these already exist in `prisma/schema
 
 ## Tasks
 
-- [ ] **Fix `apps/api/package.json`** — a fresh `npm install` + build currently fails. Add missing deps actually imported in `src/`:
-  - `@nestjs/jwt`, `@nestjs/mapped-types`, `@nestjs/passport`, `passport-jwt`
-  - `@supabase/supabase-js`
-  - `class-validator`, `class-transformer`
-  - `dotenv`, `multer`
-  - Do this first — it blocks everyone else's local builds too.
+- [x] ~~**Fix `apps/api/package.json`**~~ — done 2026-07-15 (closed opportunistically while wiring up phone-OTP auth, see below). `@nestjs/jwt`, `@nestjs/mapped-types`, `@nestjs/passport`, `passport`, `passport-jwt`, `@supabase/supabase-js`, `class-validator`, `class-transformer`, `dotenv`, `multer` + their `@types` all added, verified via `npx nest build`.
 
-- [ ] **`brands/` module** — DTOs already exist under `apps/api/src/brands/dto/`, but there's no controller/service/module, and it's not registered in `app.module.ts`. CRUD with `storeType` filter, per CLAUDE.md's module list.
+- [x] ~~**Bonus, not originally yours: phone-OTP auth**~~ — done 2026-07-15. Customer-app's login is now Zomato-style phone+OTP (no email/password). Added `POST /auth/send-otp` + `POST /auth/verify-otp-login` in `apps/api/src/auth`, `User.phone` is now `@unique`, `User.email` is now optional. See `.claude/memory/STATUS.md` for full detail. Mentioning here so you don't duplicate it — vendor/admin's original email+password `login`/`signup` endpoints are untouched.
 
-- [ ] **`kyc/` module** — Prisma has a `KYC` model, no module exists. Needs: submit (documents), get status, verify (admin-only, per `@Roles()` guard pattern used elsewhere).
+- [x] **`brands/` module** — DTOs already exist under `apps/api/src/brands/dto/`, but there's no controller/service/module, and it's not registered in `app.module.ts`. CRUD with `storeType` filter, per CLAUDE.md's module list.
 
-- [ ] **`sub-categories/` module** — Prisma has `SubCategory`, no module exists. CRUD nested under `categories/` (follow the pattern already used by `categories/`).
+- [x] **`kyc/` module** — Prisma has a `KYC` model, no module exists. Needs: submit (documents), get status, verify (admin-only, per `@Roles()` guard pattern used elsewhere).
 
-- [ ] **`roles/` module** — Prisma has `Role` and `Permission`, no module exists. CRUD roles with JSON permissions, CRUD permissions. Admin panel already has a `roles` screen calling this.
+- [x] **`sub-categories/` module** — Prisma has `SubCategory`, no module exists. CRUD nested under `categories/` (follow the pattern already used by `categories/`).
 
-- [ ] **`cms/` module** — Prisma has `CMS_Page` and `Banner`, no module exists. CRUD pages, CRUD banners. Note: customer-app's Home hero banner is currently hardcoded placeholder data specifically because this endpoint doesn't exist — closing this unblocks that gap too.
+- [x] **`roles/` module** — Prisma has `Role` and `Permission`, no module exists. CRUD roles with JSON permissions, CRUD permissions. Admin panel already has a `roles` screen calling this.
+
+- [x] **`cms/` module** — Prisma has `CMS_Page` and `Banner`, no module exists. CRUD pages, CRUD banners. Note: customer-app's Home hero banner is currently hardcoded placeholder data specifically because this endpoint doesn't exist — closing this unblocks that gap too.
 
 ## Reference
 

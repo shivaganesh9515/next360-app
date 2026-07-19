@@ -18,11 +18,8 @@ import { useCartSheet } from '../lib/cartSheet';
 import { Colors, Shadows } from '../constants/theme';
 import SplashScreen from '../screens/onboarding/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
-import LoginScreen from '../screens/auth/LoginScreen';
-import SignupScreen from '../screens/auth/SignupScreen';
+import PhoneAuthScreen from '../screens/auth/PhoneAuthScreen';
 import VerificationCodeScreen from '../screens/auth/VerificationCodeScreen';
-import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
-import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import SearchScreen from '../screens/search/SearchScreen';
 import ProductListScreen from '../screens/storefront/ProductListScreen';
@@ -341,11 +338,8 @@ function HomeStackNavigator() {
 function AuthStack() {
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
-      <RootStack.Screen name="Login" component={LoginScreen} />
-      <RootStack.Screen name="Signup" component={SignupScreen} />
+      <RootStack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
       <RootStack.Screen name="VerificationCode" component={VerificationCodeScreen} />
-      <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </RootStack.Navigator>
   );
 }

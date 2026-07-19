@@ -11,13 +11,13 @@ import BigButton from '../../components/BigButton';
 export default function EditProfileScreen({ navigation }: any) {
   const { user } = useAuth();
   const [name, setName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      await customerApi.updateProfile({ name: name.trim(), phone: phone.trim() });
+      await customerApi.updateProfile({ name: name.trim(), email: email.trim() || undefined });
       navigation.goBack();
     } catch (err: any) {
       Alert.alert('Could not save changes', err.message || 'Please try again.');
@@ -43,15 +43,22 @@ export default function EditProfileScreen({ navigation }: any) {
 
         <AuthTextField icon="👤" placeholder="Full name" value={name} onChangeText={setName} autoCapitalize="words" />
         <AuthTextField
-          icon="📱"
-          placeholder="Phone number"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
+          icon="✉️"
+          placeholder="Email address (optional)"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
         <View style={s.emailRow}>
-          <Text style={s.emailLabel}>Email</Text>
-          <Text style={s.emailValue}>{user?.email}</Text>
+          <Text style={s.emailLabel}>Phone</Text>
+          <View style={s.phoneRow}>
+            <Text style={s.emailValue}>+91 {user?.phone}</Text>
+            <View style={s.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+              <Text style={s.verifiedText}>Verified</Text>
+            </View>
+          </View>
         </View>
 
         <BigButton label="Save Changes" onPress={handleSave} loading={loading} style={{ marginTop: Spacing.md }} />
@@ -82,4 +89,7 @@ const s = StyleSheet.create({
   },
   emailLabel: { ...Typography.body, color: Colors.textSecondary },
   emailValue: { ...Typography.body, color: Colors.text },
+  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  verifiedText: { ...Typography.caption, color: Colors.success },
 });

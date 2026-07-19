@@ -1,15 +1,31 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpLoginDto } from './dto/verify-otp-login.dto';
 import { UserRole } from '@prisma/client';
+
+interface OtpEntry {
+  code: string;
+  expiresAt: number;
+}
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private supabase: SupabaseClient | null = null;
+
+  // In-memory phone-OTP store — fine for a single-instance MVP, but won't
+  // survive a process restart or work across multiple instances. Same
+  // caveat as the delivery-assignment-locking Redis item in CLAUDE.md's Risk
+  // Register — move this to Redis (or a short-lived DB table) once
+  // horizontal scaling or zero-downtime deploys matter.
+  private readonly otpStore = new Map<string, OtpEntry>();
+  private static readonly OTP_TTL_MS = 5 * 60 * 1000;
 
   constructor(
     private prisma: PrismaService,
@@ -112,6 +128,52 @@ export class AuthService {
     return {
       user: this.sanitizeUser(user),
       access_token: token,
+    };
+  }
+
+  // Zomato-style single phone-OTP flow for the customer app — send-otp +
+  // verify-otp-login together replace signup/login for that client entirely
+  // (email+password above stays as-is for vendor/admin, which still use it).
+  async sendOtp(dto: SendOtpDto) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    this.otpStore.set(dto.phone, { code, expiresAt: Date.now() + AuthService.OTP_TTL_MS });
+
+    // No SMS gateway wired up yet (see CLAUDE.md's open decisions register) —
+    // logged server-side so the code is reachable for manual testing until
+    // one is. Replace with a real provider call (e.g. MSG91/Twilio) here.
+    this.logger.log(`OTP for ${dto.phone}: ${code} (valid ${AuthService.OTP_TTL_MS / 60000} min)`);
+
+    return { message: 'OTP sent' };
+  }
+
+  async verifyOtpLogin(dto: VerifyOtpLoginDto) {
+    const entry = this.otpStore.get(dto.phone);
+    if (!entry || entry.expiresAt < Date.now()) {
+      throw new UnauthorizedException('OTP expired or not requested. Request a new code and try again.');
+    }
+    if (entry.code !== dto.otp) {
+      throw new UnauthorizedException('Incorrect code.');
+    }
+    this.otpStore.delete(dto.phone);
+
+    let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    let isNewUser = false;
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { phone: dto.phone, role: 'CUSTOMER' },
+      });
+      isNewUser = true;
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+      isNewUser,
     };
   }
 
