@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../../lib/store';
 import { customerApi } from '../../lib/api';
@@ -13,15 +14,14 @@ import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../consta
 import DeliverySlotPicker from '../../components/DeliverySlotPicker';
 
 const SLIDE_THRESHOLD = 0.85;
-// Per CLAUDE.md: COD is capped at ₹2,000/order — nothing enforced this before,
-// so a user could COD an order of any size even though online payment (the
-// only alternative) isn't live yet.
 const COD_CAP = 2000;
 
 const PAYMENT_OPTIONS = [
   { key: 'COD' as const, labelKey: 'checkout.payment.cod', icon: 'cash-outline' as const, comingSoon: false },
   { key: 'RAZORPAY' as const, labelKey: 'checkout.payment.razorpay', icon: 'card-outline' as const, comingSoon: false },
 ];
+
+const CHECKOUT_STEPS = ['Address', 'Payment', 'Confirm'];
 
 export default function CheckoutScreen({ navigation }: any) {
   const { t } = useTranslation();
@@ -44,36 +44,23 @@ export default function CheckoutScreen({ navigation }: any) {
   const total = Math.max(0, subtotal - discount) + deliveryFee;
   const overCodCap = paymentMethod === 'COD' && total > COD_CAP;
 
+  // Step tracking
+  const currentStep = !selectedAddress ? 0 : paymentMethod ? 1 : 1;
+
   // Slide-to-confirm
   const slideX = useRef(new Animated.Value(0)).current;
   const trackWidth = useRef(0);
   const thumbSize = 52;
   const startPos = useRef(0);
 
-  // PanResponder.create(...) only runs once (useRef's initializer is ignored on
-  // later renders), so every callback inside it permanently closes over that
-  // very first render's values — selectedAddress was still null then, addresses
-  // hadn't loaded yet. That's why the thumb never appeared to move: every
-  // onPanResponderMove call was silently bailing out on a frozen `!selectedAddress`.
-  // Routing through a ref that's updated every render fixes it without
-  // recreating the PanResponder (which would drop an in-progress gesture).
   const liveRef = useRef({ selectedAddress, placing, overCodCap, handlePlaceOrder: null as null | (() => Promise<boolean>) });
   liveRef.current.selectedAddress = selectedAddress;
   liveRef.current.placing = placing;
   liveRef.current.overCodCap = overCodCap;
 
-  // Shared by the drag gesture and the accessibility tap fallback below — it
-  // only ever reads through refs (slideX/trackWidth are refs, liveRef.current
-  // is read fresh), so it stays correct regardless of which render's closure
-  // captured it, including the one PanResponder.create froze on mount.
   const triggerPlaceOrder = () => {
     const maxSlide = trackWidth.current - thumbSize - 8;
     Animated.spring(slideX, { toValue: maxSlide, useNativeDriver: false, friction: 8 }).start(async () => {
-      // Reset only on failure — on success the screen is being replaced,
-      // so there's nothing to reset back into view. Previously this used
-      // a blind 600ms timeout that fired regardless of whether the real
-      // network request had finished, snapping the fill back to empty
-      // while "Placing order..." was still showing.
       const placed = await liveRef.current.handlePlaceOrder!();
       if (!placed) {
         Animated.spring(slideX, { toValue: 0, useNativeDriver: false, friction: 10 }).start();
@@ -133,7 +120,7 @@ export default function CheckoutScreen({ navigation }: any) {
       setAppliedCoupon({ code: data.code || couponInput.trim().toUpperCase(), discount: Number(data.discount) || 0 });
       setCouponInput('');
     } catch (err: any) {
-      setCouponError(err.message || t('checkout.coupon.error'));
+      setCouponError(err?.message || t('checkout.coupon.error'));
     } finally {
       setApplyingCoupon(false);
     }
@@ -145,6 +132,10 @@ export default function CheckoutScreen({ navigation }: any) {
   };
 
   const handlePlaceOrder = async (): Promise<boolean> => {
+    if (!cartItems || cartItems.length === 0) {
+      Alert.alert('Cart is empty', 'Add items to your cart before placing an order.');
+      return false;
+    }
     if (!selectedAddress) {
       Alert.alert(t('checkout.alert.selectAddress.title'), t('checkout.alert.selectAddress.message'));
       return false;
@@ -159,11 +150,6 @@ export default function CheckoutScreen({ navigation }: any) {
 
     setPlacing(true);
     try {
-      // Re-checks stock at the moment of placing, not just when it was added
-      // to the cart — an item can sell out (or drop below the cart quantity)
-      // in the time between add-to-cart and checkout with no warning
-      // otherwise. A lookup failure isn't treated as a stock problem — that's
-      // a network/demo-mode issue, not the user's fault, so it doesn't block.
       const stockChecks = await Promise.all(cartItems.map(async (item: any) => {
         try {
           const res: any = await customerApi.getProduct(item.product?.id || item.productId);
@@ -172,7 +158,7 @@ export default function CheckoutScreen({ navigation }: any) {
             return `${product.name} — only ${product.stock} left (you have ${item.quantity} in cart)`;
           }
         } catch {
-          // can't verify right now; don't block the order over it
+          // can't verify right now; don't block the order
         }
         return null;
       }));
@@ -199,15 +185,10 @@ export default function CheckoutScreen({ navigation }: any) {
       const result = await customerApi.createOrder(orderData);
       const orderId = result?.id || result?.data?.id;
 
-      // For Razorpay, open the checkout flow after order creation
       if (paymentMethod === 'RAZORPAY') {
         try {
-          // Get Razorpay order from backend
           const razorpayOrder = await customerApi.createRazorpayOrder(orderId);
-
-          // Dynamically import react-native-razorpay
           const RazorpayCheckout = require('react-native-razorpay');
-
           const paymentResult = await RazorpayCheckout.open({
             key: razorpayOrder.key,
             amount: razorpayOrder.amount,
@@ -218,15 +199,12 @@ export default function CheckoutScreen({ navigation }: any) {
             prefill: {},
             theme: { color: '#5C6B4D' },
           });
-
-          // Verify payment on backend
           await customerApi.verifyPayment({
             razorpayOrderId: razorpayOrder.order_id,
             razorpayPaymentId: paymentResult.razorpay_payment_id,
             razorpaySignature: paymentResult.razorpay_signature,
           });
         } catch (razorpayError: any) {
-          // Payment was cancelled or failed — don't clear cart, let user retry
           const msg = razorpayError?.message || 'Payment was cancelled or failed';
           Alert.alert('Payment Failed', msg);
           return false;
@@ -243,18 +221,14 @@ export default function CheckoutScreen({ navigation }: any) {
       setPlacing(false);
     }
   };
-  // Same reasoning as the other liveRef assignments above — the PanResponder's
-  // onPanResponderRelease was calling the very first render's handlePlaceOrder,
-  // which itself closed over that render's stale selectedAddress/paymentMethod/
-  // notes. Keeping the ref pointed at the latest function fixes both.
   liveRef.current.handlePlaceOrder = handlePlaceOrder;
 
-  // Create animated values for each section for stagger-reveal effect
+  // Staggered entrance animations for sections
   const SECTION_KEYS = ['address', 'slot', 'items', 'payment', 'coupon', 'notes', 'summary'];
   const sectionAnims = useRef(SECTION_KEYS.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
-    Animated.stagger(60, sectionAnims.map((anim, i) =>
+    Animated.stagger(50, sectionAnims.map((anim, i) =>
       Animated.spring(anim, {
         toValue: 1,
         friction: 7,
@@ -264,7 +238,13 @@ export default function CheckoutScreen({ navigation }: any) {
     )).start();
   }, []);
 
-  const formatCurrency = (amount: number) => `₹${amount.toFixed(0)}`;
+  const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN')}`;
+
+  // Shared staggered section style helper
+  const sectionStyle = (index: number) => ({
+    opacity: sectionAnims[index],
+    transform: [{ translateY: sectionAnims[index].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+  });
 
   if (loading) {
     return (
@@ -278,26 +258,36 @@ export default function CheckoutScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header with step indicators */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('checkout.title')}</Text>
-        <View style={{ width: 22 }} />
+        <View style={styles.stepDots}>
+          {CHECKOUT_STEPS.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.stepDot, i <= currentStep && { backgroundColor: Colors.organic }]}
+            />
+          ))}
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Delivery Address — staggered reveal */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[0], transform: [{ translateY: sectionAnims[0].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.deliveryAddress')}</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Delivery Address */}
+        <Animated.View style={[styles.section, sectionStyle(0)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="location-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.deliveryAddress')}
+          </Text>
           {selectedAddress ? (
             <TouchableOpacity
               style={[styles.addressCard, Shadows.card]}
               onPress={() => navigation.navigate('AddressList', { onSelect: setSelectedAddress })}
             >
               <View style={styles.addressIconWrap}>
-                <Ionicons name="location" size={18} color={Colors.organic} />
+                <Ionicons name="location" size={18} color={Colors.white} />
               </View>
               <View style={styles.addressInfo}>
                 <Text style={styles.addressName}>{selectedAddress.label || t('checkout.fallback.address')}</Text>
@@ -312,15 +302,20 @@ export default function CheckoutScreen({ navigation }: any) {
               style={styles.addAddressButton}
               onPress={() => navigation.navigate('AddressList')}
             >
-              <Ionicons name="add-circle-outline" size={22} color={Colors.organic} />
+              <View style={[styles.addAddressIcon, { backgroundColor: Colors.organicLight }]}>
+                <Ionicons name="add" size={22} color={Colors.organic} />
+              </View>
               <Text style={styles.addAddressText}>{t('checkout.addAddress')}</Text>
             </TouchableOpacity>
           )}
         </Animated.View>
 
         {/* Delivery Slot */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[1], transform: [{ translateY: sectionAnims[1].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.deliverySlot')}</Text>
+        <Animated.View style={[styles.section, sectionStyle(1)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="time-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.deliverySlot')}
+          </Text>
           <View style={[styles.card, Shadows.card, { padding: Spacing.md }]}>
             <DeliverySlotPicker
               zoneId={selectedAddress?.zoneId || selectedAddress?.id}
@@ -331,8 +326,11 @@ export default function CheckoutScreen({ navigation }: any) {
         </Animated.View>
 
         {/* Order Items */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[2], transform: [{ translateY: sectionAnims[2].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.orderItems', { count: cartItems.length })}</Text>
+        <Animated.View style={[styles.section, sectionStyle(2)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="bag-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.orderItems', { count: cartItems.length })}
+          </Text>
           <View style={[styles.card, Shadows.card]}>
             {cartItems.map((item: any, i: number) => (
               <View key={item.id} style={[styles.orderItem, i === cartItems.length - 1 && { borderBottomWidth: 0 }]}>
@@ -348,15 +346,18 @@ export default function CheckoutScreen({ navigation }: any) {
         </Animated.View>
 
         {/* Payment Method */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[3], transform: [{ translateY: sectionAnims[3].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.paymentMethod')}</Text>
+        <Animated.View style={[styles.section, sectionStyle(3)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="card-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.paymentMethod')}
+          </Text>
           {PAYMENT_OPTIONS.map((opt) => {
             const active = paymentMethod === opt.key;
             return (
               <TouchableOpacity
                 key={opt.key}
                 style={[
-                  styles.paymentOption, Shadows.card,
+                  styles.paymentOption,
                   active && styles.paymentOptionActive,
                   opt.comingSoon && styles.paymentOptionDisabled,
                 ]}
@@ -364,7 +365,9 @@ export default function CheckoutScreen({ navigation }: any) {
                 disabled={opt.comingSoon}
                 activeOpacity={opt.comingSoon ? 1 : 0.7}
               >
-                <Ionicons name={opt.icon} size={20} color={active ? Colors.organic : Colors.textSecondary} />
+                <View style={[styles.paymentIconWrap, active && { backgroundColor: Colors.organicLight }]}>
+                  <Ionicons name={opt.icon} size={18} color={active ? Colors.organic : Colors.textSecondary} />
+                </View>
                 <Text style={[styles.paymentText, active && { color: Colors.text, fontFamily: 'Inter_600SemiBold' }]}>
                   {t(opt.labelKey)}
                 </Text>
@@ -373,26 +376,31 @@ export default function CheckoutScreen({ navigation }: any) {
                     <Text style={styles.comingSoonText}>{t('common.comingSoon')}</Text>
                   </View>
                 ) : (
-                  <View style={[styles.checkCircle, active && styles.checkCircleActive]}>
-                    {active && <Ionicons name="checkmark" size={13} color={Colors.white} />}
+                  <View style={[styles.paymentRadio, active && styles.paymentRadioActive]}>
+                    {active && <View style={styles.paymentRadioDot} />}
                   </View>
                 )}
               </TouchableOpacity>
             );
-          }          )}
+          })}
         </Animated.View>
 
         {/* Coupon */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[4], transform: [{ translateY: sectionAnims[4].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.coupon')}</Text>
+        <Animated.View style={[styles.section, sectionStyle(4)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="pricetag-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.coupon')}
+          </Text>
           {appliedCoupon ? (
             <View style={[styles.couponAppliedCard, Shadows.card]}>
-              <Ionicons name="pricetag" size={18} color={Colors.organic} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.couponAppliedCode}>{appliedCoupon.code}</Text>
-                <Text style={styles.couponAppliedSavings}>{t('checkout.coupon.saved', { amount: formatCurrency(appliedCoupon.discount) })}</Text>
+              <View style={styles.couponAppliedLeft}>
+                <Ionicons name="pricetag" size={18} color={Colors.organic} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.couponAppliedCode}>{appliedCoupon.code}</Text>
+                  <Text style={styles.couponAppliedSavings}>{t('checkout.coupon.saved', { amount: formatCurrency(appliedCoupon.discount) })}</Text>
+                </View>
               </View>
-              <TouchableOpacity onPress={handleRemoveCoupon} hitSlop={8}>
+              <TouchableOpacity onPress={handleRemoveCoupon} hitSlop={8} style={styles.couponRemoveBtn}>
                 <Text style={styles.couponRemove}>{t('common.remove')}</Text>
               </TouchableOpacity>
             </View>
@@ -417,29 +425,43 @@ export default function CheckoutScreen({ navigation }: any) {
                     : <Text style={styles.couponApplyText}>{t('checkout.coupon.apply')}</Text>}
                 </TouchableOpacity>
               </View>
-              {couponError && <Text style={styles.couponErrorText}>{couponError}</Text>}
+              {couponError && (
+                <View style={styles.couponErrorRow}>
+                  <Ionicons name="alert-circle" size={14} color={Colors.error} />
+                  <Text style={styles.couponErrorText}>{couponError}</Text>
+                </View>
+              )}
             </>
           )}
         </Animated.View>
 
         {/* Order Notes */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[5], transform: [{ translateY: sectionAnims[5].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.orderNotes')}</Text>
-          <TextInput
-            style={styles.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder={t('checkout.notes.placeholder')}
-            placeholderTextColor={Colors.textSecondary}
-            multiline
-            numberOfLines={3}
-          />
+        <Animated.View style={[styles.section, sectionStyle(5)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="create-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.orderNotes')}
+          </Text>
+          <View style={[styles.notesCard, Shadows.card]}>
+            <TextInput
+              style={styles.notesInput}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder={t('checkout.notes.placeholder')}
+              placeholderTextColor={Colors.textSecondary}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
         </Animated.View>
 
         {/* Price Summary */}
-        <Animated.View style={[styles.section, { opacity: sectionAnims[6], transform: [{ translateY: sectionAnims[6].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
-          <Text style={styles.sectionTitle}>{t('checkout.section.priceSummary')}</Text>
-          <View style={[styles.card, Shadows.card, { padding: Spacing.lg }]}>
+        <Animated.View style={[styles.section, sectionStyle(6)]}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="calculator-outline" size={14} color={Colors.organic} />
+            {' '}{t('checkout.section.priceSummary')}
+          </Text>
+          <View style={[styles.cardPrice, Shadows.card]}>
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>{t('checkout.price.subtotal')}</Text>
               <Text style={styles.priceValue}>{formatCurrency(subtotal)}</Text>
@@ -471,25 +493,30 @@ export default function CheckoutScreen({ navigation }: any) {
               </Text>
             </View>
           )}
+
+          {/* Trust Badges */}
+          <View style={styles.trustRow}>
+            <View style={styles.trustPill}>
+              <Ionicons name="lock-closed" size={11} color={Colors.organic} />
+              <Text style={styles.trustPillText}>Secure Payment</Text>
+            </View>
+            <View style={styles.trustPill}>
+              <Ionicons name="leaf" size={11} color={Colors.organic} />
+              <Text style={styles.trustPillText}>Fresh Guarantee</Text>
+            </View>
+            <View style={styles.trustPill}>
+              <Ionicons name="time" size={11} color={Colors.organic} />
+              <Text style={styles.trustPillText}>On-Time Delivery</Text>
+            </View>
+          </View>
         </Animated.View>
       </ScrollView>
 
-      {/* Slide-to-Confirm — positioned above the floating pill nav */}
+      {/* Slide-to-Confirm */}
       <View style={[styles.bottomBar, { bottom: insets.bottom + 74 }]}>
         <View
           style={[styles.slideTrack, overCodCap && styles.slideTrackDisabled]}
-          // Measured here (the actual pill the thumb travels in), not the
-          // outer bottomBar — that container has Spacing.lg padding on both
-          // sides, so it overestimates the track's real width, letting the
-          // drag/maxSlide value run further than the visible pill, which
-          // clips the thumb (slideTrack has overflow:hidden) before the
-          // "complete" threshold was actually reached.
           onLayout={(e) => { trackWidth.current = e.nativeEvent.layout.width; }}
-          // The drag gesture has no non-gesture equivalent otherwise — a
-          // screen-reader user could never place an order. This doesn't
-          // conflict with the drag (PanResponder's handlers are only on the
-          // thumb below, not this outer track), so it's safe to make the
-          // whole track double-tap-activatable for VoiceOver/TalkBack.
           accessible
           accessibilityRole="button"
           accessibilityLabel={
@@ -516,7 +543,7 @@ export default function CheckoutScreen({ navigation }: any) {
               { width: Animated.add(slideX, thumbSize + 8) },
             ]}
           />
-          {/* Static text behind the thumb */}
+          {/* Static label behind the thumb */}
           <View style={[styles.slideTextWrap, { pointerEvents: 'none' }]}>
             <Ionicons name="arrow-forward" size={16} color={Colors.white} style={{ opacity: 0.5 }} />
             <Text style={styles.slideText}>
@@ -529,7 +556,7 @@ export default function CheckoutScreen({ navigation }: any) {
                 : t('checkout.slide.confirm')}
             </Text>
           </View>
-          {/* Draggable thumb */}
+          {/* Draggable thumb with gradient */}
           {!placing && (
             <Animated.View
               {...(selectedAddress && !overCodCap ? panResponder.panHandlers : {})}
@@ -539,7 +566,12 @@ export default function CheckoutScreen({ navigation }: any) {
                 { transform: [{ translateX: slideX }] },
               ]}
             >
-              <Ionicons name="arrow-forward" size={20} color={Colors.success} />
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                style={styles.slideThumbGradient}
+              >
+                <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+              </LinearGradient>
             </Animated.View>
           )}
         </View>
@@ -572,6 +604,16 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.text,
   },
+  stepDots: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.border,
+  },
   content: {
     padding: Spacing.lg,
     paddingBottom: 180,
@@ -588,6 +630,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.lg,
   },
+  cardPrice: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
   addressCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -597,7 +645,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   addressIconWrap: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.organicLight,
+    width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.organic,
     alignItems: 'center', justifyContent: 'center',
   },
   addressInfo: {
@@ -617,6 +665,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.sm,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
@@ -624,11 +673,17 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderStyle: 'dashed',
   },
+  addAddressIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addAddressText: {
     ...Typography.bodySmall,
     color: Colors.organic,
     fontFamily: 'Inter_600SemiBold',
-    marginLeft: Spacing.sm,
   },
   orderItem: {
     flexDirection: 'row',
@@ -662,9 +717,41 @@ const styles = StyleSheet.create({
   },
   paymentOptionActive: {
     borderColor: Colors.organic,
+    backgroundColor: Colors.white,
   },
   paymentOptionDisabled: {
     opacity: 0.55,
+  },
+  paymentIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentText: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  paymentRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentRadioActive: {
+    borderColor: Colors.organic,
+  },
+  paymentRadioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.organic,
   },
   comingSoonPill: {
     backgroundColor: Colors.background,
@@ -677,30 +764,16 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
   },
-  paymentText: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    flex: 1,
-  },
-  checkCircle: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  checkCircleActive: {
-    backgroundColor: Colors.organic,
-    borderColor: Colors.organic,
+  notesCard: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
   },
   notesInput: {
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
     ...Typography.bodySmall,
     color: Colors.text,
-    textAlignVertical: 'top',
-    minHeight: 80,
+    minHeight: 60,
+    padding: 0,
   },
   couponRow: {
     flexDirection: 'row',
@@ -727,20 +800,31 @@ const styles = StyleSheet.create({
     ...Typography.button,
     color: Colors.white,
   },
+  couponErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.sm,
+  },
   couponErrorText: {
     ...Typography.caption,
     color: Colors.error,
-    marginTop: Spacing.sm,
   },
   couponAppliedCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1.5,
     borderColor: Colors.organic,
+  },
+  couponAppliedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
   },
   couponAppliedCode: {
     ...Typography.bodySmall,
@@ -751,6 +835,10 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.organic,
     marginTop: 2,
+  },
+  couponRemoveBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
   },
   couponRemove: {
     ...Typography.caption,
@@ -789,6 +877,26 @@ const styles = StyleSheet.create({
     ...Typography.h2,
     color: Colors.brass,
   },
+  trustRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    justifyContent: 'center',
+    marginTop: Spacing.md,
+  },
+  trustPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.organicLight,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.pill,
+  },
+  trustPillText: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.organic,
+  },
   bottomBar: {
     position: 'absolute',
     left: 0,
@@ -811,7 +919,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.sm,
     padding: Spacing.md,
-    borderRadius: BorderRadius.md,            backgroundColor: Colors.organicLight,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.organicLight,
   },
   codWarningText: {
     ...Typography.caption,
@@ -846,6 +955,13 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slideThumbGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -26,6 +26,8 @@ const PANEL_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
 const SEARCH_ROW_HEIGHT = 52;
 const PANEL_HEIGHT = SCREEN_HEIGHT * 0.68;
 const DEBOUNCE_MS = 300;
+const CENTER_LEFT = Spacing.xl;
+const CENTER_TOP = 80;
 
 const STORE_SHORTCUTS: { type: StoreType; tag: string; icon: string }[] = [
   { type: StoreType.ORGANIC, tag: 'CURATED', icon: 'leaf' },
@@ -63,9 +65,9 @@ export default function ExpandingSearchDock({
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [origin, setOrigin] = useState<PanelOrigin>({ x: SCREEN_WIDTH - Spacing.xl - DOCK_SIZE, y: 60, width: DOCK_SIZE, height: DOCK_SIZE });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Trigger press scale ──
   const triggerScale = useSharedValue(1);
   const triggerAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: triggerScale.value }],
@@ -102,14 +104,14 @@ export default function ExpandingSearchDock({
   }, [runSearch]);
 
   const open = useCallback(() => {
-    // Press feedback — scale down then snap back
     triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y) => {
-      const origin: PanelOrigin = { x, y, width: DOCK_SIZE, height: DOCK_SIZE };
+      const o: PanelOrigin = { x, y, width: DOCK_SIZE, height: DOCK_SIZE };
+      setOrigin(o);
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        animOpen(origin);
+        animOpen(o);
         triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
       });
     });
@@ -157,9 +159,10 @@ export default function ExpandingSearchDock({
 
   const showSuggestions = query.trim().length > 0;
 
-  // ── Panel size (expand-in-place from nav dock) ──
-  const panelSizeStyle = useAnimatedStyle(() => ({
-    right: Spacing.xl + DOCK_SIZE / 2,
+  // ── Panel size + position (expands from trigger point to centered) ──
+  const panelStyle = useAnimatedStyle(() => ({
+    left: interpolate(anim.value, [0, 0.4, 1], [origin.x, CENTER_LEFT, CENTER_LEFT]),
+    top: interpolate(anim.value, [0, 0.4, 1], [origin.y, CENTER_TOP, CENTER_TOP]),
     width: interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, PANEL_WIDTH, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, DOCK_SIZE * 3, PANEL_HEIGHT]),
     borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
@@ -179,7 +182,7 @@ export default function ExpandingSearchDock({
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
         <PopoverBackdrop style={backdropStyle} onPress={close} />
 
-        <Reanimated.View style={[styles.panel, styles.panelShadow, panelSizeStyle]}>
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
           {/* Trigger ghost — fades out as panel opens */}
           <Reanimated.View style={[styles.ghostWrap, triggerGhostStyle, { pointerEvents: 'none' }]}>
             <Ionicons name="search" size={17} color={iconColor} />

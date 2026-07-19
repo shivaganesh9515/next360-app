@@ -89,15 +89,10 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
     close();
   }, [setZone, close]);
 
-  // ── Panel position style (anchored to trigger initially, settles at a fixed y) ──
-  const panelPositionStyle = useAnimatedStyle(() => ({
-    left: Spacing.xl,
-    right: Spacing.xl,
-    top: interpolate(anim.value, [0, 1], [origin.y, 100]),
-  }));
-
-  // ── Panel width/height style for the expand-in-place effect ──
-  const panelSizeStyle = useAnimatedStyle(() => ({
+  // ── Combined panel style (animates from trigger position to centered) ──
+  const panelStyle = useAnimatedStyle(() => ({
+    left: interpolate(anim.value, [0, 0.4, 1], [origin.x, Spacing.xl, Spacing.xl]),
+    top: interpolate(anim.value, [0, 0.4, 1], [origin.y, 100, 100]),
     width: interpolate(anim.value, [0, 0.4, 1], [origin.width, PANEL_WIDTH, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 0.4, 1], [origin.height, origin.height * 2, PANEL_HEIGHT]),
     borderRadius: interpolate(anim.value, [0, 1], [BorderRadius.md, BorderRadius.xl]),
@@ -128,7 +123,7 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
         <PopoverBackdrop style={backdropStyle} onPress={close} />
 
-        <Reanimated.View style={[styles.panel, styles.panelShadow, panelSizeStyle, panelPositionStyle]}>
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
           {/* Trigger ghost — fades out as panel opens */}
           <Reanimated.View style={[styles.triggerGhost, triggerGhostStyle, { pointerEvents: 'none' }]}>
             <Text style={styles.triggerLabel}>Delivery to</Text>

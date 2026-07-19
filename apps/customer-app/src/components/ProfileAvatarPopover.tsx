@@ -19,6 +19,8 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DOCK_SIZE = 36;
 const PANEL_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
 const PANEL_HEIGHT = SCREEN_HEIGHT * 0.65;
+const CENTER_LEFT = Spacing.xl;
+const CENTER_TOP = 80;
 
 interface MenuItem {
   icon: string;
@@ -35,8 +37,8 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [origin, setOrigin] = useState<PanelOrigin>({ x: Spacing.xl, y: 60, width: DOCK_SIZE, height: DOCK_SIZE });
 
-  // ── Trigger press scale ──
   const triggerScale = useSharedValue(1);
   const triggerAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: triggerScale.value }],
@@ -52,11 +54,12 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
   const open = useCallback(() => {
     triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y) => {
-      const origin: PanelOrigin = { x, y, width: DOCK_SIZE, height: DOCK_SIZE };
+      const o: PanelOrigin = { x, y, width: DOCK_SIZE, height: DOCK_SIZE };
+      setOrigin(o);
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        animOpen(origin);
+        animOpen(o);
         triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
       });
     });
@@ -93,9 +96,10 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
     ]);
   }, [signOut, close]);
 
-  // ── Panel size (expand-in-place from trigger) ──
-  const panelSizeStyle = useAnimatedStyle(() => ({
-    left: Spacing.xl,
+  // ── Panel size + position (expands from trigger point to centered) ──
+  const panelStyle = useAnimatedStyle(() => ({
+    left: interpolate(anim.value, [0, 0.4, 1], [origin.x, CENTER_LEFT, CENTER_LEFT]),
+    top: interpolate(anim.value, [0, 0.4, 1], [origin.y, CENTER_TOP, CENTER_TOP]),
     width: interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, PANEL_WIDTH, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, DOCK_SIZE * 3, PANEL_HEIGHT]),
     borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
@@ -115,7 +119,7 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
         <PopoverBackdrop style={backdropStyle} onPress={close} />
 
-        <Reanimated.View style={[styles.panel, styles.panelShadow, panelSizeStyle]}>
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
           {/* Trigger ghost */}
           <Reanimated.View style={[styles.ghostWrap, triggerGhostStyle, { pointerEvents: 'none' }]}>
             <Text style={styles.dockText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
