@@ -3,17 +3,26 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../commission/commission.service';
+import { OffersService } from '../offers/offers.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
 
-// Valid order status transitions (status machine) — 9-state model
+// Valid order status transitions (status machine) — 10-state model
+// Added READY_FOR_PICKUP between PACKED and ASSIGNED_TO_DELIVERY so
+// the vendor has a distinct "ready for pickup" handshake that triggers
+// the delivery partner assignment flow (instead of PACKED silently
+// advancing straight into ASSIGNED_TO_DELIVERY without vendor signalling).
 const VALID_TRANSITIONS: Record<string, string[]> = {
   [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
   [OrderStatus.CONFIRMED]: [OrderStatus.PACKED, OrderStatus.CANCELLED],
-  [OrderStatus.PACKED]: [OrderStatus.ASSIGNED_TO_DELIVERY, OrderStatus.CANCELLED],
+  [OrderStatus.PACKED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
+  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.ASSIGNED_TO_DELIVERY, OrderStatus.CANCELLED],
   [OrderStatus.ASSIGNED_TO_DELIVERY]: [OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
   [OrderStatus.PICKED_UP]: [OrderStatus.OUT_FOR_DELIVERY],
   [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
@@ -38,7 +47,14 @@ function generateInvoiceNo(orderId: string): string {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commissionService: CommissionService,
+    private readonly offersService: OffersService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   /**
    * Create an order from the user's current cart.
@@ -87,6 +103,11 @@ export class OrdersService {
       );
     }
 
+    // Mutual exclusion: cannot use both coupon and offer
+    if (dto.couponCode && dto.offerId) {
+      throw new BadRequestException('Cannot use both a coupon and an offer');
+    }
+
     // Validate coupon if provided
     let discountAmount = 0;
     if (dto.couponCode) {
@@ -124,6 +145,19 @@ export class OrdersService {
       });
     }
 
+    // Validate offer if provided
+    let offer: any = null;
+    if (dto.offerId) {
+      offer = await this.offersService.findOne(dto.offerId);
+      if (!offer.isActive) {
+        throw new BadRequestException('Offer is inactive');
+      }
+      const now = new Date();
+      if (now < offer.startDate || now > offer.endDate) {
+        throw new BadRequestException('Offer is not currently valid');
+      }
+    }
+
     // Group items by vendor
     const vendorGroups = new Map<string, typeof cartItems>();
     for (const item of cartItems) {
@@ -134,7 +168,33 @@ export class OrdersService {
       vendorGroups.get(vendorId)!.push(item);
     }
 
-    const totalAmount = Math.max(0, subtotal - discountAmount);
+    // Calculate per-vendor-group offer discount
+    let offerDiscountAmount = 0;
+    if (offer) {
+      const matchingSubtotal = Array.from(vendorGroups.values()).reduce(
+        (sum, items) => {
+          const vendor = items[0].product.vendor;
+          const storeTypeMatch = vendor.storeType === offer.storeType;
+          const vendorMatch = !offer.vendorId || vendor.id === offer.vendorId;
+          if (storeTypeMatch && vendorMatch) {
+            return sum + items.reduce(
+              (s, item) => s + Number(item.product.price) * item.quantity,
+              0,
+            );
+          }
+          return sum;
+        },
+        0,
+      );
+
+      if (offer.discountType === 'PERCENTAGE') {
+        offerDiscountAmount = (matchingSubtotal * Number(offer.discountValue)) / 100;
+      } else {
+        offerDiscountAmount = Math.min(Number(offer.discountValue), matchingSubtotal);
+      }
+    }
+
+    const totalAmount = Math.max(0, subtotal - discountAmount - offerDiscountAmount);
 
     // For COD, automatically confirm the order
     const initialStatus = dto.paymentMethod === 'COD' ? 'CONFIRMED' : 'PLACED';
@@ -195,6 +255,50 @@ export class OrdersService {
 
       return created;
     });
+
+    // For COD orders, trigger commission calculation after the transaction succeeds.
+    // Razorpay commissions are calculated in the payment.captured webhook instead.
+    if (dto.paymentMethod === 'COD') {
+      try {
+        await this.commissionService.calculateCommissions(order.id);
+      } catch (error: any) {
+        this.logger.error(
+          `Commission calculation failed for COD order ${order.id}: ${error.message}`,
+        );
+      }
+    }
+
+    // Send push notification to the customer about the new order
+    try {
+      await this.notificationsService.sendOrderStatusNotification(
+        order.id,
+        order.status,
+        userId,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send order notification for order ${order.id}: ${error.message}`,
+      );
+    }
+
+    // Send push notification to each vendor who has items in this order
+    // Uses the dedicated new vendor notification method instead of raw push.
+    try {
+      const uniqueVendorUserIds = new Set(
+        cartItems.map((item) => item.product.vendor.userId),
+      );
+      for (const vendorUserId of uniqueVendorUserIds) {
+        await this.notificationsService.sendNewOrderToVendorNotification(
+          vendorUserId,
+          order.id,
+          order.orderNo,
+        );
+      }
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send vendor notification for order ${order.id}: ${error.message}`,
+      );
+    }
 
     return order;
   }
@@ -461,6 +565,37 @@ export class OrdersService {
     // If cancelling, restore stock for all items
     if (dto.status === 'CANCELLED') {
       await this.restoreStock(order.vendorGroups);
+    }
+
+    // Send push notification to the customer about the status change
+    try {
+      await this.notificationsService.sendOrderStatusNotification(
+        orderId,
+        dto.status,
+        order.userId,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send status notification for order ${orderId}: ${error.message}`,
+      );
+    }
+
+    // If the vendor group is CANCELLED, notify the vendor
+    if (dto.status === 'CANCELLED' && vendorGroupId) {
+      try {
+        const group = order.vendorGroups.find((g: any) => g.id === vendorGroupId);
+        if (group?.vendor?.userId) {
+          await this.notificationsService.sendVendorOrderCancelledNotification(
+            group.vendor.userId,
+            orderId,
+            order.orderNo || orderId,
+          );
+        }
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send vendor cancellation notification for order ${orderId}: ${error.message}`,
+        );
+      }
     }
 
     return this.prisma.order.update({

@@ -6,8 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
-
-const GREEN = '#2A7A4B';
+import { useStore } from '../../lib/store';
+import { useTranslation } from 'react-i18next';
+import { getStoreAccent } from '../../constants/theme';
 
 interface HealthInsight {
   summary: string;
@@ -17,6 +18,9 @@ interface HealthInsight {
 }
 
 export default function AiHealthInsightsScreen({ navigation }: any) {
+  const { t } = useTranslation();
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
   const [insights, setInsights] = useState<HealthInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,8 +50,8 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GREEN} />
-          <Text style={styles.loadingText}>Analyzing your purchase history...</Text>
+          <ActivityIndicator size="large" color={accent} />
+          <Text style={styles.loadingText}>{t('ai.health.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -60,14 +64,14 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Health Insights</Text>
+        <Text style={styles.headerTitle}>{t('ai.health.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[GREEN]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[accent]} />
         }
       >
         {insights ? (
@@ -75,20 +79,20 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
             {/* Summary Card */}
             <View style={styles.summaryCard}>
               <View style={styles.summaryIcon}>
-                <Ionicons name="heart" size={24} color={GREEN} />
+                <Ionicons name="heart" size={24} color={accent} />
               </View>
-              <Text style={styles.summaryTitle}>Your Wellness Profile</Text>
+              <Text style={styles.summaryTitle}>{t('ai.health.wellnessProfile')}</Text>
               <Text style={styles.summaryText}>{insights.summary}</Text>
             </View>
 
             {/* Tips Section */}
             {insights.tips.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Health Tips</Text>
+                <Text style={styles.sectionTitle}>{t('ai.health.section.tips')}</Text>
                 {insights.tips.map((tip, index) => (
                   <View key={index} style={styles.insightCard}>
                     <View style={[styles.insightIcon, { backgroundColor: '#D1FAE5' }]}>
-                      <Ionicons name="checkmark-circle" size={20} color={GREEN} />
+                      <Ionicons name="checkmark-circle" size={20} color={accent} />
                     </View>
                     <Text style={styles.insightText}>{tip}</Text>
                   </View>
@@ -99,7 +103,7 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
             {/* Warnings Section */}
             {insights.warnings.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Areas for Improvement</Text>
+                <Text style={styles.sectionTitle}>{t('ai.health.section.improvements')}</Text>
                 {insights.warnings.map((warning, index) => (
                   <View key={index} style={styles.insightCard}>
                     <View style={[styles.insightIcon, { backgroundColor: '#FEF3C7' }]}>
@@ -114,13 +118,13 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
             {/* Suggested Products */}
             {insights.suggestedProducts.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Boost Your Health</Text>
+                <Text style={styles.sectionTitle}>{t('ai.health.section.boost')}</Text>
                 <TouchableOpacity
                   style={styles.shopButton}
                   onPress={() => navigation.navigate('Home')}
                 >
-                  <Text style={styles.shopButtonText}>Explore Products</Text>
-                  <Ionicons name="arrow-forward" size={16} color={GREEN} />
+                  <Text style={styles.shopButtonText}>{t('ai.health.exploreProducts')}</Text>
+                  <Ionicons name="arrow-forward" size={16} color={accent} />
                 </TouchableOpacity>
               </View>
             )}
@@ -128,9 +132,9 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="heart-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>No insights available yet</Text>
+            <Text style={styles.emptyTitle}>{t('ai.health.empty.title')}</Text>
             <Text style={styles.emptySubtitle}>
-              Make some purchases to receive personalized health insights
+              {t('ai.health.empty.subtitle')}
             </Text>
           </View>
         )}
@@ -241,7 +245,7 @@ const styles = StyleSheet.create({
   shopButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: GREEN,
+    color: accent,
   },
   emptyContainer: {
     alignItems: 'center',

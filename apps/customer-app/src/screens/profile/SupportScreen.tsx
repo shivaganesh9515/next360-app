@@ -1,24 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 
-const FAQS = [
-  { q: 'How do I track my order?', a: 'Go to Profile → My Orders and tap an order to see live tracking once it’s out for delivery.' },
-  { q: 'What areas do you deliver to?', a: 'We currently deliver in Hyderabad and Vijayawada. More cities are coming soon.' },
-  { q: 'Can I pay cash on delivery?', a: 'Yes, COD is available for orders up to ₹2,000. Larger orders require online payment.' },
-  { q: 'How do returns work?', a: 'Open the order in My Orders and tap "Request Return" within 24 hours of delivery.' },
-];
-
 export default function SupportScreen({ navigation }: any) {
+  const { t } = useTranslation();
+
+  const FAQS = [
+    { q: t('support.faq.trackOrder.q'), a: t('support.faq.trackOrder.a') },
+    { q: t('support.faq.deliveryAreas.q'), a: t('support.faq.deliveryAreas.a') },
+    { q: t('support.faq.cod.q'), a: t('support.faq.cod.a') },
+    { q: t('support.faq.returns.q'), a: t('support.faq.returns.a') },
+  ];
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Support</Text>
+        <Text style={s.headerTitle}>{t('support.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -26,22 +29,22 @@ export default function SupportScreen({ navigation }: any) {
         <View style={s.contactRow}>
           <TouchableOpacity style={s.contactCard} onPress={() => Linking.openURL('tel:+911800000000')}>
             <Text style={s.contactIcon}>📞</Text>
-            <Text style={s.contactLabel}>Call Us</Text>
+            <Text style={s.contactLabel}>{t('support.contact.callUs')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.contactCard} onPress={() => Linking.openURL('mailto:support@next360.app')}>
             <Text style={s.contactIcon}>✉️</Text>
-            <Text style={s.contactLabel}>Email Us</Text>
+            <Text style={s.contactLabel}>{t('support.contact.emailUs')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={s.contactCard}
             onPress={() => Linking.openURL('https://wa.me/911800000000')}
           >
             <Text style={s.contactIcon}>💬</Text>
-            <Text style={s.contactLabel}>WhatsApp</Text>
+            <Text style={s.contactLabel}>{t('support.contact.whatsapp')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={s.sectionTitle}>Frequently Asked Questions</Text>
+        <Text style={s.sectionTitle}>{t('support.section.faq')}</Text>
         {FAQS.map((item) => (
           <View key={item.q} style={s.faqCard}>
             <Text style={s.faqQ}>{item.q}</Text>
@@ -49,9 +52,9 @@ export default function SupportScreen({ navigation }: any) {
           </View>
         ))}
 
-        <Text style={s.sectionTitle}>About</Text>
+        <Text style={s.sectionTitle}>{t('support.section.about')}</Text>
         <View style={s.faqCard}>
-          <Text style={s.faqA}>Next360 v1.0.0 — Organic. Natural. Eco-friendly.</Text>
+          <Text style={s.faqA}>{t('support.about.text')}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

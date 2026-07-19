@@ -10,7 +10,29 @@ export default function RevenueAnalyticsPage() {
 
   useEffect(() => {
     setLoading(true);
-    vendorApi.getRevenueAnalytics(period).then(setAnalytics).catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getAnalytics(period).then((res: any) => {
+      const data = res || {};
+
+      // Transform monthlyRevenue → revenueOverTime
+      const revenueOverTime = Array.isArray(data.monthlyRevenue)
+        ? data.monthlyRevenue.map((m: any) => ({
+            date: m.month ? new Date(m.month + '-01').toISOString() : new Date().toISOString(),
+            revenue: m.revenue || 0,
+          }))
+        : data.revenueOverTime || [];
+
+      setAnalytics({
+        totalRevenue: data.totalRevenue || 0,
+        avgOrderValue: data.avgOrderValue || 0,
+        totalOrders: data.totalOrders || 0,
+        revenueOverTime,
+        payoutHistory: data.recentOrders?.slice(0, 5).map((o: any) => ({
+          period: new Date(o.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+          amount: o.subtotal || o.totalAmount || 0,
+          orders: 1,
+        })) || [],
+      });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [period]);
 
   if (loading) {

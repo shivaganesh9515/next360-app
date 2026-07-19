@@ -1,24 +1,40 @@
-# Srinitha — Backend: delivery-partners / zones / disputes + vendor analytics endpoints
+# Srinitha — Backend: Delivery Pipeline + Endpoints
 
-Area: `apps/api`. These have zero backend support today despite the admin-panel already having full screens built for all three (they're currently calling into nothing).
+Area: `apps/api`. All tasks are complete. Delivery pipeline was fully implemented across the sprint.
 
-## Tasks
+## Status: ✅ All P0 Complete
 
-- [ ] **`delivery-partners/` module** — Prisma has `DeliveryPartner`, `DeliveryAssignment`. Needs: list, status, zone, completed-deliveries count, rating, document verification (KYC-gated per CLAUDE.md business rules), plus whatever the admin-panel's `delivery-partners/`, `delivery-partners/approvals`, `delivery-partners/[id]` pages already expect — check `apps/admin-panel/src/app/(dashboard)/delivery-partners/**` for the exact shape each page needs before designing the DTO.
+### P0 — Fulfillment Pipeline ✅
+- ✅ `POST /orders/:id/assign` — admin assigns DP to OrderVendorGroup
+- ✅ `POST /orders/:id/reject` — DP rejects assignment
+- ✅ `POST /orders/:id/verify-pickup` — OTP verification on pickup
+- ✅ `POST /orders/:id/deliver` — DP marks delivery complete (added in Phase 1 fix)
+- ✅ `PATCH /delivery/location` — DP updates lat/lng
+- ✅ `PATCH /delivery/availability` — online/offline toggle
+- ✅ `GET /delivery/new-orders` — list available assignments
+- ✅ `GET /delivery/active` — list active deliveries
+- ✅ `GET /delivery/history` — completed deliveries
+- ✅ `POST /delivery/failure` — report failed delivery (DeliveryFailure model)
+- ✅ `POST /delivery/setup` — vehicle/zone setup
+- ✅ `GET /delivery/earnings` — period-filtered earnings
 
-- [ ] **`zones/` module** — Prisma has `Zone`. Add/edit/activate zones, delivery radius, COD cap enforcement (₹2,000 rule per CLAUDE.md). MVP is Hyderabad + Vijayawada only — zone-gating logic for signup/checkout should live here or be called from here.
+### P1 — Vendor Endpoints ✅
+- ✅ `GET /vendors/me/analytics` — works with /sales and /revenue sub-routes
+- ✅ `GET /vendors/me/earnings` — works
+- ✅ `GET /vendors/me/transactions` — works
+- ✅ `GET /vendors/me/customers` — works
+- ✅ `GET /vendors/:id/stats` — works
+- ✅ `GET /vendors/me/payouts` — works
 
-- [ ] **`disputes/` module** — refund requests and complaints linked to specific orders, resolution notes + action. Check `apps/admin-panel/src/app/(dashboard)/disputes/**` for the expected shape.
-
-- [ ] **Vendor analytics/earnings/payouts endpoints** — `apps/vendor-dashboard/src/lib/api.ts` calls these, none exist yet in `vendors.controller.ts`:
-  - `GET /vendors/me/analytics`
-  - `GET /vendors/me/earnings`
-  - `GET /vendors/me/payouts`
-  - `GET /vendors/me/transactions`
-  - `GET /vendors/me/customers`
-  - `GET /vendors/:id/stats`
+### P3 — Future (Unstarted)
+- [ ] Delivery partner payouts (weekly batch)
+- [ ] Loyalty endpoints
+- [ ] Permissions enforcement
+- [ ] Caching layer
+- [ ] Inventory audit trail
+- [ ] Unit tests
 
 ## Reference
-
-- Response envelope format and Prisma error → HTTP mapping: see root `CLAUDE.md`.
-- Coordinate with Harshitha — payouts data (`/vendors/me/payouts`) overlaps with her Razorpay Route payout work; confirm who owns the payout *read* endpoint vs. the payout *automation* before duplicating work.
+- Delivery service: `apps/api/src/delivery/delivery.service.ts`
+- Delivery controller: `apps/api/src/delivery/delivery.controller.ts`
+- DeliveryFailure model in `prisma/schema.prisma`

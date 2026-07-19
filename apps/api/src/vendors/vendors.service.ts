@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { StoreType } from '@prisma/client';
 
 @Injectable()
 export class VendorsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(VendorsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async register(userId: string, dto: CreateVendorDto) {
     const existing = await this.prisma.vendor.findUnique({ where: { userId } });
@@ -34,13 +40,12 @@ export class VendorsService {
       }
     }
 
-    // Update user role to VENDOR
-    await this.prisma.user.update({
-      where: { id: userId },
+    await this.prisma.user.updateMany({
+      where: { id: userId, role: { not: 'ADMIN' } },
       data: { role: 'VENDOR' },
     });
 
-    return this.prisma.vendor.create({
+    const vendor = await this.prisma.vendor.create({
       data: {
         userId,
         storeName: dto.storeName,
@@ -51,6 +56,15 @@ export class VendorsService {
         status: 'PENDING',
       },
     });
+
+    // Send admin alert about new vendor registration
+    try {
+      await this.notificationsService.sendAdminNewVendorAlert(dto.storeName);
+    } catch (error: any) {
+      this.logger.error(`Admin new vendor alert failed: ${error.message}`);
+    }
+
+    return vendor;
   }
 
   async findAll(storeType?: StoreType, isApproved?: boolean) {
@@ -98,10 +112,25 @@ export class VendorsService {
 
   async approve(id: string) {
     const vendor = await this.findOne(id);
-    return this.prisma.vendor.update({
+    if (vendor.status === 'APPROVED') {
+      throw new ConflictException('Vendor is already approved');
+    }
+    const updated = await this.prisma.vendor.update({
       where: { id },
       data: { status: 'APPROVED' },
     });
+
+    // Notify vendor that they've been approved
+    try {
+      await this.notificationsService.sendVendorApprovedNotification(
+        vendor.userId,
+        vendor.storeName,
+      );
+    } catch (error: any) {
+      this.logger.error(`Vendor approval notification failed: ${error.message}`);
+    }
+
+    return updated;
   }
 
   async getStorefrontVendors(storeType: StoreType) {
@@ -115,6 +144,9 @@ export class VendorsService {
   }
 
   async getVendorProducts(vendorId: string, page = 1, limit = 20) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
@@ -543,4 +575,6 @@ export class VendorsService {
       totalPayoutAmount: Number(payoutSummary._sum.amount ?? 0),
     };
   }
+
+
 }

@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator, Dimensions,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../lib/api';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
@@ -20,11 +20,43 @@ const DOCK_SIZE = 36;
 const PANEL_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
 const PANEL_HEIGHT = SCREEN_HEIGHT * 0.5;
 
-const ICONS: Record<string, string> = {
-  ORDER: '📦',
-  PROMOTION: '🏷️',
-  SYSTEM: '🔔',
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const date = new Date(dateStr).getTime();
+  const diffMs = now - date;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+const ICON_MAP: Record<string, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
+  ORDER_PLACED:         { name: 'checkmark-circle',    color: '#10B981' },
+  ORDER_CONFIRMED:      { name: 'checkmark-circle',    color: '#10B981' },
+  ORDER_PACKED:         { name: 'cube',                color: '#F59E0B' },
+  ORDER_READY:          { name: 'bag-check',           color: '#10B981' },
+  ORDER_ASSIGNED:       { name: 'bicycle',             color: '#3B82F6' },
+  ORDER_PICKED_UP:      { name: 'bicycle',             color: '#3B82F6' },
+  ORDER_OUT_FOR_DELIVERY: { name: 'bicycle',           color: '#3B82F6' },
+  ORDER_DELIVERED:      { name: 'bag-check',           color: '#10B981' },
+  ORDER_CANCELLED:      { name: 'close-circle',        color: '#EF4444' },
+  ORDER_REFUNDED:       { name: 'cash',                color: '#8B5CF6' },
+  PAYMENT_SUCCESS:      { name: 'card',                color: '#10B981' },
+  PAYMENT_FAILED:       { name: 'alert-circle',        color: '#EF4444' },
+  WELCOME:              { name: 'happy',               color: '#10B981' },
+  OFFER:                { name: 'megaphone',           color: '#F59E0B' },
+  LOW_STOCK:            { name: 'alert-circle',        color: '#F59E0B' },
+  DELIVERY_COMPLETE:    { name: 'checkmark-circle',    color: '#10B981' },
+  SYSTEM:               { name: 'notifications',       color: Colors.textSecondary },
 };
+
+function getIcon(notification: Notification) {
+  return ICON_MAP[notification.type] || ICON_MAP.SYSTEM;
+}
 
 interface Props {
   iconColor?: string;
@@ -35,8 +67,8 @@ interface Props {
 // real depth — a blurred + dimmed backdrop behind it — since it's a half-screen
 // panel with its own scrollable content, not an inline search bar.
 export default function NotificationsPopover({ iconColor = Colors.white }: Props) {
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -45,14 +77,19 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
   const [origin, setOrigin] = useState({ x: SCREEN_WIDTH - Spacing.xl - DOCK_SIZE, y: 100 });
   const anim = useSharedValue(0);
 
-  const topTarget = insets.top + Spacing.md;
+  // top is pinned to origin.y (the dock icon's own measured position) instead
+  // of interpolating up toward the status bar — the panel now grows straight
+  // down from exactly where the icon sits instead of visibly detaching and
+  // sliding upward to a disconnected point before it opens (and reversing
+  // that same jump on close).
   const leftTarget = SCREEN_WIDTH - Spacing.xl - PANEL_WIDTH;
 
   const load = async () => {
     setLoading(true);
     try {
-      const res = await customerApi.getNotifications();
-      setItems(Array.isArray(res) ? res : (res as any)?.data || []);
+      const res: any = await customerApi.getNotifications();
+      const list = Array.isArray(res) ? res : res?.notifications || res?.data || [];
+      setItems(list);
     } catch {
       setItems([]);
     } finally {
@@ -123,7 +160,7 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
   const panelStyle = useAnimatedStyle(() => ({
-    top: interpolate(anim.value, [0, 1], [origin.y, topTarget]),
+    top: origin.y,
     left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
     width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
     height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
@@ -179,30 +216,51 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
               </View>
             ) : items.length === 0 ? (
               <View style={styles.center}>
-                <Text style={styles.emptyEmoji}>🔔</Text>
+                <Ionicons name="notifications-off-outline" size={36} color={Colors.border} />
                 <Text style={styles.emptyTitle}>You're all caught up</Text>
                 <Text style={styles.emptySubtitle}>Order updates and offers will show up here.</Text>
               </View>
             ) : (
-              <FlatList
-                data={items}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.card, !item.isRead && styles.cardUnread]}
-                    onPress={() => handlePress(item)}
-                  >
-                    <Text style={styles.icon}>{ICONS[item.type] || '🔔'}</Text>
-                    <View style={styles.cardBody}>
-                      <Text style={styles.cardTitle}>{item.title}</Text>
-                      <Text style={styles.cardMessage} numberOfLines={2}>{item.message}</Text>
-                    </View>
-                    {!item.isRead && <View style={styles.dot} />}
-                  </TouchableOpacity>
-                )}
-              />
+              <>
+                <FlatList
+                  data={items.slice(0, 5)}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.list}
+                  showsVerticalScrollIndicator={false}
+                  renderItem={({ item }) => {
+                    const icon = getIcon(item);
+                    return (
+                      <TouchableOpacity
+                        style={[styles.card, !item.isRead && styles.cardUnread]}
+                        onPress={() => handlePress(item)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.iconWrap, { backgroundColor: !item.isRead ? icon.color + '18' : 'transparent' }]}>
+                          <Ionicons name={icon.name} size={18} color={!item.isRead ? icon.color : Colors.textSecondary} />
+                        </View>
+                        <View style={styles.cardBody}>
+                          <View style={styles.cardHeader}>
+                            <Text style={[styles.cardTitle, !item.isRead && styles.cardTitleUnread]} numberOfLines={1}>
+                              {item.title}
+                            </Text>
+                            <Text style={styles.cardSubtitle}>{timeAgo(item.createdAt)}</Text>
+                          </View>
+                          <Text style={styles.cardMessage} numberOfLines={1}>{item.message}</Text>
+                        </View>
+                        {!item.isRead && <View style={styles.dot} />}
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+                <TouchableOpacity
+                  style={styles.viewAllRow}
+                  onPress={() => { close(); navigation.navigate('Notifications' as any); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllText}>View All Notifications</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.organic} />
+                </TouchableOpacity>
+              </>
             )}
           </Reanimated.View>
         </Reanimated.View>
@@ -264,8 +322,24 @@ const styles = StyleSheet.create({
   },
   cardUnread: { borderColor: Colors.organic, backgroundColor: Colors.organicLight },
   icon: { fontSize: 20 },
-  cardBody: { flex: 1 },
-  cardTitle: { ...Typography.bodySmall, color: Colors.text, fontFamily: 'Inter_600SemiBold' },
+  iconWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cardBody: { flex: 1, minWidth: 0 },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  cardTitle: { ...Typography.bodySmall, color: Colors.textSecondary, flexShrink: 1 },
+  cardTitleUnread: { color: Colors.text, fontFamily: 'Inter_600SemiBold' },
+  cardSubtitle: { ...Typography.caption, color: Colors.textSecondary, flexShrink: 0 },
   cardMessage: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
   dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: Colors.organic, marginTop: 6 },
+  viewAllRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, paddingVertical: Spacing.md,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  viewAllText: { ...Typography.bodySmall, color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
 });

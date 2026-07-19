@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { useDeliveryStore } from '../../store/deliveryStore';
+import { formatDeliveryFee } from '../../lib/pricing';
 
 export default function DashboardScreen() {
   const { user } = useAuthStore();
@@ -18,6 +19,33 @@ export default function DashboardScreen() {
   } = useDeliveryStore();
 
   const [refreshing, setRefreshing] = useState(false);
+
+  // Entrance animations for each section — springs in staggered sequence.
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const availAnim = useRef(new Animated.Value(0)).current;
+  const statsAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(120, [
+      Animated.spring(headerAnim, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }),
+      Animated.spring(availAnim, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }),
+      Animated.spring(statsAnim, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  // Pulse animation for the availability dot (breathing effect)
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!isAvailable) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isAvailable]);
 
   useEffect(() => {
     fetchNewOrders();
@@ -38,62 +66,66 @@ export default function DashboardScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
-
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#10B981']} />}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello, {user?.name || 'Partner'}!</Text>
-          <Text style={styles.subtitle}>Ready to deliver?</Text>
-        </View>
-        <TouchableOpacity onPress={() => router.push('/profile')}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'D'}</Text>
+      {/* Header — springs into view */}
+      <Animated.View style={{ opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Hello, {user?.name || 'Partner'}!</Text>
+            <Text style={styles.subtitle}>Ready to deliver?</Text>
           </View>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={() => router.push('/profile')}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'D'}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
 
-      {/* Online/Offline Toggle */}
-      <TouchableOpacity
-        style={[styles.availabilityCard, isAvailable ? styles.online : styles.offline]}
-        onPress={toggleAvailability}
-        disabled={isLoading}
-      >
-        <View style={styles.availabilityContent}>
-          <View style={[styles.statusDot, isAvailable ? styles.dotOnline : styles.dotOffline]} />
-          <Text style={styles.availabilityText}>
-            {isAvailable ? 'You are ONLINE' : 'You are OFFLINE'}
+      {/* Online/Offline Toggle — springs in */}
+      <Animated.View style={{ opacity: availAnim, transform: [{ translateY: availAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}>
+        <TouchableOpacity
+          style={[styles.availabilityCard, isAvailable ? styles.online : styles.offline]}
+          onPress={toggleAvailability}
+          disabled={isLoading}
+        >
+          <View style={styles.availabilityContent}>
+            <Animated.View style={[styles.statusDot, isAvailable ? styles.dotOnline : styles.dotOffline, { opacity: pulseAnim }]} />
+            <Text style={styles.availabilityText}>
+              {isAvailable ? 'You are ONLINE' : 'You are OFFLINE'}
+            </Text>
+          </View>
+          <Text style={styles.availabilityHint}>
+            {isAvailable ? 'Tap to go offline' : 'Tap to go online'}
           </Text>
-        </View>
-        <Text style={styles.availabilityHint}>
-          {isAvailable ? 'Tap to go offline' : 'Tap to go online'}
-        </Text>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
 
-      {/* Quick Stats */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Ionicons name="notifications-outline" size={24} color="#10B981" />
-          <Text style={styles.statNumber}>{newOrders.length}</Text>
-          <Text style={styles.statLabel}>New Orders</Text>
+      {/* Quick Stats — springs in */}
+      <Animated.View style={{ opacity: statsAnim, transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Ionicons name="notifications-outline" size={24} color="#10B981" />
+            <Text style={styles.statNumber}>{newOrders.length}</Text>
+            <Text style={styles.statLabel}>New Orders</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="bicycle-outline" size={24} color="#F59E0B" />
+            <Text style={styles.statNumber}>{activeDeliveries.length}</Text>
+            <Text style={styles.statLabel}>Active</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
+            <Text style={styles.statNumber}>{user?.completedDeliveries || 0}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="bicycle-outline" size={24} color="#F59E0B" />
-          <Text style={styles.statNumber}>{activeDeliveries.length}</Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
-          <Text style={styles.statNumber}>{user?.completedDeliveries || 0}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-      </View>
+      </Animated.View>
 
       {/* New Orders Section */}
       <View style={styles.section}>
@@ -113,8 +145,8 @@ export default function DashboardScreen() {
             <Text style={styles.emptySubtext}>Stay online to receive delivery requests</Text>
           </View>
         ) : (
-          newOrders.slice(0, 3).map((order) => (
-            <OrderCard key={order.id} order={order} type="new" />
+          newOrders.slice(0, 3).map((order, i) => (
+            <OrderCard key={order.id} order={order} type="new" index={i} />
           ))
         )}
       </View>
@@ -126,8 +158,8 @@ export default function DashboardScreen() {
             <Text style={styles.sectionTitle}>Active Deliveries</Text>
           </View>
 
-          {activeDeliveries.map((order) => (
-            <OrderCard key={order.id} order={order} type="active" />
+          {activeDeliveries.map((order, i) => (
+            <OrderCard key={order.id} order={order} type="active" index={i} />
           ))}
         </View>
       )}
@@ -135,9 +167,17 @@ export default function DashboardScreen() {
   );
 }
 
-function OrderCard({ order, type }: { order: any; type: 'new' | 'active' }) {
+function OrderCard({ order, type, index = 0 }: { order: any; type: 'new' | 'active'; index?: number }) {
   const { acceptOrder, rejectOrder } = useDeliveryStore();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Staggered entrance — each card fades up with increasing delay
+  const cardAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(cardAnim, {
+      toValue: 1, duration: 400, delay: Math.min(index, 8) * 80, useNativeDriver: true,
+    }).start();
+  }, []);
 
   const handleAccept = async () => {
     setIsProcessing(true);
@@ -171,10 +211,8 @@ function OrderCard({ order, type }: { order: any; type: 'new' | 'active' }) {
     ]);
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
-
   return (
-    <View style={styles.orderCard}>
+    <Animated.View style={[styles.orderCard, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
       <View style={styles.orderHeader}>
         <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
         <Text style={styles.orderTime}>
@@ -201,7 +239,7 @@ function OrderCard({ order, type }: { order: any; type: 'new' | 'active' }) {
       </View>
 
       <View style={styles.orderFooter}>
-        <Text style={styles.orderAmount}>{formatCurrency(order.deliveryFee || 15000)}</Text>
+        <Text style={styles.orderAmount}>{formatDeliveryFee(order.deliveryFee)}</Text>
 
         {type === 'new' ? (
           <View style={styles.actionButtons}>
@@ -234,7 +272,7 @@ function OrderCard({ order, type }: { order: any; type: 'new' | 'active' }) {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

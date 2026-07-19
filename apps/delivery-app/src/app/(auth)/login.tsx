@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import Constants from 'expo-constants';
+import { supabase } from '../../lib/supabase';
 
-const isDev = Constants.expoConfig?.extra?.eas?.projectId === undefined || __DEV__;
+// Only __DEV__ gates this — do NOT also key off extra.eas.projectId being
+// undefined, since a misconfigured production build (projectId missing from
+// app.json/eas.json) would leave that condition true and ship a login-bypass
+// button that skips auth AND KYC to real users.
+const isDev = __DEV__;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -29,6 +33,19 @@ export default function LoginScreen() {
       isLoading: false,
     });
     router.replace('/(tabs)');
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Forgot Password', 'Enter your email above first, then tap "Forgot Password?" again.');
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Check your email', `A password reset link has been sent to ${email}.`);
+    }
   };
 
   const handleLogin = async () => {
@@ -107,8 +124,15 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.altLogin}
+            onPress={() => router.replace('/(auth)/phone-login' as any)}
+          >
+            <Text style={styles.altLoginText}>Use phone number instead</Text>
           </TouchableOpacity>
         </View>
 
@@ -220,6 +244,14 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontSize: 14,
     color: '#10B981',
+  },
+  altLogin: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  altLoginText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
   footer: {
     alignItems: 'center',

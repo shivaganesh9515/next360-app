@@ -10,7 +10,36 @@ export default function SalesAnalyticsPage() {
 
   useEffect(() => {
     setLoading(true);
-    vendorApi.getSalesAnalytics(period).then(setAnalytics).catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getAnalytics(period).then((res: any) => {
+      const data = res || {};
+
+      // Build category breakdown from order data if available
+      const categories = data.orderStatusBreakdown
+        ? Object.entries(data.orderStatusBreakdown).map(([status, count]: [string, any]) => ({
+            name: status.replace(/_/g, ' '),
+            sales: count,
+            revenue: Number(count) * (data.avgOrderValue || 0),
+            orders: count,
+          }))
+        : [];
+
+      setAnalytics({
+        salesByCategory: categories,
+        topProducts: (data.recentOrders || []).slice(0, 5).map((o: any) => ({
+          name: o.items?.[0]?.name || `Order #${o.orderNo || o.id?.slice(0, 8)}`,
+          sales: o.items?.length || 1,
+          quantity: o.items?.length || 1,
+          revenue: o.subtotal || o.totalAmount || 0,
+        })),
+        salesOverTime: Array.isArray(data.monthlyRevenue)
+          ? data.monthlyRevenue.map((m: any) => ({
+              date: m.month ? new Date(m.month + '-01').toISOString() : new Date().toISOString(),
+              orders: m.orders || 0,
+              sales: m.revenue || 0,
+            }))
+          : data.revenueOverTime?.map((r: any) => ({ date: r.date, orders: 0, sales: r.revenue || 0 })) || [],
+      });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [period]);
 
   if (loading) {

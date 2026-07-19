@@ -31,6 +31,7 @@ import { SeedModule } from './seed/seed.module';
 import { DeliveryPartnersModule } from './delivery-partners/delivery-partners.module';
 import { ZonesModule } from './zones/zones.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { DeliveryModule } from './delivery/delivery.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -79,6 +80,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     DeliveryPartnersModule,
     ZonesModule,
     DisputesModule,
+    DeliveryModule,
   ],
   providers: [
     {

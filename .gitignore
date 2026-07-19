@@ -17,3 +17,6 @@ Thumbs.db
 # Local-only planning/CI files (not shared via git)
 .github/workflows/
 .planning/
+
+# Persistent project memory (local documentation only, never commit)
+.claude/memory/

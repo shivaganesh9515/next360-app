@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { api } from './api';
 
 export async function registerForPushNotifications() {
@@ -36,7 +36,7 @@ export async function registerForPushNotifications() {
   }
 }
 
-export function setupNotificationListeners(navigation: any) {
+export function setupNotificationListeners() {
   // Handle notification received while app is in foreground
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -48,12 +48,14 @@ export function setupNotificationListeners(navigation: any) {
     }),
   });
 
-  // Handle notification tap
+  // Handle notification tap — deep-links to the delivery detail screen.
+  // Uses expo-router's router, not React Navigation (this app is
+  // file-based routed, no navigation prop exists at the root).
   const subscription = Notifications.addNotificationResponseReceivedListener(
     (response) => {
-      const data = response.notification.request.content.data;
-      if (data?.screen && data?.orderId) {
-        navigation.navigate(data.screen, { orderId: data.orderId });
+      const data = response.notification.request.content.data as { orderId?: string } | undefined;
+      if (data?.orderId) {
+        router.push(`/delivery/${data.orderId}`);
       }
     },
   );

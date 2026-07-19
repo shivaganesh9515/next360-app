@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { DeliveryAssignment, Order, OrderItem } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
@@ -12,12 +13,13 @@ import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../consta
 // when bundling for web, causing a circular import.
 
 export function TrackingHeader({ orderNo, onBack, onHelp }: { orderNo: string; onBack: () => void; onHelp: () => void }) {
+  const { t } = useTranslation();
   return (
     <View style={s.header}>
       <TouchableOpacity onPress={onBack} hitSlop={8} style={s.headerIconBtn}>
         <Ionicons name="arrow-back" size={20} color={Colors.text} />
       </TouchableOpacity>
-      <Text style={s.headerTitle}>Order #{orderNo}</Text>
+      <Text style={s.headerTitle}>{t('orderTracking.header.title', { orderNo })}</Text>
       <TouchableOpacity onPress={onHelp} hitSlop={8} style={s.headerIconBtn}>
         <Ionicons name="help-outline" size={20} color={Colors.text} />
       </TouchableOpacity>
@@ -26,6 +28,7 @@ export function TrackingHeader({ orderNo, onBack, onHelp }: { orderNo: string; o
 }
 
 export function RiderCard({ assignment, onCall }: { assignment: DeliveryAssignment; onCall?: () => void }) {
+  const { t } = useTranslation();
   return (
     <View style={[s.riderCard, Shadows.raised]}>
       <View style={s.riderAvatarWrap}>
@@ -43,7 +46,7 @@ export function RiderCard({ assignment, onCall }: { assignment: DeliveryAssignme
       {onCall && (
         <TouchableOpacity style={s.callBtn} onPress={onCall}>
           <Ionicons name="call" size={14} color={Colors.white} />
-          <Text style={s.callBtnText}>Call</Text>
+          <Text style={s.callBtnText}>{t('common.call')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -58,6 +61,7 @@ export function RiderCard({ assignment, onCall }: { assignment: DeliveryAssignme
 export function TimelineStep({
   label, done, isLast, live, subtext,
 }: { label: string; done: boolean; isLast: boolean; live?: boolean; subtext?: string }) {
+  const { t } = useTranslation();
   const anim = useRef(new Animated.Value(done ? 1 : 0)).current;
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -98,7 +102,7 @@ export function TimelineStep({
           <Text style={[s.stepLabel, done && s.stepLabelDone]}>{label}</Text>
           {live && (
             <View style={s.liveBadge}>
-              <Text style={s.liveBadgeText}>LIVE</Text>
+              <Text style={s.liveBadgeText}>{t('common.live')}</Text>
             </View>
           )}
         </View>
@@ -109,10 +113,11 @@ export function TimelineStep({
 }
 
 export function OrderItemsSection({ items }: { items: OrderItem[] }) {
+  const { t } = useTranslation();
   if (items.length === 0) return null;
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle}>Items in this order</Text>
+      <Text style={s.sectionTitle}>{t('orderTracking.section.items')}</Text>
       {items.map((item) => (
         <View key={item.id} style={[s.itemCard, Shadows.card]}>
           <View style={s.itemImageWrap}>
@@ -126,7 +131,7 @@ export function OrderItemsSection({ items }: { items: OrderItem[] }) {
             <Text style={s.itemName} numberOfLines={2}>{item.productName}</Text>
             <Text style={s.itemVendor}>{item.vendorName}</Text>
             <View style={s.itemFooterRow}>
-              <Text style={s.itemQty}>Qty: {item.quantity}</Text>
+              <Text style={s.itemQty}>{t('orderTracking.item.qty', { qty: item.quantity })}</Text>
               <Text style={s.itemPrice}>₹{(item.price * item.quantity).toFixed(0)}</Text>
             </View>
           </View>
@@ -137,26 +142,27 @@ export function OrderItemsSection({ items }: { items: OrderItem[] }) {
 }
 
 export function OrderSummarySection({ order }: { order: Order }) {
+  const { t } = useTranslation();
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = Math.max(0, Number(order.totalAmount) - subtotal);
   return (
     <View style={[s.section, s.summaryCard]}>
       <View style={s.summaryRow}>
-        <Text style={s.summaryLabel}>Subtotal</Text>
+        <Text style={s.summaryLabel}>{t('orderTracking.summary.subtotal')}</Text>
         <Text style={s.summaryValue}>₹{subtotal.toFixed(0)}</Text>
       </View>
       <View style={s.summaryRow}>
-        <Text style={s.summaryLabel}>Delivery Fee</Text>
+        <Text style={s.summaryLabel}>{t('orderTracking.summary.deliveryFee')}</Text>
         <Text style={[s.summaryValue, deliveryFee === 0 && s.summaryFree]}>
-          {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee.toFixed(0)}`}
+          {deliveryFee === 0 ? t('common.free') : `₹${deliveryFee.toFixed(0)}`}
         </Text>
       </View>
       <View style={s.summaryTotalRow}>
-        <Text style={s.summaryTotalLabel}>Total Amount</Text>
+        <Text style={s.summaryTotalLabel}>{t('orderTracking.summary.totalAmount')}</Text>
         <Text style={s.summaryTotalValue}>₹{Number(order.totalAmount).toFixed(0)}</Text>
       </View>
       <Text style={s.summaryFootnote}>
-        PAID VIA {order.paymentMethod?.toUpperCase()} · #{order.id.slice(0, 8).toUpperCase()}
+        {t('orderTracking.summary.paidVia', { method: order.paymentMethod?.toUpperCase() })} · #{order.id.slice(0, 8).toUpperCase()}
       </Text>
     </View>
   );

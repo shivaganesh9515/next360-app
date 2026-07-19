@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useDeliveryStore } from '../../store/deliveryStore';
+import { formatDeliveryFee } from '../../lib/pricing';
 
 export default function NewOrdersScreen() {
   const { newOrders, fetchNewOrders, isLoading } = useDeliveryStore();
@@ -18,10 +19,8 @@ export default function NewOrdersScreen() {
     setRefreshing(false);
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
-
-  const renderOrder = ({ item: order }: { item: any }) => (
-    <OrderCard order={order} />
+  const renderOrder = ({ item: order, index }: { item: any; index: number }) => (
+    <OrderCard order={order} index={index} />
   );
 
   if (isLoading && newOrders.length === 0) {
@@ -58,9 +57,17 @@ export default function NewOrdersScreen() {
   );
 }
 
-function OrderCard({ order }: { order: any }) {
+function OrderCard({ order, index = 0 }: { order: any; index?: number }) {
   const { acceptOrder, rejectOrder } = useDeliveryStore();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Staggered entrance animation
+  const cardAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(cardAnim, {
+      toValue: 1, duration: 400, delay: Math.min(index, 8) * 80, useNativeDriver: true,
+    }).start();
+  }, []);
 
   const handleAccept = async () => {
     setIsProcessing(true);
@@ -94,7 +101,6 @@ function OrderCard({ order }: { order: any }) {
     ]);
   };
 
-  const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
   const timeAgo = (date: string) => {
     const minutes = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
     if (minutes < 1) return 'Just now';
@@ -104,7 +110,7 @@ function OrderCard({ order }: { order: any }) {
   };
 
   return (
-    <View style={styles.card}>
+    <Animated.View style={[styles.card, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
       <View style={styles.cardHeader}>
         <View style={styles.orderInfo}>
           <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
@@ -140,7 +146,7 @@ function OrderCard({ order }: { order: any }) {
       <View style={styles.cardFooter}>
         <View style={styles.earnings}>
           <Text style={styles.earningsLabel}>Your Earning</Text>
-          <Text style={styles.earningsAmount}>{formatCurrency(order.deliveryFee || 15000)}</Text>
+          <Text style={styles.earningsAmount}>{formatDeliveryFee(order.deliveryFee)}</Text>
         </View>
         <View style={styles.actions}>
           <TouchableOpacity
@@ -163,7 +169,7 @@ function OrderCard({ order }: { order: any }) {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { InventoryQueryDto, LowStockQueryDto } from './dto/inventory.dto';
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(InventoryService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async findAll(query: InventoryQueryDto, vendorId?: string) {
     const where: any = {};
@@ -76,7 +82,7 @@ export class InventoryService {
       throw new ForbiddenException('You can only update stock for your own products');
     }
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id: productId },
       data: { stock: quantity },
       select: {
@@ -86,6 +92,30 @@ export class InventoryService {
         unit: true,
       },
     });
+
+    // Send low stock notification if below threshold
+    const LOW_STOCK_THRESHOLD = 10;
+    if (updated.stock <= LOW_STOCK_THRESHOLD && updated.stock > 0) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id: product.vendorId },
+      });
+      if (vendor) {
+        this.notificationsService
+          .sendLowStockNotification(vendor.userId, updated.name, updated.stock, LOW_STOCK_THRESHOLD)
+          .catch(() => {});
+      }
+    } else if (updated.stock === 0) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id: product.vendorId },
+      });
+      if (vendor) {
+        this.notificationsService
+          .sendOutOfStockNotification(vendor.userId, updated.name)
+          .catch(() => {});
+      }
+    }
+
+    return updated;
   }
 
   async getLowStock(query: LowStockQueryDto, vendorId?: string) {

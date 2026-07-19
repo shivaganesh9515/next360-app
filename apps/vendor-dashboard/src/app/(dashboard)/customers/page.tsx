@@ -9,8 +9,20 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getCustomers().then((res: any) => setCustomers(Array.isArray(res) ? res : res.data || []))
-      .catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getCustomers().then((res: any) => {
+      // Backend returns array of { id, name, email, phone, totalOrders, totalSpent, lastOrderDate }
+      const raw = Array.isArray(res) ? res : res?.data || [];
+      const mapped = raw.map((c: any) => ({
+        id: c.id,
+        name: c.name || c.user?.name || '—',
+        email: c.email || c.user?.email || '—',
+        phone: c.phone || c.user?.phone || '-',
+        ordersCount: c.totalOrders || c.ordersCount || 0,
+        totalSpent: c.totalSpent || 0,
+        lastOrderAt: c.lastOrderDate || c.lastOrderAt,
+      }));
+      setCustomers(mapped);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const columns = [

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { customerApi } from '../../lib/api';
 import { Colors } from '../../constants/theme';
 import ErrorState from '../../components/ErrorState';
@@ -23,6 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function OrderHistoryScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,22 +83,22 @@ export default function OrderHistoryScreen({ navigation }: any) {
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
         ) : <View style={{ width: 24 }} />}
-        <Text style={styles.headerTitle}>My Orders</Text>
+        <Text style={styles.headerTitle}>{t('orderHistory.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       {error ? (
-        <ErrorState message="Couldn't load your orders" onRetry={loadOrders} />
+        <ErrorState message={t('orderHistory.error.load')} onRetry={loadOrders} />
       ) : orders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No orders yet</Text>
-          <Text style={styles.emptySubtitle}>Start shopping to see your orders here</Text>
+          <Text style={styles.emptyTitle}>{t('orderHistory.empty.title')}</Text>
+          <Text style={styles.emptySubtitle}>{t('orderHistory.empty.subtitle')}</Text>
           <TouchableOpacity
             style={styles.shopButton}
             onPress={() => navigation.navigate('Home')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Text style={styles.shopButtonText}>{t('orderHistory.empty.startShopping')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -118,7 +120,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
                 </View>
               </View>
               <View style={styles.orderInfo}>
-                <Text style={styles.orderItems}>{order.items?.length || 0} items</Text>
+                <Text style={styles.orderItems}>{t('orderHistory.items', { count: order.items?.length || 0 })}</Text>
                 <Text style={styles.orderTotal}>{formatCurrency(order.totalAmount)}</Text>
               </View>
             </TouchableOpacity>

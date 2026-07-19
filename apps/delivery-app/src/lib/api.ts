@@ -36,7 +36,8 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+  const body = await response.json();
+  return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
 export const api = {
@@ -51,6 +52,23 @@ export const api = {
 
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+
+  // Upload files (proof of delivery photos, etc.)
+  upload: async <T>(path: string, formData: FormData): Promise<T> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE}${path}`, {
+      method: 'POST', headers, body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    }
+    const body = await response.json();
+    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
+  },
 
   // Push token management
   registerPushToken: (token: string) =>
@@ -92,9 +110,12 @@ export const deliveryApi = {
   getActiveDeliveries: (params?: any) =>
     api.get<any>('/orders', { ...params, status: 'PICKED_UP,IN_TRANSIT' }),
 
-  // Status Updates
+  // Status Updates — uses the DP-scoped deliver endpoint instead of the
+  // admin-only PATCH /orders/:id/status, which would throw 403 for a
+  // DELIVERY_PARTNER role. The backend's completeDelivery handles the
+  // transition from PICKED_UP/IN_TRANSIT → DELIVERED.
   updateDeliveryStatus: (orderId: string, status: string, data?: any) =>
-    api.patch<any>(`/orders/${orderId}/status`, { status, ...data }),
+    api.post<any>(`/orders/${orderId}/deliver`, { status, ...data }),
 
   // Verify Pickup OTP
   verifyPickupOTP: (orderId: string, otp: string) =>
@@ -115,4 +136,24 @@ export const deliveryApi = {
   // Location
   updateLocation: (lat: number, lng: number) =>
     api.patch<any>('/delivery/location', { lat, lng }),
+
+  // Vehicle/Zone setup (first-time, or edited later from Profile). Endpoint
+  // doesn't exist yet — see delivery-partners module in CLAUDE.md's backend
+  // task list — but the client call is real, not a stub.
+  setupProfile: (data: { vehicleType: string; zoneName: string }) =>
+    api.post<any>('/delivery-partners/setup', data),
+
+  // File upload (proof of delivery photos, etc.)
+  upload: async <T>(path: string, formData: FormData): Promise<T> =>
+    api.upload<T>(path, formData),
+
+  // KYC document submission — same situation as setupProfile above.
+  submitKycDocuments: (data: { documentType: string; documentNumber?: string; documentUrl: string }[]) =>
+    api.post<any>('/kyc/submit', { documents: data }),
+
+  getKycStatus: () => api.get<any>('/kyc/status'),
+
+  // Failed delivery — report a delivery that couldn't be completed
+  reportDeliveryFailure: (data: { orderId: string; reason: string; details?: string }) =>
+    api.post<any>('/delivery/failure', data),
 };

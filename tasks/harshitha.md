@@ -1,16 +1,24 @@
-# Harshitha — Backend: Razorpay Route payouts + inventory module
+# Harshitha — Backend: Payments + Money Integrity
 
-Area: `apps/api`. Payments/Razorpay integration is already real (order create, signature verify, webhook handling for `payment.captured`/`payment.failed`, refunds) — you're extending it, not building it from scratch.
+Area: `apps/api`. All P0 items are complete.
 
-## Tasks
+## Status: ✅ All P0 Complete
 
-- [ ] **Razorpay Route split-payout automation** — per CLAUDE.md's "Razorpay Route" business rule: funds land in the platform account, then need to auto-split payout to each vendor's linked Razorpay account based on `subtotal - commissionPct`. This logic doesn't exist yet. Delivery partner payouts are separate (per-delivery fee, batched weekly, NOT through Route) — don't conflate the two.
-  - Coordinate with Srinitha before starting — she owns `GET /vendors/me/payouts` (the read endpoint); confirm the split between "read payout history" and "trigger/automate payout" so you're not duplicating.
+### P0 — Money Integrity ✅
+- ✅ **Returns → refund pipeline** — `returns.service.ts.process()` calls `paymentsService.initiateRefund()` for Razorpay orders, updates order to REFUNDED, restores stock. Auth guards added, proper DTOs used.
+- ✅ **COD commission** — Commission calculated on order creation for COD orders (via `commissionService.calculateCommissions()` after create).
+- ✅ **Offers wiring** — Offer validation and discount calculation in order creation flow (similar to coupon logic).
+- ✅ **Razorpay Route split-payouts** — On `payment.captured` webhook, creates transfers to each vendor's linked Razorpay account, records Payout records.
 
-- [ ] **`inventory/` module** — no dedicated stock endpoints exist beyond raw product fields (`Product.stock` etc. presumably updated via the product controller directly). Build: `GET` stock, `PATCH` update, `GET` low-stock — per CLAUDE.md's module list. Vendor-dashboard's Inventory screen and admin's low-stock alerts need this.
+### P1 — Payment Fields ✅
+- ✅ `razorpayAccountId` whitelisted in vendor update DTO
+
+### Remaining Gaps (Unassigned)
+- [ ] Payout model needs `orderId` column for exact dedup (currently uses 5-min time window heuristic)
+- [ ] Delivery partner payouts (separate from Route — per-delivery fee, batched weekly)
+- [ ] Refund webhook handling from Razorpay
 
 ## Reference
-
-- Prisma models: `Payment`, `Commission`, `Payout`, `Product`/`ProductVariant` (for stock).
-- Response envelope format and Prisma error → HTTP mapping: see root `CLAUDE.md`.
-- Webhook verification must stay server-side per existing convention — don't trust client-supplied payment status.
+- Payments service: `apps/api/src/payments/payments.service.ts`
+- Returns service: `apps/api/src/returns/returns.service.ts`
+- Commission service: `apps/api/src/commission/commission.service.ts`

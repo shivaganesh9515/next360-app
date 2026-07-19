@@ -2,6 +2,7 @@ import { Injectable, Logger, ConflictException, UnauthorizedException, BadReques
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -30,6 +31,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private notificationsService: NotificationsService,
   ) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -168,6 +170,11 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
+    // Send welcome notification for new users
+    if (isNewUser && user) {
+      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
+    }
+
     const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
 
     return {
@@ -217,6 +224,52 @@ export class AuthService {
     }
 
     return { message: 'OTP verified successfully' };
+  }
+
+  async googleLogin(dto: { email: string; googleId: string; name?: string; avatarUrl?: string }) {
+    // Find existing user by email, or create a new one linked to this Google account
+    let user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    let isNewUser = false;
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name || null,
+          avatarUrl: dto.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+      });
+      isNewUser = true;
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Update avatar/name if Google has more recent data
+    if ((dto.name && !user.name) || (dto.avatarUrl && !user.avatarUrl)) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(dto.name && !user.name ? { name: dto.name } : {}),
+          ...(dto.avatarUrl && !user.avatarUrl ? { avatarUrl: dto.avatarUrl } : {}),
+        },
+      });
+    }
+
+    // Send welcome notification for new users
+    if (isNewUser) {
+      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+      isNewUser,
+    };
   }
 
   async forgotPassword(email: string) {

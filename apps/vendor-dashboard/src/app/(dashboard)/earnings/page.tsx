@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Clock, CheckCircle, TrendingUp } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
-import DataTable from '@/components/DataTable';
 import { vendorApi } from '@/lib/api';
 
 export default function EarningsPage() {
@@ -11,29 +10,50 @@ export default function EarningsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getEarnings().then(setEarnings).catch(() => {}).finally(() => setLoading(false));
+    vendorApi.getEarnings().then((res: any) => {
+      // Backend returns { totalEarnings, paidEarnings, pendingEarnings, commissionRate, totalOrders }
+      setEarnings({
+        totalEarnings: res.totalEarnings || 0,
+        paid: res.paidEarnings || 0,
+        pending: res.pendingEarnings || 0,
+        commissionRate: res.commissionRate || 10,
+        totalOrders: res.totalOrders || 0,
+      });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
-
-  const columns = [
-    { key: 'period', label: 'Period' },
-    { key: 'amount', label: 'Amount', render: (item: any) => <span>₹{Number(item.amount).toLocaleString()}</span> },
-    { key: 'status', label: 'Status', render: (item: any) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}`}>{item.status}</span>
-    )},
-  ];
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-slate-900">Earnings</h2><p className="text-sm text-slate-500">Track your revenue and payouts</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Earnings</h2><p className="text-sm text-slate-500">Track your revenue and payouts. Commission is deducted from each order at the rate shown below.</p></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard icon={DollarSign} label="Total Earnings" value={earnings ? `₹${Number(earnings.totalEarnings || 0).toLocaleString()}` : '₹0'} accent="emerald" />
-        <StatsCard icon={TrendingUp} label="This Month" value={earnings ? `₹${Number(earnings.thisMonth || 0).toLocaleString()}` : '₹0'} accent="blue" />
+        <StatsCard icon={TrendingUp} label="Commission Rate" value={earnings ? `${earnings.commissionRate || 10}%` : '10%'} accent="blue" />
         <StatsCard icon={Clock} label="Pending" value={earnings ? `₹${Number(earnings.pending || 0).toLocaleString()}` : '₹0'} accent="amber" />
         <StatsCard icon={CheckCircle} label="Paid" value={earnings ? `₹${Number(earnings.paid || 0).toLocaleString()}` : '₹0'} accent="emerald" />
       </div>
+      {earnings && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="font-semibold text-slate-900 mb-2">Summary</h3>
+          <p className="text-sm text-slate-500 mb-4">Breakdown of your earnings from {earnings.totalOrders || 0} completed orders.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-xs text-slate-500 font-medium">Total Orders</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">{earnings.totalOrders || 0}</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-xs text-slate-500 font-medium">Avg Commission per Order</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">₹{earnings.totalOrders > 0 ? Number(earnings.totalEarnings / earnings.totalOrders).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-xs text-slate-500 font-medium">Net Payout</p>
+              <p className="text-xl font-bold text-emerald-600 mt-1">₹{Number(earnings.paid || 0).toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <h3 className="font-semibold text-slate-900 mb-4">Earnings History</h3>
-        <DataTable columns={columns} data={earnings?.history || []} emptyMessage="No earnings history yet" />
+        <h3 className="font-semibold text-slate-900 mb-2">Payout Details</h3>
+        <p className="text-sm text-slate-500">Payouts are processed periodically. Check the <a href="/earnings/payouts" className="text-emerald-600 hover:underline font-medium">Payouts</a> page for your payout history and the <a href="/earnings/transactions" className="text-emerald-600 hover:underline font-medium">Transactions</a> page for your order-level transaction log.</p>
       </div>
     </div>
   );

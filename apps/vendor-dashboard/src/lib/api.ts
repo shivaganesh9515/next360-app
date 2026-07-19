@@ -111,6 +111,7 @@ export const vendorApi = {
 
   // Vendor profile — always uses authenticated identity, never a client-supplied ID
   getMyProfile: () => api.get<any>('/vendors/my-profile'),
+  updateMyProfile: (data: any) => api.patch<any>('/vendors/my-profile', data),
 
   // Dashboard
   getDashboard: (vendorId: string) =>
@@ -129,6 +130,11 @@ export const vendorApi = {
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
   updateOrderStatus: (id: string, status: string) =>
     api.patch<any>(`/orders/${id}/status`, { status }),
+  // Vendors must update their vendor group's status (not the entire order).
+  // The PATCH /orders/:id/status endpoint requires ADMIN role — vendors
+  // must call PATCH /orders/:id/groups/:groupId/status instead.
+  updateVendorGroupStatus: (id: string, groupId: string, status: string) =>
+    api.patch<any>(`/orders/${id}/groups/${groupId}/status`, { status }),
 
   // Categories
   getCategories: (params?: any) => api.get<any>('/categories', params),
@@ -151,11 +157,6 @@ export const vendorApi = {
   // Analytics
   getAnalytics: (period?: string) =>
     api.get<any>('/vendors/me/analytics', { period }),
-  getSalesAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/sales', { period }),
-  getRevenueAnalytics: (period?: string) =>
-    api.get<any>('/vendors/me/analytics/revenue', { period }),
-
   // Earnings
   getEarnings: () => api.get<any>('/vendors/me/earnings'),
   getPayouts: () => api.get<any[]>('/vendors/me/payouts'),
@@ -180,4 +181,14 @@ export const vendorApi = {
   getReturns: () => api.get<any[]>('/returns/vendor'),
   updateReturnStatus: (id: string, status: string, reason?: string) =>
     api.patch<any>(`/returns/${id}`, { status, reason }),
+
+  // Cancel a vendor group within an order (vendor rejects their portion).
+  // This is the correct endpoint for vendors — cancelling the entire order
+  // via POST /orders/:id/cancel would affect other vendors' items.
+  cancelVendorGroup: (orderId: string, groupId: string, reason?: string) =>
+    api.post<any>(`/orders/${orderId}/groups/${groupId}/cancel`, { reason }),
+
+  // Cancel the entire order (admin only, or customer self-service)
+  cancelOrder: (orderId: string, reason?: string) =>
+    api.post<any>(`/orders/${orderId}/cancel`, { reason }),
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
@@ -25,31 +25,41 @@ export default function ProfileScreen() {
     );
   };
 
+  // Edit Profile / Vehicle Details / Documents don't have screens built yet
+  // (tracked separately as missing features). Showing an honest "coming
+  // soon" here instead of a silent no-op button.
+  const comingSoon = (feature: string) => () =>
+    Alert.alert(feature, `${feature} is coming soon.`);
+
   const menuItems = [
     {
       icon: 'person-outline',
       label: 'Edit Profile',
-      onPress: () => {},
+      onPress: comingSoon('Edit Profile'),
     },
     {
       icon: 'car-outline',
       label: 'Vehicle Details',
-      onPress: () => {},
+      // Cast: these are new files not yet in Expo Router's generated typed
+      // routes (.expo/types/router.d.ts regenerates on the next `expo
+      // start`, not on tsc alone) — a stale-type-cache issue, not a bad path.
+      onPress: () => router.push('/vehicle-setup' as any),
     },
     {
       icon: 'document-text-outline',
       label: 'Documents',
-      onPress: () => {},
+      onPress: () => router.push('/kyc-documents' as any),
     },
     {
       icon: 'help-circle-outline',
       label: 'Help & Support',
-      onPress: () => {},
+      onPress: () => Linking.openURL('mailto:support@next360.com'),
     },
     {
       icon: 'information-circle-outline',
       label: 'About',
-      onPress: () => {},
+      onPress: () =>
+        Alert.alert('Next360 Delivery', 'Version 1.0.0\n\nNext360 Delivery Partner App'),
     },
   ];
 

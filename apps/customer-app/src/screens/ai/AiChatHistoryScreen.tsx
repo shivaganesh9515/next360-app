@@ -6,10 +6,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
-
-const GREEN = '#2A7A4B';
+import { useStore } from '../../lib/store';
+import { useTranslation } from 'react-i18next';
+import { getStoreAccent } from '../../constants/theme';
 
 export default function AiChatHistoryScreen({ navigation }: any) {
+  const { t } = useTranslation();
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,7 +89,7 @@ export default function AiChatHistoryScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GREEN} />
+          <ActivityIndicator size="large" color={accent} />
         </View>
       </SafeAreaView>
     );
@@ -98,20 +102,20 @@ export default function AiChatHistoryScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chat History</Text>
+        <Text style={styles.headerTitle}>{t('ai.chatHistory.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       {history.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="chatbubbles-outline" size={64} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No chat history yet</Text>
-          <Text style={styles.emptySubtitle}>Start a conversation with AI Assistant</Text>
+          <Text style={styles.emptyTitle}>{t('ai.chatHistory.empty.title')}</Text>
+          <Text style={styles.emptySubtitle}>{t('ai.chatHistory.empty.subtitle')}</Text>
           <TouchableOpacity
             style={styles.startButton}
             onPress={() => navigation.navigate('AiAssistant')}
           >
-            <Text style={styles.startButtonText}>Start Chat</Text>
+            <Text style={styles.startButtonText}>{t('ai.chatHistory.startChat')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -128,7 +132,7 @@ export default function AiChatHistoryScreen({ navigation }: any) {
                   onPress={() => navigation.navigate('AiAssistant', { chatId: chat.id })}
                 >
                   <View style={styles.chatIcon}>
-                    <Ionicons name="sparkles" size={20} color={GREEN} />
+                    <Ionicons name="sparkles" size={20} color={accent} />
                   </View>
                   <View style={styles.chatContent}>
                     <Text style={styles.chatInput} numberOfLines={1}>{chat.input}</Text>
@@ -141,13 +145,13 @@ export default function AiChatHistoryScreen({ navigation }: any) {
           )}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[GREEN]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[accent]} />
           }
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={
             hasMore ? (
-              <ActivityIndicator color={GREEN} style={styles.footerLoader} />
+              <ActivityIndicator color={accent} style={styles.footerLoader} />
             ) : null
           }
         />
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   startButton: {
-    backgroundColor: GREEN,
+    backgroundColor: accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
