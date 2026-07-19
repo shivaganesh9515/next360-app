@@ -13,28 +13,17 @@ Screens are structurally complete (all 8 sidebar sections exist under `src/app/(
   - `shadcn/ui` ✅ CLI installed, `components.json` configured, 13 components in `src/components/ui/`
   - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them. ✅ Confirmed — neither zustand nor axios are imported anywhere; fetch-based `lib/api.ts` pattern is sufficient.
 
-- [ ] **Payouts page** (`earnings/` route) — was blocked on `GET /vendors/me/payouts`. ✅ **Now unblocked** — backend endpoints merged from Harshitha's branch. `GET /vendors/me/payouts` exists. Still needs: wire up the earnings page UI.
+- [x] **Payouts page** (`earnings/payouts/`) — was blocked on `GET /vendors/me/payouts`. ✅ **Done** — `earnings/payouts/page.tsx` calls `vendorApi.getPayouts()` which hits `/vendors/me/payouts`. Backend endpoint now available after Harshitha's merge.
 
-- [ ] **Analytics/earnings pages** — was blocked on `GET /vendors/me/analytics`, `GET /vendors/me/earnings`, `GET /vendors/me/transactions`, `GET /vendors/me/customers`. ✅ **Now unblocked** — all 4 endpoints exist on the merged branch. Still needs: wire up the UI pages.
+- [x] **Analytics/earnings/transactions/customers pages** — was blocked on backend endpoints. ✅ **Done** — All pages already wired up with API calls:
+  - `analytics/page.tsx` → `vendorApi.getAnalytics('30d')` → `GET /vendors/me/analytics`
+  - `analytics/sales/page.tsx` → `vendorApi.getAnalytics(period)` → `GET /vendors/me/analytics`
+  - `analytics/revenue/page.tsx` → `vendorApi.getAnalytics(period)` → `GET /vendors/me/analytics`
+  - `earnings/page.tsx` → `vendorApi.getEarnings()` → `GET /vendors/me/earnings`
+  - `earnings/transactions/page.tsx` → `vendorApi.getTransactions()` → `GET /vendors/me/transactions`
+  - `customers/page.tsx` → `vendorApi.getCustomers()` → `GET /vendors/me/customers`
 
-- [ ] **Dashboard KPIs** (new orders count, revenue today, low-stock alerts, pending payout). ✅ **Now unblocked** — analytics and inventory endpoints available. Still needs: connect dashboard cards to live data.
-
-## Ready to start
-
-- Wire up payouts, analytics, earnings, transactions, customers pages to the now-available backend endpoints.
-- Connect dashboard KPIs to analytics and inventory data.
-- UI polish / design-system consistency on existing pages.
-
-## Backend endpoints now available (from Harshitha's merge)
-
-| Endpoint | Service Method |
-|----------|---------------|
-| `GET /vendors/me/payouts` | `vendorsService.getVendorPayouts()` |
-| `GET /vendors/me/analytics` | `vendorsService.getAnalytics()` |
-| `GET /vendors/me/earnings` | `vendorsService.getVendorEarnings()` |
-| `GET /vendors/me/transactions` | `vendorsService.getVendorTransactions()` |
-| `GET /vendors/me/customers` | `vendorsService.getCustomers()` |
-| `GET /inventory`, `PATCH /inventory/:id`, `GET /inventory/low-stock` | `inventory/` module |
+- [x] **Dashboard KPIs** (new orders count, revenue today, low-stock alerts, pending payout). ✅ **Done** — `page.tsx` calls `vendorApi.getProducts()`, `getOrders()`, `getEarnings()`, `getAnalytics('30d')` and computes all 4 KPIs from live data.
 
 ## Reference
 
