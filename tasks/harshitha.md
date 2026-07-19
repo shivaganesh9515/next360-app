@@ -4,10 +4,20 @@ Area: `apps/api`. Payments/Razorpay integration is already real (order create, s
 
 ## Tasks
 
-- [ ] **Razorpay Route split-payout automation** — per CLAUDE.md's "Razorpay Route" business rule: funds land in the platform account, then need to auto-split payout to each vendor's linked Razorpay account based on `subtotal - commissionPct`. This logic doesn't exist yet. Delivery partner payouts are separate (per-delivery fee, batched weekly, NOT through Route) — don't conflate the two.
-  - Coordinate with Srinitha before starting — she owns `GET /vendors/me/payouts` (the read endpoint); confirm the split between "read payout history" and "trigger/automate payout" so you're not duplicating.
+- [x] **`inventory/` module** — built and available. Endpoints: `GET /inventory`, `PATCH /inventory/:id`, `GET /inventory/low-stock`. ✅ **Done** — merged into `soumya-vendor-dashboard` on 2026-07-19.
 
-- [ ] **`inventory/` module** — no dedicated stock endpoints exist beyond raw product fields (`Product.stock` etc. presumably updated via the product controller directly). Build: `GET` stock, `PATCH` update, `GET` low-stock — per CLAUDE.md's module list. Vendor-dashboard's Inventory screen and admin's low-stock alerts need this.
+- [/] **Razorpay Route split-payout automation** — `razorpayAccountId` whitelisted in vendor DTO, vendor payouts read endpoint built (`GET /vendors/me/payouts`). The auto-split payout *trigger/automation* logic may still need work — confirm scope with team.
+
+## Delivered in this merge
+
+Beyond the assigned tasks, Harshitha's branch also included:
+- ✅ Commission calculation for COD orders (`commission.service.ts`)
+- ✅ Returns refund pipeline (`returns/` module)
+- ✅ Offers applied during checkout
+- ✅ Vendor earnings/transactions/payouts analytics endpoints
+- ✅ Brands module, CMS module, KYC module, Sub-categories module
+- ✅ Zones module + Delivery partners module (overlapping with Srinitha's scope)
+- ✅ Zomato-style phone-OTP login (auth enhancement)
 
 ## Reference
 

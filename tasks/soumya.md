@@ -13,16 +13,28 @@ Screens are structurally complete (all 8 sidebar sections exist under `src/app/(
   - `shadcn/ui` ✅ CLI installed, `components.json` configured, 13 components in `src/components/ui/`
   - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them. ✅ Confirmed — neither zustand nor axios are imported anywhere; fetch-based `lib/api.ts` pattern is sufficient.
 
-- [ ] **Payouts page** (`earnings/` route) — currently renders empty since `GET /vendors/me/payouts` doesn't exist yet. Blocked on Srinitha — see [srinitha.md](./srinitha.md). Once live, wire it up.
+- [ ] **Payouts page** (`earnings/` route) — was blocked on `GET /vendors/me/payouts`. ✅ **Now unblocked** — backend endpoints merged from Harshitha's branch. `GET /vendors/me/payouts` exists. Still needs: wire up the earnings page UI.
 
-- [ ] **Analytics/earnings pages** — same story, blocked on `GET /vendors/me/analytics`, `GET /vendors/me/earnings`, `GET /vendors/me/transactions`, `GET /vendors/me/customers` (Srinitha).
+- [ ] **Analytics/earnings pages** — was blocked on `GET /vendors/me/analytics`, `GET /vendors/me/earnings`, `GET /vendors/me/transactions`, `GET /vendors/me/customers`. ✅ **Now unblocked** — all 4 endpoints exist on the merged branch. Still needs: wire up the UI pages.
 
-- [ ] **Dashboard KPIs** (new orders count, revenue today, low-stock alerts, pending payout) — check which of these already work vs. which are waiting on the analytics/inventory endpoints above.
+- [ ] **Dashboard KPIs** (new orders count, revenue today, low-stock alerts, pending payout). ✅ **Now unblocked** — analytics and inventory endpoints available. Still needs: connect dashboard cards to live data.
 
-## Not blocked — can start now
+## Ready to start
 
-- shadcn/ui + Supabase client wiring doesn't need the backend work done first.
-- Sweep the existing pages (dashboard, orders + `[id]`, products + add/edit, inventory, settings, plus the extras: coupons, offers, categories, customers, notifications, support, store) for UI polish / design-system consistency while waiting on backend.
+- Wire up payouts, analytics, earnings, transactions, customers pages to the now-available backend endpoints.
+- Connect dashboard KPIs to analytics and inventory data.
+- UI polish / design-system consistency on existing pages.
+
+## Backend endpoints now available (from Harshitha's merge)
+
+| Endpoint | Service Method |
+|----------|---------------|
+| `GET /vendors/me/payouts` | `vendorsService.getVendorPayouts()` |
+| `GET /vendors/me/analytics` | `vendorsService.getAnalytics()` |
+| `GET /vendors/me/earnings` | `vendorsService.getVendorEarnings()` |
+| `GET /vendors/me/transactions` | `vendorsService.getVendorTransactions()` |
+| `GET /vendors/me/customers` | `vendorsService.getCustomers()` |
+| `GET /inventory`, `PATCH /inventory/:id`, `GET /inventory/low-stock` | `inventory/` module |
 
 ## Reference
 
