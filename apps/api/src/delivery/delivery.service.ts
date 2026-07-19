@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Cron } from '@nestjs/schedule';
 import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
 
 function generateOtp(): string {
@@ -968,6 +969,124 @@ export class DeliveryService {
       allTime,
       totalDeliveries,
       averagePerDelivery: totalDeliveries > 0 ? allTime / totalDeliveries : 0,
+    };
+  }
+
+  /**
+   * Weekly batch payout for Delivery Partners.
+   * Processes completed deliveries that have not yet been included in a payout,
+   * groups them by partner, calculates totals, and creates one Payout per partner.
+   * Runs automatically every Monday at 00:05 AM.
+   */
+  @Cron('5 0 * * 1')
+  async processWeeklyPayouts() {
+    const DELIVERY_FEE = 40;
+    const now = new Date();
+
+    // Default: last week (Mon 00:00 → Sun 23:59:59.999)
+    const endOfLastWeek = new Date(now);
+    endOfLastWeek.setDate(now.getDate() - now.getDay());
+    endOfLastWeek.setHours(0, 0, 0, 0);
+    endOfLastWeek.setMilliseconds(endOfLastWeek.getMilliseconds() - 1);
+
+    const startOfLastWeek = new Date(endOfLastWeek);
+    startOfLastWeek.setDate(endOfLastWeek.getDate() - 6);
+    startOfLastWeek.setHours(0, 0, 0, 0);
+
+    // Fetch all completed deliveries in the period
+    const completedAssignments = await this.prisma.deliveryAssignment.findMany({
+      where: {
+        deliveredAt: { gte: startOfLastWeek, lte: endOfLastWeek },
+      },
+      include: {
+        orderVendorGroup: {
+          select: {
+            vendorId: true,
+            items: {
+              select: { priceAtPurchase: true, quantity: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (completedAssignments.length === 0) {
+      return { periodStart: startOfLastWeek, periodEnd: endOfLastWeek, payouts: [] };
+    }
+
+    // Collect unique partner IDs
+    const partnerIds = [...new Set(completedAssignments.map((a) => a.deliveryPartnerId))];
+
+    // Fetch existing payouts for these partners in this period to exclude already-paid deliveries
+    const existingPayouts = await this.prisma.payout.findMany({
+      where: {
+        deliveryPartnerId: { in: partnerIds },
+        periodStart: startOfLastWeek,
+        periodEnd: endOfLastWeek,
+      },
+      select: { deliveryPartnerId: true },
+    });
+
+    const paidPartnerIds = new Set(existingPayouts.map((p) => p.deliveryPartnerId));
+
+    // Filter out partners who already have a payout for this period
+    const unpaidPartnerIds = partnerIds.filter((id) => !paidPartnerIds.has(id));
+
+    if (unpaidPartnerIds.length === 0) {
+      return { periodStart: startOfLastWeek, periodEnd: endOfLastWeek, payouts: [] };
+    }
+
+    // Filter assignments to only unpaid partners
+    const eligibleAssignments = completedAssignments.filter((a) =>
+      unpaidPartnerIds.includes(a.deliveryPartnerId),
+    );
+
+    // Group by partner
+    const partnerGroups = new Map<string, typeof eligibleAssignments>();
+    for (const a of eligibleAssignments) {
+      const list = partnerGroups.get(a.deliveryPartnerId) || [];
+      list.push(a);
+      partnerGroups.set(a.deliveryPartnerId, list);
+    }
+
+    // Create payout for each partner
+    const payouts = await this.prisma.$transaction(
+      Array.from(partnerGroups.entries()).map(([partnerId, assignments]) => {
+        const itemTotal = assignments.reduce((sum, a) => {
+          const groupTotal = a.orderVendorGroup.items.reduce(
+            (s: number, item: any) => s + Number(item.priceAtPurchase) * item.quantity,
+            0,
+          );
+          return sum + groupTotal;
+        }, 0);
+
+        const totalAmount = itemTotal + assignments.length * DELIVERY_FEE;
+
+        return this.prisma.payout.create({
+          data: {
+            deliveryPartnerId: partnerId,
+            amount: totalAmount,
+            status: 'PENDING',
+            periodStart: startOfLastWeek,
+            periodEnd: endOfLastWeek,
+          },
+          select: {
+            id: true,
+            deliveryPartnerId: true,
+            amount: true,
+            status: true,
+            periodStart: true,
+            periodEnd: true,
+            createdAt: true,
+          },
+        });
+      }),
+    );
+
+    return {
+      periodStart: startOfLastWeek,
+      periodEnd: endOfLastWeek,
+      payouts,
     };
   }
 
