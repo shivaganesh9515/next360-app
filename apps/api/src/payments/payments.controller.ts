@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -19,6 +20,7 @@ import {
   CreateRazorpayOrderDto,
   VerifyPaymentDto,
   RazorpayWebhookDto,
+  PaymentQueryDto,
 } from './dto/create-razorpay-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -91,6 +93,13 @@ export class PaymentsController {
   @Roles('ADMIN')
   refund(@Param('orderId') orderId: string, @Body() dto: { reason?: string }) {
     return this.paymentsService.initiateRefund(orderId, dto.reason);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  listPayments(@Query() query: PaymentQueryDto) {
+    return this.paymentsService.listPayments(query);
   }
 
   @Get(':orderId')
