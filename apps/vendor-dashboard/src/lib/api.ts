@@ -128,8 +128,8 @@ export const vendorApi = {
   // Orders
   getOrders: (params?: any) => api.get<any>('/orders/vendor', params),
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
-  updateOrderStatus: (id: string, status: string) =>
-    api.patch<any>(`/orders/${id}/status`, { status }),
+  updateOrderStatus: (id: string, status: string, reason?: string) =>
+    api.patch<any>(`/orders/${id}/status`, reason ? { status, cancellationReason: reason } : { status }),
 
   // Categories
   getCategories: (params?: any) => api.get<any>('/categories', params),

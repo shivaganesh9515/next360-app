@@ -51,6 +51,7 @@ export default function OrdersPage() {
         createdAt: g.order?.createdAt || g.createdAt,
         paymentStatus: g.order?.paymentStatus,
         paymentMethod: g.order?.paymentMethod,
+        cancellationReason: g.cancellationReason || g.order?.cancellationReason,
         items: g.items || [],
       }));
 
@@ -98,7 +99,16 @@ export default function OrdersPage() {
     { key: 'customer', label: 'Customer', render: () => <span className="text-slate-400 text-xs">—</span> },
     { key: 'items', label: 'Items', render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount || 0).toLocaleString()}</span> },
-    { key: 'status', label: 'Status', render: (item: any) => <StatusBadge status={item.status} /> },
+    { key: 'status', label: 'Status', render: (item: any) => (
+      <div className="flex items-center gap-1.5">
+        <StatusBadge status={item.status} />
+        {item.status === 'CANCELLED' && item.cancellationReason && (
+          <span className="text-[10px] text-red-400 max-w-[120px] truncate" title={item.cancellationReason}>
+            · {item.cancellationReason}
+          </span>
+        )}
+      </div>
+    ) },
     { key: 'paymentMethod', label: 'Payment', render: (item: any) => <span className="text-xs text-slate-500">{item.paymentMethod || '—'}</span> },
     { key: 'createdAt', label: 'Date', render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
   ];
