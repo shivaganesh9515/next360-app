@@ -127,7 +127,7 @@ export class VendorsService {
 
     // Audit log: record who changed the status and what changed
     if (adminId) {
-      this.auditService.log({
+      await this.auditService.log({
         adminId,
         action: `${newStatus === 'APPROVED' ? 'APPROVE' : newStatus === 'REJECTED' ? 'REJECT' : 'SUSPEND'}_VENDOR`,
         resource: 'Vendor',
