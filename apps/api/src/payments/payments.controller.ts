@@ -120,6 +120,16 @@ export class PaymentsController {
     return this.paymentsService.getVendorSettlementInfo(vendorId);
   }
 
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  getPaymentAnalytics(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.paymentsService.getPaymentAnalytics(startDate, endDate);
+  }
+
   @Get(':orderId')
   @UseGuards(JwtAuthGuard)
   getPayments(@Param('orderId') orderId: string) {

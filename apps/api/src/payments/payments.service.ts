@@ -737,6 +737,147 @@ export class PaymentsService {
   }
 
   /**
+   * Payment analytics — success/failure rates, revenue by method, settlement stats.
+   * All queries run in parallel. No N+1.
+   */
+  async getPaymentAnalytics(startDate?: string, endDate?: string) {
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+
+    const paymentWhere: any = {};
+    if (startDate || endDate) paymentWhere.createdAt = dateFilter;
+
+    const orderWhere: any = {};
+    if (startDate || endDate) orderWhere.createdAt = dateFilter;
+
+    const [
+      statusCounts,
+      methodCounts,
+      revenueByMethod,
+      payoutAggregate,
+      settledPayouts,
+    ] = await Promise.all([
+      this.prisma.payment.groupBy({
+        by: ['status'],
+        where: paymentWhere,
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.payment.groupBy({
+        by: ['status', 'method'],
+        where: paymentWhere,
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['paymentMethod'],
+        where: orderWhere,
+        _count: true,
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.payout.aggregate({
+        where: {
+          vendorId: { not: null },
+          ...(startDate || endDate ? { createdAt: dateFilter } : {}),
+        },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.payout.findMany({
+        where: {
+          vendorId: { not: null },
+          orderId: { not: null },
+          paidAt: { not: null },
+          status: { in: ['PROCESSED', 'PAID'] },
+          ...(startDate || endDate ? { createdAt: dateFilter } : {}),
+        },
+        select: {
+          paidAt: true,
+          order: { select: { createdAt: true } },
+        },
+      }),
+    ]);
+
+    const totalPayments = statusCounts.reduce((s, r) => s + r._count, 0);
+    const captured =
+      statusCounts.find((r) => r.status === 'CAPTURED')?._count || 0;
+    const failed =
+      statusCounts.find((r) => r.status === 'FAILED')?._count || 0;
+    const refunded =
+      statusCounts.find((r) => r.status === 'REFUNDED')?._count || 0;
+    const successRate =
+      totalPayments > 0 ? (captured / totalPayments) * 100 : 0;
+    const failureRate =
+      totalPayments > 0 ? (failed / totalPayments) * 100 : 0;
+
+    const byMethod: Record<
+      string,
+      { total: number; amount: number; captured: number; failed: number }
+    > = {};
+    for (const row of methodCounts) {
+      const method = row.method || 'UNKNOWN';
+      if (!byMethod[method]) {
+        byMethod[method] = { total: 0, amount: 0, captured: 0, failed: 0 };
+      }
+      byMethod[method].total += row._count;
+      byMethod[method].amount += Number(row._sum.amount || 0);
+      if (row.status === 'CAPTURED') byMethod[method].captured += row._count;
+      if (row.status === 'FAILED') byMethod[method].failed += row._count;
+    }
+
+    const revenueMap: Record<string, { orders: number; revenue: number }> = {};
+    for (const row of revenueByMethod) {
+      const method = row.paymentMethod || 'UNKNOWN';
+      revenueMap[method] = {
+        orders: row._count,
+        revenue: Number(row._sum.totalAmount || 0),
+      };
+    }
+
+    let avgSettlementHours: number | null = null;
+    if (settledPayouts.length > 0) {
+      const totalHours = settledPayouts.reduce((sum, p) => {
+        if (!p.paidAt || !p.order) return sum;
+        return (
+          sum +
+          (p.paidAt.getTime() - p.order.createdAt.getTime()) /
+            (1000 * 60 * 60)
+        );
+      }, 0);
+      avgSettlementHours =
+        Math.round((totalHours / settledPayouts.length) * 100) / 100;
+    }
+
+    return {
+      overview: {
+        totalPayments,
+        captured,
+        failed,
+        refunded,
+        successRate: Math.round(successRate * 100) / 100,
+        failureRate: Math.round(failureRate * 100) / 100,
+      },
+      revenue: {
+        total: revenueByMethod.reduce(
+          (s, r) => s + Number(r._sum.totalAmount || 0),
+          0,
+        ),
+        byMethod: revenueMap,
+      },
+      payouts: {
+        totalVendorPayouts: payoutAggregate._count,
+        totalVendorPayoutAmount: Number(payoutAggregate._sum.amount || 0),
+        avgSettlementHours,
+      },
+      period: {
+        startDate: startDate || null,
+        endDate: endDate || null,
+      },
+    };
+  }
+
+  /**
    * Initiate a refund for a payment.
    */
   async initiateRefund(orderId: string, reason?: string) {
