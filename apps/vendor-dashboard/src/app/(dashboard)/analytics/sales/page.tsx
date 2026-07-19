@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { vendorApi } from '@/lib/api';
+import { exportToCSV } from '@/lib/utils';
 
 export default function SalesAnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
@@ -64,10 +65,30 @@ export default function SalesAnalyticsPage() {
           <h2 className="text-xl font-bold text-slate-900">Sales Analytics</h2>
           <p className="text-sm text-slate-500">Detailed sales performance</p>
         </div>
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
-          {[{ id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: '90d', label: '90D' }].map((p) => (
-            <button key={p.id} onClick={() => setPeriod(p.id)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.id ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'}`}>{p.label}</button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const rows: Record<string, any>[] = [];
+              salesByCategory.forEach((c: any) => rows.push({ Type: 'Category', Name: c.name || c.category || 'N/A', Orders: c.orders || c.count || 0, Revenue: Number(c.revenue || c.sales || 0), Details: '' }));
+              topProducts.forEach((p: any) => rows.push({ Type: 'Product', Name: p.name, Orders: p.sales || p.quantity || 0, Revenue: Number(p.revenue || 0), Details: `${p.sales || p.quantity || 0} sold` }));
+              analytics?.salesOverTime?.forEach((d: any) => rows.push({ Type: 'Daily', Name: new Date(d.date).toISOString().slice(0, 10), Orders: d.orders || 0, Revenue: d.sales || 0, Details: '' }));
+              exportToCSV(rows, [
+                { key: 'Type', label: 'Type' },
+                { key: 'Name', label: 'Name' },
+                { key: 'Orders', label: 'Orders' },
+                { key: 'Revenue', label: 'Revenue' },
+                { key: 'Details', label: 'Details' },
+              ], `sales-analytics-${period}`);
+            }}
+            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Export CSV
+          </button>
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+            {[{ id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: '90d', label: '90D' }].map((p) => (
+              <button key={p.id} onClick={() => setPeriod(p.id)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.id ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'}`}>{p.label}</button>
+            ))}
+          </div>
         </div>
       </div>
 
