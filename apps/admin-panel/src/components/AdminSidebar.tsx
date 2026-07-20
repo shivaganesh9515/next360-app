@@ -6,7 +6,8 @@ import {
   LayoutDashboard, Users, Store, Package, ShoppingCart, Truck,
   MapPin, DollarSign, Tag, Percent, ClipboardList, Star,
   MessageSquare, BarChart3, FileText, Image, Bell, Shield,
-  Settings, ChevronDown, ChevronRight, AlertTriangle, CreditCard
+  Settings, ChevronDown, ChevronRight, AlertTriangle, CreditCard,
+  LifeBuoy
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -50,6 +51,7 @@ const navItems = [
     { href: '/ai-logs/recommendations', label: 'Recommendations' },
     { href: '/ai-logs/analytics', label: 'Analytics' },
   ]},
+  { href: '/audit-logs', label: 'Audit Logs', icon: ClipboardList },
   { href: '/reports', label: 'Reports', icon: FileText, subItems: [
     { href: '/reports/sales', label: 'Sales Reports' },
     { href: '/reports/revenue', label: 'Revenue Reports' },
@@ -61,6 +63,7 @@ const navItems = [
   ]},
   { href: '/zones', label: 'Zones', icon: MapPin },
   { href: '/disputes', label: 'Disputes', icon: AlertTriangle },
+  { href: '/support', label: 'Support', icon: LifeBuoy },
   { href: '/roles', label: 'Roles & Permissions', icon: Shield, subItems: [
     { href: '/roles', label: 'Roles' },
     { href: '/roles/permissions', label: 'Permissions' },
