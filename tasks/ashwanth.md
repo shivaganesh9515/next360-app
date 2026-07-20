@@ -1,109 +1,160 @@
-# Ashwanth — Backend: Admin Endpoints + Security + Support System
+# 👋 Hey Ashwanth! Your Tasks
 
-> **Area**: `apps/api/src/`
-> **Status**: ✅ ALL TASKS COMPLETE
-> **Priority**: 🔴 P0 → 🟠 P1
+## 📥 First: Get Latest Code
+Open terminal and run each line one by one:
+```bash
+git checkout main
+git pull origin main
+cd apps/api
+npm install
+```
 
----
-
-## ✅ Already Completed
-
-- [x] Admin Dashboard aggregate (`GET /admin/dashboard`) — 13 parallel queries for live KPIs
-- [x] Platform Settings (`GET /admin/settings`, `PATCH /admin/settings`) — whitelist-secured field updates
-- [x] Audit Log module (`AuditLog` model, `GET /audit-logs`, `GET /audit-logs/summary`)
-- [x] Notification: `sendVendorRejectedNotification()` added to NotificationsService
-- [x] Vendor detail endpoint (`GET /vendors/:id/detail`) — aggregated KYC, performance, orders, revenue
-
----
-
-## 🔴 P0 — Missing Admin Endpoints (Must Do First)
-
-### 1. User Detail + Status Endpoints
-**Files**: `apps/api/src/users/users.controller.ts`, `users.service.ts`
-**What**:
-- [x] `GET /users/:id` — single user detail with address/wishlist/order summary — **Implemented**
-- [x] `PATCH /users/:id/status` — ban/suspend/activate user — **Implemented**
-
-### 2. Support Ticket System (Full Module)
-**Files**: `prisma/schema.prisma`, `apps/api/src/support/` (new module)
-**What**:
-- [x] Add `SupportTicket` model with `assignedToId` relation — **Implemented**
-- [x] Add `TicketMessage` model — **Implemented**
-- [x] `POST /support/tickets` — create ticket (user/customer) — **Implemented**
-- [x] `GET /support/tickets` — list tickets (admin: all, user: own) — **Implemented**
-- [x] `GET /support/tickets/:id` — single ticket detail with replies — **Implemented**
-- [x] `PATCH /support/tickets/:id/assign` — assign to admin — **Implemented**
-- [x] `POST /support/tickets/:id/reply` — add reply — **Implemented**
-- [x] `PATCH /support/tickets/:id/status` — resolve/close — **Implemented**
-
-### 3. Admin Send Notification
-**Files**: `apps/api/src/notifications/notifications.controller.ts`
-**What**:
-- [x] `POST /notifications` — admin can broadcast a push notification to all users / by role / specific user(s) — **Implemented**
+## 🚀 Start Backend
+```bash
+npm run start:dev
+```
 
 ---
 
-## 🟠 P1 — Admin Endpoints
+## 📋 Your Summary — 3 Tasks
 
-### 4. Reports Endpoints
-**Files**: `apps/api/src/reports/` (new module)
-**What**:
-- [x] `GET /reports/sales` — sales report with date range, pagination — **Implemented**
-- [x] `GET /reports/revenue` — revenue report with platform/vendor breakdown — **Implemented**
-- [x] `GET /reports/sales/csv` — CSV export — **Implemented**
-- [x] `GET /reports/revenue/csv` — CSV export — **Implemented**
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | User detail + status endpoints | 1 new file + 2 edits | ⭐ Easy |
+| 2 | Admin send notification endpoint | 1 edit | ⭐ Easy |
+| 3 | Install Helmet for security | 1 edit + 1 npm command | ⭐ Easy |
 
-### 5. Payouts Admin Oversight
-**Files**: `apps/api/src/payouts-admin/`
-**What**:
-- [x] `GET /payouts/vendors` — admin cross-vendor payout oversight — **Implemented**
-- [x] `GET /payouts/delivery` — admin delivery partner payout oversight — **Implemented**
-- [x] `GET /payouts` — generic payout listing — **Implemented**
+**⏱️ Total time: ~1 hour**
 
-### 6. Remaining Missing Admin Endpoints
-**Files**: Various controllers
-**What**:
-- [x] `GET /reviews/ratings` — ratings aggregate stats — **Implemented**
-- [x] `GET /admin/analytics` — admin analytics with date range and period — **Implemented**
-
-### 7. Product Approval Endpoint
-**Files**: `apps/api/src/products/products.controller.ts`
-**What**:
-- [x] `PATCH /products/:id/approve` — already existed at line 51 — **Verified**
+**What's already done for you:**
+- ✅ Redis + BullMQ running — you can use the queue for notifications
+- ✅ SMS/Email providers ready — call `this.smsService` or `this.emailService`
+- ✅ `crypto.randomInt()` — already fixed, you can skip that task
 
 ---
 
-## 🟠 P1 — Security Hardening
+## ✅ Task 1: User Detail & Status (for Admin)
 
-### 8. Security Middleware
-**Files**: `apps/api/src/main.ts`, `apps/api/package.json`
-**What**:
-- [x] Helmet applied (`app.use(helmet())`) — **Implemented**
-- [x] ThrottlerGuard registered globally as APP_GUARD — **Implemented**
-- [x] CORS properly configured for production (env-driven with credentials, maxAge) — **Implemented**
+**File to create:**
+1. `apps/api/src/users/dto/update-status.dto.ts`
 
-### 9. Auth Security
-**Files**: `apps/api/src/auth/auth.service.ts`, `common/`
-**What**:
-- [x] JWT secret fallback removed — fails fast if env var missing — **Implemented**
-- [x] Math.random() for OTP replaced with `crypto.randomInt()` — **Implemented**
-- [x] Refresh token rotation implemented — **Implemented** (30-day expiry, reuse detection, token rotation)
+**Files to edit:**
+1. `apps/api/src/users/users.controller.ts` — add 2 new endpoints
+2. `apps/api/src/users/users.service.ts` — add 2 new functions
+
+### Copy this code:
+
+**1. Create file: `apps/api/src/users/dto/update-status.dto.ts`**
+```typescript
+import { IsBoolean, IsOptional } from 'class-validator';
+
+export class UpdateUserStatusDto {
+  @IsBoolean()
+  isActive: boolean;
+
+  @IsOptional()
+  reason?: string;
+}
+```
+
+**2. In `users.controller.ts` — add after the `updateRole` endpoint:**
+```typescript
+@Get(':id')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
+async getUserById(@Param('id') id: string) {
+  return this.usersService.findById(id);
+}
+
+@Patch(':id/status')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
+async updateUserStatus(
+  @Param('id') id: string,
+  @Body() dto: UpdateUserStatusDto,
+) {
+  return this.usersService.updateStatus(id, dto);
+}
+```
+
+**3. In `users.service.ts` — add after `updateRole` function:**
+```typescript
+import { UpdateUserStatusDto } from './dto/update-status.dto';
+
+async updateStatus(id: string, dto: UpdateUserStatusDto) {
+  const user = await this.prisma.user.findUnique({ where: { id } });
+  if (!user) throw new NotFoundException('User not found');
+
+  return this.prisma.user.update({
+    where: { id },
+    data: { isActive: dto.isActive },
+    select: {
+      id: true, email: true, name: true, role: true, isActive: true,
+    },
+  });
+}
+```
 
 ---
 
-## Implementation Order
-1. ~~User detail + status endpoints~~ ✅
-2. ~~Support Ticket module~~ ✅
-3. ~~Admin send notification endpoint~~ ✅
-4. ~~Security hardening (Helmet, ThrottlerGuard)~~ ✅
-5. ~~Reports endpoints~~ ✅
-6. ~~Payouts admin oversight~~ ✅
-7. ~~Remaining missing endpoints~~ ✅
-8. ~~Auth security hardening~~ ✅
+## ✅ Task 2: Admin Send Notification
+
+**File to edit:**
+1. `apps/api/src/notifications/notifications.controller.ts`
+
+### Add this endpoint at the end:
+
+```typescript
+@Post('send')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
+async sendNotification(
+  @Body() dto: { userId: string; title: string; body: string; type?: string; data?: any },
+) {
+  return this.notificationsService.notify(
+    dto.userId,
+    dto.title,
+    dto.body,
+    dto.type || 'ADMIN',
+    dto.data,
+  );
+}
+```
 
 ---
 
-## Reference
-- Admin panel API client: `apps/admin-panel/src/lib/api.ts`
-- Response envelope format: root `CLAUDE.md`
-- Audit module pattern: `apps/api/src/audit/audit.module.ts`
+## ✅ Task 3: Security Hardening
+
+**File to edit:**
+1. `apps/api/src/main.ts`
+
+### Find this line and add below it:
+
+Look for `app.enableCors({` — it's already there. No change needed for CORS.
+
+**Install Helmet:**
+```bash
+npm install helmet
+```
+
+**In `main.ts` — add after `app.setGlobalPrefix('api')`:**
+```typescript
+import helmet from 'helmet';
+
+// Add this:
+app.use(helmet());
+```
+
+---
+
+## 📤 Push Your Changes
+```bash
+git add .
+git commit -m "feat: user detail/status endpoints, security hardening"
+git push origin main
+```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 20 min on any one task
+- If the backend crashes, check `npm install` first
+- If `helmet` install fails, just skip it and tell me

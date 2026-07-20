@@ -1,166 +1,210 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, Alert, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
+  Alert, Platform, useWindowDimensions, Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+  useAnimatedStyle, useSharedValue, interpolate, withSpring, runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
-import { Colors, Typography, Spacing, BorderRadius, REANIMATED_SPRING_CONFIG } from '../constants/theme';
-import PopoverBackdrop from './PopoverBackdrop';
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
+import { PRESS_SPRING_CONFIG } from '../lib/panelAnimation';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const DOCK_SIZE = 36;
-const PANEL_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
-const PANEL_HEIGHT = SCREEN_HEIGHT * 0.65;
+const DOCK_SIZE = 44;
+const H_INSET   = 16; // px from each screen edge
+const SHEET_OPEN  = { damping: 32, stiffness: 320, mass: 0.9 };
+const SHEET_CLOSE = { damping: 28, stiffness: 280, mass: 0.8 };
 
-interface MenuItem {
-  icon: string;
-  label: string;
-  go: () => void;
-}
+interface MenuItem { icon: string; label: string; go: () => void }
+interface Props { navigation?: any; active?: boolean }
 
-interface Props {
-  navigation: any;
-}
+export default function ProfileAvatarPopover({ navigation, active = false }: Props) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-// Same expand-in-place language as NotificationsPopover/LocationPopover —
-// measured origin, spring-grows into a blurred-backdrop panel with real
-// depth — left-anchored instead of right-anchored since the trigger lives at
-// the top-left of the hero, not the top-right icon cluster.
-export default function ProfileAvatarPopover({ navigation }: Props) {
+  const sheetWidth  = screenWidth - H_INSET * 2;          // full width - 16 each side
+  const sheetHeight = Math.min(screenHeight * 0.72, 580);  // generous height
+  const sheetBottom = insets.bottom + 90;                  // sits above the navbar
+
   const { user, signOut } = useAuth();
-  const dockRef = useRef<View>(null);
-  const [visible, setVisible] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [origin, setOrigin] = useState({ x: Spacing.xl, y: 60 });
-  const anim = useSharedValue(0);
 
-  // top is pinned to origin.y (the dock icon's own measured position) instead
-  // of interpolating up toward the status bar — the panel now grows straight
-  // down from exactly where the icon sits instead of visibly detaching and
-  // sliding upward to a disconnected point before it opens (and reversing
-  // that same jump on close).
-  const leftTarget = Spacing.xl;
+  // Two-phase visibility: Modal mounts first (visible=true), THEN we spring in
+  const [visible,  setVisible]  = useState(false);
+  const [mounted,  setMounted]  = useState(false); // true after Modal onShow fires
 
-  const open = () => {
-    dockRef.current?.measureInWindow((x, y) => {
-      setOrigin({ x, y });
-      setVisible(true);
-      setExpanded(true);
-      requestAnimationFrame(() => {
-        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
-      });
+  const sheetAnim    = useSharedValue(0); // 0 = off-screen-below, 1 = resting
+  const triggerScale = useSharedValue(1);
+
+  /* ── Trigger press feedback ── */
+  const onDockPress = useCallback(() => {
+    triggerScale.value = withSpring(0.82, PRESS_SPRING_CONFIG);
+    setVisible(true); // mount the Modal
+  }, []);
+
+  /* ── When Modal is shown (onShow = after native layer draws it) → spring in ── */
+  useEffect(() => {
+    if (mounted) {
+      sheetAnim.value = 0; // ensure starting position
+      sheetAnim.value = withSpring(1, SHEET_OPEN);
+      triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
+    }
+  }, [mounted]);
+
+  /* ── Close ── */
+  const closeSheet = useCallback(() => {
+    sheetAnim.value = withSpring(0, SHEET_CLOSE, (done) => {
+      if (done) {
+        runOnJS(setMounted)(false);
+        runOnJS(setVisible)(false);
+      }
     });
-  };
+  }, []);
 
-  const close = () => {
-    const finishClose = () => {
-      setExpanded(false);
-      setVisible(false);
-    };
-    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
-      if (finished) runOnJS(finishClose)();
-    });
-  };
+  /* ── Animated styles ── */
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(sheetAnim.value, [0, 1], [0, 1]),
+  }));
 
-  const goTo = (screen: string) => {
-    close();
-    navigation.navigate('Profile', { screen });
-  };
+  // Sheet translates from off-screen bottom → resting position
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{
+      translateY: interpolate(sheetAnim.value, [0, 1], [sheetHeight + 60, 0]),
+    }],
+  }));
+
+  const triggerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: triggerScale.value }],
+  }));
+
+  /* ── Navigation ── */
+  const goTo = useCallback((screen: string) => {
+    if (!navigation) return;
+    closeSheet();
+    setTimeout(() => navigation.navigate('Profile', { screen }), 300);
+  }, [navigation, closeSheet]);
 
   const menuItems: MenuItem[] = [
-    { icon: 'person-outline', label: 'Edit Profile', go: () => goTo('EditProfile') },
-    { icon: 'receipt-outline', label: 'My Orders', go: () => goTo('OrderHistory') },
-    { icon: 'heart-outline', label: 'Favourites', go: () => { close(); navigation.navigate('Favorites'); } },
-    { icon: 'pricetag-outline', label: 'Offers & Coupons', go: () => goTo('Promos') },
-    { icon: 'location-outline', label: 'My Addresses', go: () => goTo('AddressList') },
-    { icon: 'notifications-outline', label: 'Notifications', go: () => goTo('Notifications') },
-    { icon: 'help-circle-outline', label: 'Support', go: () => goTo('Support') },
+    { icon: 'person-outline',        label: 'Edit Profile',     go: () => goTo('EditProfile') },
+    { icon: 'receipt-outline',        label: 'My Orders',        go: () => goTo('OrderHistory') },
+    { icon: 'pricetag-outline',       label: 'Offers & Coupons', go: () => goTo('Promos') },
+    { icon: 'location-outline',       label: 'My Addresses',     go: () => goTo('AddressList') },
+    { icon: 'notifications-outline',  label: 'Notifications',    go: () => goTo('Notifications') },
+    { icon: 'gift-outline',           label: 'Referral',         go: () => goTo('Referral') },
+    { icon: 'help-circle-outline',    label: 'Support',          go: () => goTo('Support') },
   ];
 
-  const handleSignOut = () => {
+  const handleSignOut = useCallback(() => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => { close(); signOut(); } },
+      {
+        text: 'Sign Out', style: 'destructive',
+        onPress: () => { closeSheet(); setTimeout(() => signOut(), 350); },
+      },
     ]);
-  };
+  }, [signOut, closeSheet]);
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
-  const panelStyle = useAnimatedStyle(() => ({
-    top: origin.y,
-    left: interpolate(anim.value, [0, 1], [origin.x, leftTarget]),
-    width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
-    height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
-    borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
-    // Interpolated in lockstep with the size instead of a static white fill —
-    // a static color snap showed a flash of solid white for a frame on collapse.
-    backgroundColor: interpolateColor(anim.value, [0, 1], ['rgba(255,255,255,0.14)', Colors.white]),
-  }));
-  const iconOnlyStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
+  const initials = user?.name
+    ? user.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+    : 'U';
 
   return (
     <>
-      <View ref={dockRef} style={styles.reserve} collapsable={false}>
-        <TouchableOpacity style={styles.dock} activeOpacity={0.7} onPress={open}>
-          <Text style={styles.dockText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
+      {/* ── Dock trigger — self-contained ── */}
+      <Reanimated.View collapsable={false} style={triggerStyle}>
+        <TouchableOpacity
+          style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }]}
+          activeOpacity={0.75}
+          onPress={onDockPress}
+          hitSlop={8}
+        >
+          <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
+            {initials}
+          </Text>
         </TouchableOpacity>
-      </View>
+      </Reanimated.View>
 
-      <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <PopoverBackdrop style={[styles.backdrop, backdropStyle]} onPress={close} />
+      {/* ── Bottom sheet Modal ── */}
+      <Modal
+        visible={visible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeSheet}
+        onShow={() => setMounted(true)}  // ← fires AFTER native layer draws the Modal
+      >
+        {/* Semi-transparent backdrop — tap to dismiss */}
+        <Reanimated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
+        </Reanimated.View>
 
-        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
-          <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">
-            <Text style={styles.iconOnlyText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
-          </Reanimated.View>
+        {/* Sheet: absolute positioned, equal H_INSET on both sides */}
+        <Reanimated.View
+          style={[
+            styles.sheet,
+            {
+              width: sheetWidth,
+              height: sheetHeight,
+              left: H_INSET,
+              bottom: sheetBottom,
+            },
+            sheetStyle,
+          ]}
+        >
+          {/* Drag handle */}
+          <View style={styles.handle} />
 
-          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Profile</Text>
-              <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={8}>
-                <Ionicons name="close" size={18} color={Colors.text} />
-              </TouchableOpacity>
+          {/* ── Header ── */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+              <View style={styles.headerInfo}>
+                <Text style={styles.userName} numberOfLines={1}>{user?.name || 'User'}</Text>
+                <Text style={styles.userSub} numberOfLines={1}>
+                  {user?.phone ? `+91 ${user.phone}` : (user?.email || '')}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={closeSheet} style={styles.closeBtn} hitSlop={10}>
+              <Ionicons name="close" size={18} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Menu ── */}
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={styles.menuCard}>
+              {menuItems.map((item, i) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[styles.menuRow, i < menuItems.length - 1 && styles.menuDivider]}
+                  onPress={item.go}
+                  activeOpacity={0.6}
+                >
+                  <View style={styles.menuLeft}>
+                    <View style={styles.menuIcon}>
+                      <Ionicons name={item.icon as any} size={17} color={Colors.textSecondary} />
+                    </View>
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={15} color={Colors.border} />
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.userCard}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.userName}>{user?.name || 'User'}</Text>
-                  <Text style={styles.userEmail}>{user?.phone ? `+91 ${user.phone}` : user?.email}</Text>
-                </View>
-              </View>
+            <TouchableOpacity style={styles.signOut} onPress={handleSignOut} activeOpacity={0.7}>
+              <Ionicons name="log-out-outline" size={17} color={Colors.error} />
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
 
-              <View style={styles.menuCard}>
-                {menuItems.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.label}
-                    style={[styles.menuItem, index < menuItems.length - 1 && styles.menuItemBorder]}
-                    onPress={item.go}
-                  >
-                    <View style={styles.menuLeft}>
-                      <Ionicons name={item.icon as any} size={20} color={Colors.textSecondary} />
-                      <Text style={styles.menuLabel}>{item.label}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.border} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-                <Ionicons name="log-out-outline" size={18} color={Colors.error} />
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.version}>Next360 v1.0.0</Text>
-            </ScrollView>
-          </Reanimated.View>
+            <Text style={styles.version}>Next360 v1.0.0</Text>
+          </ScrollView>
         </Reanimated.View>
       </Modal>
     </>
@@ -168,69 +212,85 @@ export default function ProfileAvatarPopover({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  reserve: { width: DOCK_SIZE, height: DOCK_SIZE },
   dock: {
-    width: DOCK_SIZE, height: DOCK_SIZE, borderRadius: DOCK_SIZE / 2,
+    width: DOCK_SIZE, height: DOCK_SIZE,
+    borderRadius: DOCK_SIZE / 2,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
   },
-  dockText: { ...Typography.bodySmall, color: Colors.white, fontFamily: 'Inter_600SemiBold' },
+  initials: { fontFamily: 'Inter_600SemiBold', fontSize: 14, letterSpacing: 0.5 },
 
-  backdrop: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(10,10,8,0.35)',
+  backdrop: { backgroundColor: 'rgba(10,10,10,0.60)' },
+
+  sheet: {
+    position: 'absolute',
+    backgroundColor: '#FAF9F6',
+    borderRadius: 24,
+    overflow: 'hidden',
+    ...Platform.select({
+      web:     { boxShadow: '0px -8px 48px rgba(10,10,8,0.22), 0px 0px 0px 1px rgba(0,0,0,0.05)' },
+      default: {
+        shadowColor: '#0A0A08',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.20,
+        shadowRadius: 28,
+        elevation: 30,
+      },
+    }),
   },
-  panel: { position: 'absolute', overflow: 'hidden' },
-  panelShadow: {
-    shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,
+
+  handle: {
+    alignSelf: 'center', marginTop: 10,
+    width: 36, height: 4,
+    borderRadius: 2, backgroundColor: Colors.border,
   },
-  iconOnly: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  iconOnlyText: { ...Typography.bodySmall, color: Colors.white, fontFamily: 'Inter_600SemiBold' },
-  content: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
+    gap: Spacing.sm,
   },
-  headerTitle: { ...Typography.h3, color: Colors.text },
-  closeBtn: {
-    width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
-
-  scrollContent: { padding: Spacing.lg },
-
-  userCard: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
-    padding: Spacing.md, marginBottom: Spacing.lg,
-  },
+  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minWidth: 0 },
   avatar: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.organic,
-    alignItems: 'center', justifyContent: 'center',
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: Colors.organic,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  avatarText: { ...Typography.h3, color: Colors.white },
-  userName: { ...Typography.h3, color: Colors.text },
-  userEmail: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: 2 },
+  avatarText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.white },
+  headerInfo: { flex: 1, minWidth: 0 },
+  userName:   { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.text, lineHeight: 20 },
+  userSub:    { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
+  closeBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
 
+  scroll: {
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.xl,
+  },
   menuCard: {
     backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
-    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', marginBottom: Spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.border,
+    overflow: 'hidden', marginBottom: Spacing.md,
   },
-  menuItem: {
+  menuRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    paddingVertical: 14, paddingHorizontal: Spacing.lg,
   },
-  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  menuLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  menuDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  menuLeft:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  menuIcon: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center',
+  },
   menuLabel: { ...Typography.body, color: Colors.text },
 
-  signOutBtn: {
+  signOut: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
-    backgroundColor: '#FEE2E2', borderRadius: BorderRadius.lg, paddingVertical: Spacing.md,
+    backgroundColor: '#FEE2E2', borderRadius: BorderRadius.lg, paddingVertical: 14,
+    marginBottom: Spacing.sm,
   },
   signOutText: { ...Typography.button, color: Colors.error },
-
-  version: { ...Typography.caption, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.lg },
+  version: { ...Typography.caption, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.xs },
 });

@@ -162,7 +162,7 @@ function SheetHero({
           ) : (
             <Ionicons name="leaf" size={expanded ? 56 : 32} color={accent} />
           )}
-          <Reanimated.View style={[s.heroActionsOverlay, belowInfoStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
+          <Reanimated.View style={[s.heroActionsOverlay, belowInfoStyle, { pointerEvents: expanded ? 'auto' : 'none' }]}>
             <TouchableOpacity style={s.heroActionBtn} onPress={handleShare} hitSlop={8}>
               <Ionicons name="share-outline" size={16} color={Colors.text} />
             </TouchableOpacity>
@@ -176,12 +176,12 @@ function SheetHero({
           </Reanimated.View>
         </Reanimated.View>
 
-        <Reanimated.View style={[s.sideInfo, sideInfoStyle]} pointerEvents={expanded ? 'none' : 'auto'}>
+        <Reanimated.View style={[s.sideInfo, sideInfoStyle, { pointerEvents: expanded ? 'none' : 'auto' }]}>
           <ProductMeta product={product} />
         </Reanimated.View>
       </Reanimated.View>
 
-      <Reanimated.View style={belowTextStyle} pointerEvents={expanded ? 'auto' : 'none'}>
+      <Reanimated.View style={[belowTextStyle, { pointerEvents: expanded ? 'auto' : 'none' }]}>
         <ProductMeta product={product} />
       </Reanimated.View>
     </View>

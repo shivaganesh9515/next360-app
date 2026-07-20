@@ -1,9 +1,11 @@
+import * as crypto from 'crypto';
 import { Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomInt, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SmsService } from '../providers/sms/sms.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -33,6 +35,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
+    private smsService: SmsService,
   ) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -144,13 +147,11 @@ export class AuthService {
   // verify-otp-login together replace signup/login for that client entirely
   // (email+password above stays as-is for vendor/admin, which still use it).
   async sendOtp(dto: SendOtpDto) {
-    const code = String(randomInt(100000, 999999));
+    const code = String(crypto.randomInt(100000, 999999));
     this.otpStore.set(dto.phone, { code, expiresAt: Date.now() + AuthService.OTP_TTL_MS });
 
-    // No SMS gateway wired up yet (see CLAUDE.md's open decisions register) —
-    // logged server-side so the code is reachable for manual testing until
-    // one is. Replace with a real provider call (e.g. MSG91/Twilio) here.
-    this.logger.log(`OTP for ${dto.phone}: ${code} (valid ${AuthService.OTP_TTL_MS / 60000} min)`);
+    // Send OTP via SMS provider (falls back to console log if no provider configured)
+    await this.smsService.sendOtp(dto.phone, code);
 
     return { message: 'OTP sent' };
   }

@@ -92,7 +92,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const fetchWishlistCount = useCallback(async () => {
     try {
-      const res = await customerApi.getWishlist();
+      const res = await customerApi.getWishlist() as any;
       const list = Array.isArray(res) ? res : (res?.data ?? []);
       setWishlistCount(list.length);
     } catch {

@@ -112,7 +112,7 @@ export default function AiChatHistoryScreen({ navigation }: any) {
           <Text style={styles.emptyTitle}>{t('ai.chatHistory.empty.title')}</Text>
           <Text style={styles.emptySubtitle}>{t('ai.chatHistory.empty.subtitle')}</Text>
           <TouchableOpacity
-            style={styles.startButton}
+            style={[styles.startButton, { backgroundColor: accent }]}
             onPress={() => navigation.navigate('AiAssistant')}
           >
             <Text style={styles.startButtonText}>{t('ai.chatHistory.startChat')}</Text>
@@ -203,7 +203,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   startButton: {
-    backgroundColor: accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
