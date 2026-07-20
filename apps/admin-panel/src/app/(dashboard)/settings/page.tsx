@@ -34,6 +34,12 @@ export default function SettingsPage() {
     autoApproveVendors: false,
     autoApproveProducts: false,
     maintenanceMode: false,
+    newOrderAlerts: true,
+    vendorRegistrationAlerts: true,
+    disputeAlerts: true,
+    dailySummary: true,
+    weeklyReport: false,
+    alertEmail: 'admin@next360.com',
   });
 
   useEffect(() => { loadSettings(); }, []);
@@ -55,6 +61,12 @@ export default function SettingsPage() {
           autoApproveVendors: d.autoApproveVendors ?? false,
           autoApproveProducts: d.autoApproveProducts ?? false,
           maintenanceMode: d.maintenanceMode ?? false,
+          newOrderAlerts: d.newOrderAlerts ?? true,
+          vendorRegistrationAlerts: d.vendorRegistrationAlerts ?? true,
+          disputeAlerts: d.disputeAlerts ?? true,
+          dailySummary: d.dailySummary ?? true,
+          weeklyReport: d.weeklyReport ?? false,
+          alertEmail: d.alertEmail || 'admin@next360.com',
         });
       }
     } catch {
@@ -146,29 +158,29 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             <h3 className="font-semibold text-gray-800">Push Notifications</h3>
             <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <input type="checkbox" checked={settings.newOrderAlerts} onChange={e => setSettings({...settings, newOrderAlerts: e.target.checked})} className="rounded" />
               <div><p className="text-sm font-medium">New Order Alerts</p><p className="text-xs text-gray-500">Notify admin when a new order is placed</p></div>
             </label>
             <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <input type="checkbox" checked={settings.vendorRegistrationAlerts} onChange={e => setSettings({...settings, vendorRegistrationAlerts: e.target.checked})} className="rounded" />
               <div><p className="text-sm font-medium">Vendor Registration</p><p className="text-xs text-gray-500">Notify when a new vendor signs up</p></div>
             </label>
             <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <input type="checkbox" checked={settings.disputeAlerts} onChange={e => setSettings({...settings, disputeAlerts: e.target.checked})} className="rounded" />
               <div><p className="text-sm font-medium">Dispute Alerts</p><p className="text-xs text-gray-500">Notify when a return or refund is requested</p></div>
             </label>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             <h3 className="font-semibold text-gray-800">Email Notifications</h3>
             <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <input type="checkbox" checked={true} readOnly className="rounded" />
+              <input type="checkbox" checked={settings.dailySummary} onChange={e => setSettings({...settings, dailySummary: e.target.checked})} className="rounded" />
               <div><p className="text-sm font-medium">Daily Summary</p><p className="text-xs text-gray-500">Receive daily platform performance email</p></div>
             </label>
             <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <input type="checkbox" checked={false} readOnly className="rounded" />
+              <input type="checkbox" checked={settings.weeklyReport} onChange={e => setSettings({...settings, weeklyReport: e.target.checked})} className="rounded" />
               <div><p className="text-sm font-medium">Weekly Report</p><p className="text-xs text-gray-500">Receive weekly analytics and revenue report</p></div>
             </label>
-            <div><label className="text-sm text-gray-600 mb-1 block">Alert Email</label><input type="email" defaultValue="admin@next360.com" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /></div>
+            <div><label className="text-sm text-gray-600 mb-1 block">Alert Email</label><input type="email" value={settings.alertEmail} onChange={e => setSettings({...settings, alertEmail: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /></div>
           </div>
         </div>
       )}
