@@ -37,6 +37,7 @@ import { AuditModule } from './audit/audit.module';
 import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
+import { RazorpayModule } from './razorpay/razorpay.module';
 import { SmsModule } from './providers/sms/sms.module';
 import { EmailModule } from './providers/email/email.module';
 import { SupportModule } from './support/support.module';
@@ -100,6 +101,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     DeliverySlotModule,
     DeliveryModule,
     QueueModule,
+    RazorpayModule,
     SmsModule,
     EmailModule,
     SupportModule,

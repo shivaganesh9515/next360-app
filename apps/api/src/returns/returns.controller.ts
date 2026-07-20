@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { ReturnsService } from './returns.service';
 import { CreateReturnDto, ProcessReturnDto } from './dto/return.dto';
@@ -46,11 +47,20 @@ export class ReturnsController {
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  findOne(
+  async findOne(
     @CurrentUser() user: { id: string; role: string },
     @Param('id') id: string,
   ) {
-    return this.returnsService.findOne(id);
+    const ret = await this.returnsService.findOne(id);
+    // PII FIX: Non-admin users can only view their own returns. Without this,
+    // any authenticated user can fetch any return by UUID and access PII
+    // (name, email, phone) of other users. RolesGuard without @Roles()
+    // returns true for any authenticated user, so the controller must
+    // enforce ownership here.
+    if (user.role !== 'ADMIN' && ret.userId !== user.id) {
+      throw new NotFoundException('Return request not found');
+    }
+    return ret;
   }
 
   @Patch(':id')

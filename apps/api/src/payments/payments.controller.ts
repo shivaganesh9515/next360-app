@@ -6,6 +6,8 @@ import {
   Param,
   Query,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
   HttpCode,
   HttpStatus,
   Headers,
@@ -22,6 +24,7 @@ import {
   RazorpayWebhookDto,
   PaymentQueryDto,
   ProcessDeliveryPayoutsDto,
+  AutoSettleVendorsDto,
 } from './dto/create-razorpay-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -54,6 +57,7 @@ export class PaymentsController {
 
   @Post('razorpay/webhook')
   @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   handleWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Body() dto: RazorpayWebhookDto,
@@ -113,6 +117,13 @@ export class PaymentsController {
     );
   }
 
+  @Post('auto-settle-vendors')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  autoSettleVendors(@Body() dto: AutoSettleVendorsDto) {
+    return this.paymentsService.autoSettleVendors(dto.threshold);
+  }
+
   @Get('settlements/:vendorId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -138,8 +149,15 @@ export class PaymentsController {
   }
 
   @Get(':orderId')
-  @UseGuards(JwtAuthGuard)
-  getPayments(@Param('orderId') orderId: string) {
-    return this.paymentsService.getPaymentsForOrder(orderId);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getPayments(
+    @CurrentUser() user: { id: string; role?: string },
+    @Param('orderId') orderId: string,
+  ) {
+    return this.paymentsService.getPaymentsForOrder(
+      orderId,
+      user.id,
+      user.role,
+    );
   }
 }

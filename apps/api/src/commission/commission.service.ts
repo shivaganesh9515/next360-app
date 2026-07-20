@@ -31,31 +31,48 @@ export class CommissionService {
     }
 
     // Create commission records for each vendor group
+    // Uses upsert with DB-level @@unique([orderId, vendorId]) for idempotency
     const commissions = [];
     for (const group of order.vendorGroups) {
       const commissionPct = group.vendor.commissionPct;
       const commissionAmount =
         (Number(group.subtotal) * commissionPct) / 100;
 
-      // Check if commission already exists for this (order, vendor)
-      const existing = await this.prisma.commission.findFirst({
-        where: { orderId, vendorId: group.vendorId },
-      });
-      if (existing) continue;
-
-      const commission = await this.prisma.commission.create({
-        data: {
-          orderId,
-          vendorId: group.vendorId,
-          orderAmount: group.subtotal,
-          commissionPct,
-          commissionAmount,
-        },
-        include: {
-          vendor: { select: { id: true, storeName: true } },
-        },
-      });
-      commissions.push(commission);
+      try {
+        const commission = await this.prisma.commission.upsert({
+          where: {
+            orderId_vendorId: {
+              orderId,
+              vendorId: group.vendorId,
+            },
+          },
+          update: {},
+          create: {
+            orderId,
+            vendorId: group.vendorId,
+            orderAmount: group.subtotal,
+            commissionPct,
+            commissionAmount,
+          },
+          include: {
+            vendor: { select: { id: true, storeName: true } },
+          },
+        });
+        commissions.push(commission);
+      } catch (error: any) {
+        if (error?.code === 'P2002') {
+          // Race condition: another concurrent request created it — fetch existing
+          const existing = await this.prisma.commission.findFirst({
+            where: { orderId, vendorId: group.vendorId },
+            include: {
+              vendor: { select: { id: true, storeName: true } },
+            },
+          });
+          if (existing) commissions.push(existing);
+        } else {
+          throw error;
+        }
+      }
     }
 
     return commissions;

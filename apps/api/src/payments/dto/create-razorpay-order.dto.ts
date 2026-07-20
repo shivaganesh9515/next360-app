@@ -1,4 +1,4 @@
-import { IsUUID, IsOptional, IsInt, Min, IsString, IsDateString } from 'class-validator';
+import { IsUUID, IsOptional, IsInt, Min, IsString, IsDateString, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateRazorpayOrderDto {
@@ -50,9 +50,25 @@ export class ProcessDeliveryPayoutsDto {
   periodEnd?: string;
 }
 
+export class AutoSettleVendorsDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  threshold?: number = 1000;
+}
+
 export class VerifyPaymentDto {
+  @IsString()
+  @IsNotEmpty()
   razorpayOrderId: string;
+
+  @IsString()
+  @IsNotEmpty()
   razorpayPaymentId: string;
+
+  @IsString()
+  @IsNotEmpty()
   razorpaySignature: string;
 }
 

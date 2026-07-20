@@ -2,16 +2,25 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueService } from './queue.service';
 import { NotificationProcessor } from './processors/notification.processor';
+import { SettlementProcessor } from './processors/settlement.processor';
 
 @Module({
   imports: [
     BullModule.registerQueue(
       { name: 'notifications' },
       { name: 'invoices' },
-      { name: 'settlements' },
+      {
+        name: 'settlements',
+        defaultJobOptions: {
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 10000 },
+        },
+        removeOnComplete: { count: 50 },
+        removeOnFail: { count: 100 },
+      },
     ),
   ],
-  providers: [QueueService, NotificationProcessor],
+  providers: [QueueService, NotificationProcessor, SettlementProcessor],
   exports: [QueueService, BullModule],
 })
 export class QueueModule {}
