@@ -8,20 +8,6 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 bg-slate-100 rounded-lg animate-pulse" />
-        <div className="flex gap-1 p-1 rounded-lg w-fit">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-9 w-24 bg-slate-100 rounded-md animate-pulse" />)}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-48 bg-slate-100 rounded-xl animate-pulse" />)}
-        </div>
-      </div>
-    );
-  }
   const [settings, setSettings] = useState({
     platformName: '',
     supportEmail: '',
@@ -41,8 +27,6 @@ export default function SettingsPage() {
     weeklyReport: false,
     alertEmail: 'admin@next360.com',
   });
-
-  useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
     try {
@@ -94,6 +78,22 @@ export default function SettingsPage() {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
   ];
+
+  useEffect(() => { loadSettings(); }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 bg-slate-100 rounded-lg animate-pulse" />
+        <div className="flex gap-1 p-1 rounded-lg w-fit">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-9 w-24 bg-slate-100 rounded-md animate-pulse" />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-48 bg-slate-100 rounded-xl animate-pulse" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
