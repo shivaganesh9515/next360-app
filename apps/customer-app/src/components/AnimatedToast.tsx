@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import {
-  Animated, Text, StyleSheet, View,
+  Animated, Text, StyleSheet, View, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, SPRING_CONFIG } from '../constants/theme';
@@ -59,7 +59,8 @@ export default function AnimatedToast({ toast, onDismiss }: Props) {
 
   return (
     <Animated.View
-      style={[s.wrapper, { transform: [{ translateY }], pointerEvents: 'box-none' }]}
+      style={[s.wrapper, { transform: [{ translateY }] }]}
+      pointerEvents={Platform.OS === 'web' ? undefined : 'box-none'}
     >
       <View style={[s.bar, { backgroundColor: bgColor }]}>
         <Ionicons name={iconName} size={18} color="#FFF" />
@@ -76,6 +77,7 @@ const s = StyleSheet.create({
     left: Spacing.xl,
     right: Spacing.xl,
     zIndex: 9999,
+    ...Platform.select({ web: { pointerEvents: 'box-none' as any } }),
   },
   bar: {
     flexDirection: 'row',
@@ -84,11 +86,18 @@ const s = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+      },
+    }),
   },
   message: {
     ...Typography.bodySmall,
