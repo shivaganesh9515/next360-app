@@ -114,6 +114,13 @@ export class PaymentsController {
     return this.paymentsService.initiateRefund(orderId, dto.reason);
   }
 
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async listAll() {
+    return this.paymentsService.listAll();
+  }
+
   @Get(':orderId')
   @UseGuards(JwtAuthGuard)
   getPayments(@Param('orderId') orderId: string) {

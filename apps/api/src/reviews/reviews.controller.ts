@@ -11,6 +11,8 @@ import {
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('reviews')
@@ -21,6 +23,13 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateReviewDto) {
     return this.reviewsService.create(user.id, dto);
+  }
+
+  @Get('ratings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  getRatingSummary() {
+    return this.reviewsService.getRatingSummary();
   }
 
   @Get('product/:productId')

@@ -41,6 +41,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
 import { SmsModule } from './providers/sms/sms.module';
 import { EmailModule } from './providers/email/email.module';
+import { SupportModule } from './support/support.module';
+import { ReportsModule } from './reports/reports.module';
+import { PayoutsModule } from './payouts/payouts.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -103,6 +106,9 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     QueueModule,
     SmsModule,
     EmailModule,
+    SupportModule,
+    ReportsModule,
+    PayoutsModule,
   ],
   providers: [
     {
