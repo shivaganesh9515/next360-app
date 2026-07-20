@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
   Alert, Platform, useWindowDimensions, Pressable,
@@ -14,8 +14,9 @@ import { PRESS_SPRING_CONFIG } from '../lib/panelAnimation';
 
 const DOCK_SIZE = 44;
 const H_INSET   = 16; // px from each screen edge
-const SHEET_OPEN  = { damping: 32, stiffness: 320, mass: 0.9 };
-const SHEET_CLOSE = { damping: 28, stiffness: 280, mass: 0.8 };
+
+// TRANSITION: spring, bounce: 0.1, duration: 0.4
+const TRANSITION_SPRING = { damping: 20, stiffness: 220, mass: 0.5 };
 
 interface MenuItem { icon: string; label: string; go: () => void }
 interface Props { navigation?: any; active?: boolean }
@@ -23,38 +24,42 @@ interface Props { navigation?: any; active?: boolean }
 export default function ProfileAvatarPopover({ navigation, active = false }: Props) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const dockRef = useRef<View>(null);
 
-  const sheetWidth  = screenWidth - H_INSET * 2;          // full width - 16 each side
-  const sheetHeight = Math.min(screenHeight * 0.72, 580);  // generous height
-  const sheetBottom = insets.bottom + 90;                  // sits above the navbar
+  const sheetWidth  = screenWidth - H_INSET * 2;
+  const sheetHeight = Math.min(screenHeight * 0.72, 580);
+  const sheetBottom = insets.bottom + 90; // Sits above bottom navbar
 
   const { user, signOut } = useAuth();
 
-  // Two-phase visibility: Modal mounts first (visible=true), THEN we spring in
-  const [visible,  setVisible]  = useState(false);
-  const [mounted,  setMounted]  = useState(false); // true after Modal onShow fires
+  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const sheetAnim    = useSharedValue(0); // 0 = off-screen-below, 1 = resting
+  const panelAnim = useSharedValue(0); // 0 = hidden, 1 = visible
   const triggerScale = useSharedValue(1);
 
-  /* ── Trigger press feedback ── */
+  // Position of trigger button relative to the viewport
+  const [triggerRect, setTriggerRect] = useState({ x: 0, y: 0, width: DOCK_SIZE, height: DOCK_SIZE });
+
+  /* ── Open ── */
   const onDockPress = useCallback(() => {
-    triggerScale.value = withSpring(0.82, PRESS_SPRING_CONFIG);
-    setVisible(true); // mount the Modal
+    triggerScale.value = withSpring(0.95, PRESS_SPRING_CONFIG);
+    dockRef.current?.measureInWindow((x, y, width, height) => {
+      setTriggerRect({ x, y, width, height });
+      setVisible(true);
+    });
   }, []);
 
-  /* ── When Modal is shown (onShow = after native layer draws it) → spring in ── */
   useEffect(() => {
     if (mounted) {
-      sheetAnim.value = 0; // ensure starting position
-      sheetAnim.value = withSpring(1, SHEET_OPEN);
+      panelAnim.value = withSpring(1, TRANSITION_SPRING);
       triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
     }
   }, [mounted]);
 
   /* ── Close ── */
   const closeSheet = useCallback(() => {
-    sheetAnim.value = withSpring(0, SHEET_CLOSE, (done) => {
+    panelAnim.value = withSpring(0, TRANSITION_SPRING, (done) => {
       if (done) {
         runOnJS(setMounted)(false);
         runOnJS(setVisible)(false);
@@ -62,20 +67,68 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
     });
   }, []);
 
-  /* ── Animated styles ── */
+  /* ── Animated styles matching Framer Motion's structure ── */
   const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(sheetAnim.value, [0, 1], [0, 1]),
+    opacity: interpolate(panelAnim.value, [0, 1], [0, 1]),
   }));
 
-  // Sheet translates from off-screen bottom → resting position
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{
-      translateY: interpolate(sheetAnim.value, [0, 1], [sheetHeight + 60, 0]),
-    }],
-  }));
+  // Mimicking:
+  // left: triggerRect ? triggerRect.left : "50%"
+  // top: triggerRect ? triggerRect.bottom + 8 : "50%"
+  // transformOrigin: "top left"
+  // variants: { hidden: { opacity: 0, scale: 0.9, y: 10 }, visible: { opacity: 1, scale: 1, y: 0 } }
+  const panelStyle = useAnimatedStyle(() => {
+    // We anchor it cleanly with the layout parameters (left, bottom) 
+    // and interpolate the transform origin from the trigger point.
+    const originX = triggerRect.x + triggerRect.width / 2;
+    const originY = triggerRect.y + triggerRect.height / 2;
+    
+    // Position of the sheet center
+    const sheetCenterX = H_INSET + sheetWidth / 2;
+    const sheetCenterY = screenHeight - sheetBottom - (sheetHeight / 2);
+
+    // Delta between center of trigger and center of sheet
+    const dx = originX - sheetCenterX;
+    const dy = originY - sheetCenterY;
+
+    const scale = interpolate(panelAnim.value, [0, 1], [0.9, 1]);
+    const opacity = interpolate(panelAnim.value, [0, 1], [0, 1]);
+    
+    // Animates scale and translation from the trigger button coordinates
+    const translateX = interpolate(panelAnim.value, [0, 1], [dx * 0.1, 0]);
+    const translateY = interpolate(panelAnim.value, [0, 1], [dy * 0.1 + 10, 0]);
+
+    return {
+      opacity,
+      transform: [
+        { translateX },
+        { translateY },
+        { scale },
+      ],
+    };
+  });
 
   const triggerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: triggerScale.value }],
+  }));
+
+  // Staggered delay mapping:
+  // Header: delay: 0.1
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(panelAnim.value, [0, 0.25, 1], [0, 0, 1]),
+    transform: [{ translateY: interpolate(panelAnim.value, [0, 0.25, 1], [-10, -10, 0]) }],
+  }));
+
+  // Body: delay: 0.2
+  const bodyStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(panelAnim.value, [0, 0.5, 1], [0, 0, 1]),
+    transform: [{ translateY: interpolate(panelAnim.value, [0, 0.5, 1], [10, 10, 0]) }],
+  }));
+
+  // Footer: delay: 0.3
+  const footerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(panelAnim.value, [0, 0.75, 1], [0, 0, 1]),
+    transform: [{ translateY: interpolate(panelAnim.value, [0, 0.75, 1], [10, 10, 0]) }],
   }));
 
   /* ── Navigation ── */
@@ -112,34 +165,35 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
   return (
     <>
       {/* ── Dock trigger — self-contained ── */}
-      <Reanimated.View collapsable={false} style={triggerStyle}>
+      <View ref={dockRef} collapsable={false}>
         <TouchableOpacity
-          style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }]}
-          activeOpacity={0.75}
           onPress={onDockPress}
+          activeOpacity={0.75}
           hitSlop={8}
         >
-          <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
-            {initials}
-          </Text>
+          <Reanimated.View style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }, triggerStyle]}>
+            <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
+              {initials}
+            </Text>
+          </Reanimated.View>
         </TouchableOpacity>
-      </Reanimated.View>
+      </View>
 
-      {/* ── Bottom sheet Modal ── */}
+      {/* ── Modal panel ── */}
       <Modal
         visible={visible}
         transparent
         animationType="none"
         statusBarTranslucent
         onRequestClose={closeSheet}
-        onShow={() => setMounted(true)}  // ← fires AFTER native layer draws the Modal
+        onShow={() => setMounted(true)}
       >
-        {/* Semi-transparent backdrop — tap to dismiss */}
+        {/* Backdrop (Blur overlay) */}
         <Reanimated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
         </Reanimated.View>
 
-        {/* Sheet: absolute positioned, equal H_INSET on both sides */}
+        {/* Floating Panel - matching Framer Motion's structure */}
         <Reanimated.View
           style={[
             styles.sheet,
@@ -149,14 +203,13 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
               left: H_INSET,
               bottom: sheetBottom,
             },
-            sheetStyle,
+            panelStyle,
           ]}
         >
-          {/* Drag handle */}
           <View style={styles.handle} />
 
-          {/* ── Header ── */}
-          <View style={styles.header}>
+          {/* ── Header (Staggered Delay 0.1) ── */}
+          <Reanimated.View style={[styles.header, headerStyle]}>
             <View style={styles.headerLeft}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{initials}</Text>
@@ -171,40 +224,44 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
             <TouchableOpacity onPress={closeSheet} style={styles.closeBtn} hitSlop={10}>
               <Ionicons name="close" size={18} color={Colors.text} />
             </TouchableOpacity>
-          </View>
+          </Reanimated.View>
 
-          {/* ── Menu ── */}
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            <View style={styles.menuCard}>
-              {menuItems.map((item, i) => (
-                <TouchableOpacity
-                  key={item.label}
-                  style={[styles.menuRow, i < menuItems.length - 1 && styles.menuDivider]}
-                  onPress={item.go}
-                  activeOpacity={0.6}
-                >
-                  <View style={styles.menuLeft}>
-                    <View style={styles.menuIcon}>
-                      <Ionicons name={item.icon as any} size={17} color={Colors.textSecondary} />
+          {/* ── Body (Staggered Delay 0.2) ── */}
+          <Reanimated.View style={[{ flex: 1 }, bodyStyle]}>
+            <ScrollView
+              contentContainerStyle={styles.scroll}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles.menuCard}>
+                {menuItems.map((item, i) => (
+                  <TouchableOpacity
+                    key={item.label}
+                    style={[styles.menuRow, i < menuItems.length - 1 && styles.menuDivider]}
+                    onPress={item.go}
+                    activeOpacity={0.6}
+                  >
+                    <View style={styles.menuLeft}>
+                      <View style={styles.menuIcon}>
+                        <Ionicons name={item.icon as any} size={17} color={Colors.textSecondary} />
+                      </View>
+                      <Text style={styles.menuLabel}>{item.label}</Text>
                     </View>
-                    <Text style={styles.menuLabel}>{item.label}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={15} color={Colors.border} />
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Ionicons name="chevron-forward" size={15} color={Colors.border} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </Reanimated.View>
 
+          {/* ── Footer (Staggered Delay 0.3) ── */}
+          <Reanimated.View style={[styles.footer, footerStyle]}>
             <TouchableOpacity style={styles.signOut} onPress={handleSignOut} activeOpacity={0.7}>
               <Ionicons name="log-out-outline" size={17} color={Colors.error} />
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
-
             <Text style={styles.version}>Next360 v1.0.0</Text>
-          </ScrollView>
+          </Reanimated.View>
         </Reanimated.View>
       </Modal>
     </>
@@ -219,7 +276,7 @@ const styles = StyleSheet.create({
   },
   initials: { fontFamily: 'Inter_600SemiBold', fontSize: 14, letterSpacing: 0.5 },
 
-  backdrop: { backgroundColor: 'rgba(10,10,10,0.60)' },
+  backdrop: { backgroundColor: 'rgba(10,10,10,0.55)' },
 
   sheet: {
     position: 'absolute',
@@ -267,12 +324,12 @@ const styles = StyleSheet.create({
   },
 
   scroll: {
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
   },
   menuCard: {
     backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
     borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.border,
-    overflow: 'hidden', marginBottom: Spacing.md,
+    overflow: 'hidden',
   },
   menuRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -286,9 +343,17 @@ const styles = StyleSheet.create({
   },
   menuLabel: { ...Typography.body, color: Colors.text },
 
+  footer: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
   signOut: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
     backgroundColor: '#FEE2E2', borderRadius: BorderRadius.lg, paddingVertical: 14,
+    marginTop: Spacing.sm,
     marginBottom: Spacing.sm,
   },
   signOutText: { ...Typography.button, color: Colors.error },

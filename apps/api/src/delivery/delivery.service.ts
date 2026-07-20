@@ -5,12 +5,13 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
 
 function generateOtp(): string {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 @Injectable()
@@ -997,5 +998,87 @@ export class DeliveryService {
         zone: { select: { id: true, name: true, city: true } },
       },
     });
+  }
+
+  /**
+   * POST /delivery/process-payouts
+   * Process weekly payouts for all delivery partners with completed deliveries.
+   */
+  async processWeeklyPayouts() {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const assignments = await this.prisma.deliveryAssignment.findMany({
+      where: { deliveredAt: { gte: oneWeekAgo } },
+      include: { deliveryPartner: true },
+    });
+
+    const dpMap = new Map<string, number>();
+    for (const a of assignments) {
+      const current = dpMap.get(a.deliveryPartnerId) || 0;
+      dpMap.set(a.deliveryPartnerId, current + 50); // ₹50 per delivery
+    }
+
+    for (const [dpId, amount] of dpMap) {
+      await this.prisma.payout.create({
+        data: {
+          deliveryPartnerId: dpId,
+          amount,
+          status: 'PENDING',
+          periodStart: oneWeekAgo,
+          periodEnd: new Date(),
+        },
+      });
+    }
+
+    return { processed: dpMap.size, totalDeliveries: assignments.length };
+  }
+
+  /**
+   * POST /delivery/auto-assign/:orderVendorGroupId
+   * Automatically assign a delivery to the nearest available DP in the same zone.
+   */
+  async autoAssignDelivery(orderVendorGroupId: string) {
+    const group = await this.prisma.orderVendorGroup.findUnique({
+      where: { id: orderVendorGroupId },
+      include: { vendor: true },
+    });
+    if (!group) throw new NotFoundException('Order vendor group not found');
+
+    const availableDps = await this.prisma.deliveryPartner.findMany({
+      where: {
+        zoneId: group.vendor.zoneId,
+        status: 'AVAILABLE',
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: 1,
+    });
+
+    if (availableDps.length === 0) {
+      return { message: 'No available delivery partners' };
+    }
+
+    const dp = availableDps[0];
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.deliveryAssignment.create({
+        data: { orderVendorGroupId, deliveryPartnerId: dp.id, otp },
+      });
+
+      await tx.deliveryPartner.update({
+        where: { id: dp.id },
+        data: { status: 'ON_DELIVERY' },
+      });
+
+      await tx.orderVendorGroup.update({
+        where: { id: orderVendorGroupId },
+        data: { status: 'ASSIGNED_TO_DELIVERY' },
+      });
+
+      return created;
+    });
+
+    return assignment;
   }
 }

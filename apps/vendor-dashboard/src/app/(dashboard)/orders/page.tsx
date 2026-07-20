@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { vendorApi } from '@/lib/api';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, X } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 30000; // 30-second auto-refresh per CLAUDE.md spec
 
@@ -14,6 +14,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectItem, setRejectItem] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchOrders = () => {
     vendorApi.getOrders({}).then((res: any) => {
@@ -73,15 +76,7 @@ export default function OrdersPage() {
                 Accept
               </button>
               <button
-                onClick={async () => {
-                  try {
-                    // Cancel the vendor group (not the entire order) since this
-                    // row is an OrderVendorGroup — cancelling the whole order
-                    // would affect other vendors' items.
-                    await vendorApi.cancelVendorGroup(item.orderId || item.id, item.id, 'Vendor rejected');
-                    fetchOrders();
-                  } catch (e) { console.error(e); }
-                }}
+                onClick={() => { setRejectItem(item); setShowRejectModal(true); }}
                 className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100"
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -117,13 +112,45 @@ export default function OrdersPage() {
     router.push(`/orders/${item.orderId || item.id}`);
   };
 
-  // Intentionally empty — the reject button inline-calls vendorApi.cancelVendorGroup
-  // instead of this callback because it needs the group ID, not the order ID.
+  const handleRejectOrder = async () => {
+    if (!rejectItem || !rejectReason.trim()) return;
+    try {
+      await vendorApi.cancelVendorGroup(rejectItem.orderId || rejectItem.id, rejectItem.id, rejectReason);
+      setShowRejectModal(false);
+      setRejectReason('');
+      setRejectItem(null);
+      fetchOrders();
+    } catch (e) { console.error(e); }
+  };
 
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-slate-900">Orders</h2><p className="text-sm text-slate-500">View and manage customer orders</p></div>
       <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+
+      {/* Cancel Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Cancel Order</h3>
+              <button onClick={() => setShowRejectModal(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-3">Why are you rejecting this order?</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason for cancellation..."
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+            <div className="flex gap-3 mt-4 justify-end">
+              <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button onClick={handleRejectOrder} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">Confirm Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

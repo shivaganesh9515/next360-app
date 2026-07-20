@@ -37,5 +37,15 @@ export class RazorpayWebhookDto {
         currency: string;
       };
     };
+    refund?: {
+      entity: {
+        id: string;
+        payment_id: string;
+        order_id: string;
+        status: string;
+        amount: number;
+        created_at: number;
+      };
+    };
   };
 }

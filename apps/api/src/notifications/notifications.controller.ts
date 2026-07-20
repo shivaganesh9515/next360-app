@@ -69,6 +69,21 @@ export class NotificationsController {
     return this.notificationsService.unregisterPushToken(user.id);
   }
 
+  @Post('send')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async sendNotification(
+    @Body() dto: { userId: string; title: string; body: string; type?: string; data?: any },
+  ) {
+    return this.notificationsService.notify(
+      dto.userId,
+      dto.title,
+      dto.body,
+      dto.type || 'ADMIN',
+      dto.data,
+    );
+  }
+
   @Get('tokens')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')

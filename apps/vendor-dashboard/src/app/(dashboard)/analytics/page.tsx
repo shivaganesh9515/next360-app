@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, ShoppingCart, Download } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
 import { vendorApi } from '@/lib/api';
 
@@ -48,8 +48,31 @@ export default function AnalyticsPage() {
   );
 
   return (
+    const exportCsv = () => {
+      if (!analytics) return;
+      const headers = ['Metric', 'Value'];
+      const rows = [
+        ['Total Revenue', analytics.totalRevenue],
+        ['Total Orders', analytics.totalOrders],
+        ['Avg Order Value', analytics.avgOrderValue],
+        ['Top Product', analytics.topProduct?.name || 'N/A'],
+      ];
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'analytics.csv'; a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>
+        <button onClick={exportCsv} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard icon={DollarSign} label="Total Revenue" value={analytics ? `₹${Number(analytics.totalRevenue || 0).toLocaleString()}` : '₹0'} accent="emerald" />
         <StatsCard icon={ShoppingCart} label="Total Orders" value={analytics?.totalOrders || 0} accent="blue" />

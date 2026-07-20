@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { initSentry } from './sentry';
+import helmet from 'helmet';
 
 // Load environment variables from .env
 import * as dotenv from 'dotenv';
@@ -15,6 +16,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
+
+  // Security hardening
+  app.use(helmet());
 
   app.useGlobalPipes(
     new ValidationPipe({

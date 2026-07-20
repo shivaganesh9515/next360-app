@@ -121,4 +121,23 @@ export class UsersService {
       },
     });
   }
+
+  async updateStatus(id: string, dto: { isActive: boolean; reason?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { isActive: dto.isActive },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+      },
+    });
+  }
 }
