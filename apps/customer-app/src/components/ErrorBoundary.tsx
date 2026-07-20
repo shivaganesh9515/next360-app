@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Colors, Typography, BorderRadius } from '../constants/theme';
 
 interface Props {
   children: React.ReactNode;
@@ -76,58 +77,55 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.background,
   },
   icon: {
     fontSize: 64,
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1B17',
+    ...Typography.h1,
+    color: Colors.text,
     marginBottom: 8,
-    fontFamily: 'Fraunces-Bold',
   },
   message: {
-    fontSize: 16,
-    color: '#666',
+    ...Typography.body,
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 24,
   },
   errorDetails: {
-    backgroundColor: '#FFF3CD',
+    backgroundColor: Colors.organicLight,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     marginBottom: 24,
     width: '100%',
   },
   errorText: {
-    fontSize: 12,
-    color: '#856404',
+    ...Typography.caption,
+    color: Colors.organic,
     fontFamily: 'JetBrainsMono-Regular',
   },
   button: {
-    backgroundColor: '#5C6B4D',
+    backgroundColor: Colors.organic,
     paddingHorizontal: 32,
     paddingVertical: 16,
-    borderRadius: 999,
+    borderRadius: BorderRadius.pill,
     marginBottom: 12,
     width: '100%',
     alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    ...Typography.button,
+    color: Colors.white,
   },
   secondaryButton: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#5C6B4D',
+    borderWidth: 1.5,
+    borderColor: Colors.organic,
   },
   secondaryButtonText: {
-    color: '#5C6B4D',
+    color: Colors.organic,
   },
 });

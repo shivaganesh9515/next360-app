@@ -1,9 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, Dimensions, Modal, ActivityIndicator, ScrollView,
 } from 'react-native';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, withSpring, interpolate, interpolateColor, runOnJS,
+  useAnimatedStyle, useSharedValue, interpolate, interpolateColor, withSpring,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../lib/api';
@@ -11,9 +11,13 @@ import { useProductSheet } from '../lib/productSheet';
 import PopoverBackdrop from './PopoverBackdrop';
 import { Product, StoreType } from '../types';
 import {
-  Colors, Spacing, Typography, BorderRadius, REANIMATED_SPRING_CONFIG,
+  Colors, Spacing, Typography, BorderRadius,
   getStoreAccentDark, getStoreLabel,
 } from '../constants/theme';
+import {
+  usePanelAnimation, PanelOrigin, StaggeredItem,
+  useBodyStaggerStyle, PRESS_SPRING_CONFIG,
+} from '../lib/panelAnimation';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -22,6 +26,8 @@ const PANEL_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
 const SEARCH_ROW_HEIGHT = 52;
 const PANEL_HEIGHT = SCREEN_HEIGHT * 0.68;
 const DEBOUNCE_MS = 300;
+const CENTER_LEFT = Spacing.xl;
+const CENTER_TOP = 80;
 
 const STORE_SHORTCUTS: { type: StoreType; tag: string; icon: string }[] = [
   { type: StoreType.ORGANIC, tag: 'CURATED', icon: 'leaf' },
@@ -43,11 +49,6 @@ interface Props {
   navigation?: any;
 }
 
-// Springs open from wherever the collapsed dock actually sits (measured live)
-// and travels up to just below the status bar, growing into a full mini search
-// experience — not just a bare input. Empty query shows the same "Shop by
-// Store" + "Popular Searches" landing content as the full Search screen;
-// typing shows live matching products. Tapping a suggestion opens it directly.
 export default function ExpandingSearchDock({
   onSearch,
   placeholder = 'Search...',
@@ -64,17 +65,21 @@ export default function ExpandingSearchDock({
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [origin, setOrigin] = useState({ x: SCREEN_WIDTH - Spacing.xl - DOCK_SIZE, y: 100 });
-  const anim = useSharedValue(0);
+  const [origin, setOrigin] = useState<PanelOrigin>({ x: SCREEN_WIDTH - Spacing.xl - DOCK_SIZE, y: 60, width: DOCK_SIZE, height: DOCK_SIZE });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // top is pinned to origin.y (the dock icon's own measured position) instead
-  // of interpolating up toward the status bar — the panel now grows straight
-  // down from exactly where the icon sits instead of visibly detaching and
-  // sliding upward to a disconnected point before it opens (and reversing
-  // that same jump on close).
+  const triggerScale = useSharedValue(1);
+  const triggerAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: triggerScale.value }],
+  }));
 
-  const runSearch = async (text: string) => {
+  const {
+    anim, open: animOpen, close: animClose, backdropStyle, triggerGhostStyle,
+  } = usePanelAnimation();
+
+  const bodyStyle = useBodyStaggerStyle(anim);
+
+  const runSearch = useCallback(async (text: string) => {
     if (!text.trim()) {
       setResults([]);
       setSearched(false);
@@ -90,41 +95,44 @@ export default function ExpandingSearchDock({
       setLoading(false);
       setSearched(true);
     }
-  };
+  }, []);
 
-  const onChangeText = (text: string) => {
+  const onChangeText = useCallback((text: string) => {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => runSearch(text), DEBOUNCE_MS);
-  };
+  }, [runSearch]);
 
-  const open = () => {
+  const open = useCallback(() => {
+    triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y) => {
-      setOrigin({ x, y });
+      const o: PanelOrigin = { x, y, width: DOCK_SIZE, height: DOCK_SIZE };
+      setOrigin(o);
       setVisible(true);
       setExpanded(true);
       requestAnimationFrame(() => {
-        anim.value = withSpring(1, REANIMATED_SPRING_CONFIG);
+        animOpen(o);
+        triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
       });
     });
-  };
+  }, [animOpen]);
 
-  const close = () => {
+  const finishClose = useCallback(() => {
+    Keyboard.dismiss();
+    setExpanded(false);
+    setVisible(false);
+    setQuery('');
+    setResults([]);
+    setSearched(false);
+  }, []);
+
+  const close = useCallback(() => {
     Keyboard.dismiss();
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    const finishClose = () => {
-      setExpanded(false);
-      setVisible(false);
-      setQuery('');
-      setResults([]);
-      setSearched(false);
-    };
-    anim.value = withSpring(0, REANIMATED_SPRING_CONFIG, (finished) => {
-      if (finished) runOnJS(finishClose)();
-    });
-  };
+    animClose(finishClose);
+  }, [animClose]);
 
-  const submit = () => {
+  const submit = useCallback(() => {
     const trimmed = query.trim();
     if (onSearch && trimmed) {
       onSearch(trimmed);
@@ -132,66 +140,56 @@ export default function ExpandingSearchDock({
     } else {
       Keyboard.dismiss();
     }
-  };
+  }, [query, onSearch, close]);
 
-  const handleSuggestionPress = (product: Product) => {
+  const handleSuggestionPress = useCallback((product: Product) => {
     openProduct(product.id);
     close();
-  };
+  }, [openProduct, close]);
 
-  const handleStorePress = (storeType: StoreType) => {
+  const handleStorePress = useCallback((storeType: StoreType) => {
     navigation?.navigate?.('AllProducts', { storeType });
     close();
-  };
+  }, [navigation, close]);
 
-  const handleChipPress = (term: string) => {
+  const handleChipPress = useCallback((term: string) => {
     setQuery(term);
     runSearch(term);
-  };
-
-  // Combined into useAnimatedStyle blocks (Reanimated, UI-thread) instead of
-  // the classic Animated API's useNativeDriver:false — top/left/width/height/
-  // borderRadius can't run on the native thread with the old API, so every
-  // frame previously required a JS-bridge round trip, which is what made this
-  // (and the other three expand-in-place popovers) feel laggy on real devices.
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
-  const panelStyle = useAnimatedStyle(() => ({
-    top: origin.y,
-    left: interpolate(anim.value, [0, 1], [origin.x, Spacing.xl]),
-    width: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_WIDTH]),
-    height: interpolate(anim.value, [0, 1], [DOCK_SIZE, PANEL_HEIGHT]),
-    borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
-    // Interpolated in lockstep with the shrink/grow instead of snapping between
-    // dockBg and white at the end — that boolean snap was showing a plain white
-    // circle for a frame right as it collapsed back into the nav bar.
-    backgroundColor: interpolateColor(anim.value, [0, 1], [dockBg, Colors.white]),
-  }));
-  const iconOnlyStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.35, 1], [1, 0, 0]) }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(anim.value, [0, 0.6, 1], [0, 0, 1]) }));
+  }, [runSearch]);
 
   const showSuggestions = query.trim().length > 0;
 
+  // ── Panel size + position (expands from trigger point to centered) ──
+  const panelStyle = useAnimatedStyle(() => ({
+    left: interpolate(anim.value, [0, 0.4, 1], [origin.x, CENTER_LEFT, CENTER_LEFT]),
+    top: interpolate(anim.value, [0, 0.4, 1], [origin.y, CENTER_TOP, CENTER_TOP]),
+    width: interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, PANEL_WIDTH, PANEL_WIDTH]),
+    height: interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, DOCK_SIZE * 3, PANEL_HEIGHT]),
+    borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
+    backgroundColor: interpolateColor(anim.value, [0, 0.3, 1],
+      [dockBg, 'rgba(255,255,255,0.95)', Colors.white],
+    ),
+  }));
+
   return (
     <>
-      <View ref={dockRef} style={styles.reserve} collapsable={false}>
-        <TouchableOpacity style={[styles.dock, { backgroundColor: dockBg }]} activeOpacity={0.7} onPress={open}>
+      <Reanimated.View ref={dockRef} style={[styles.reserve, triggerAnimStyle]} collapsable={false}>
+        <TouchableOpacity style={[styles.dock, { backgroundColor: dockBg }]} activeOpacity={1} onPress={open}>
           <Ionicons name="search" size={17} color={iconColor} />
         </TouchableOpacity>
-      </View>
+      </Reanimated.View>
 
       <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-        <PopoverBackdrop
-          style={[styles.backdrop, backdropStyle]}
-          pointerEvents={expanded ? 'auto' : 'none'}
-          onPress={close}
-        />
+        <PopoverBackdrop style={backdropStyle} onPress={close} />
 
         <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
-          <Reanimated.View style={[styles.iconOnly, iconOnlyStyle]} pointerEvents="none">
+          {/* Trigger ghost — fades out as panel opens */}
+          <Reanimated.View style={[styles.ghostWrap, triggerGhostStyle, { pointerEvents: 'none' }]}>
             <Ionicons name="search" size={17} color={iconColor} />
           </Reanimated.View>
 
-          <Reanimated.View style={[styles.content, contentStyle]} pointerEvents={expanded ? 'auto' : 'none'}>
+          {/* Content — staggers in */}
+          <Reanimated.View style={[StyleSheet.absoluteFill, bodyStyle, { pointerEvents: expanded ? 'auto' : 'none' }]}>
             <View style={styles.searchRow}>
               <Ionicons name="search" size={16} color={Colors.textSecondary} style={styles.searchIcon} />
               <TextInput
@@ -216,25 +214,27 @@ export default function ExpandingSearchDock({
                 <View style={styles.center}><ActivityIndicator size="small" color={accent} /></View>
               ) : searched && results.length === 0 ? (
                 <View style={styles.center}>
-                  <Text style={styles.emptyText}>No results for "{query}"</Text>
+                  <Text style={styles.emptyText}>No results for &quot;{query}&quot;</Text>
                 </View>
               ) : (
                 <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                  {results.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.suggestionRow}
-                      onPress={() => handleSuggestionPress(item)}
-                    >
-                      <View style={[styles.suggestionThumb, { backgroundColor: getStoreAccentDark(item.storeType) + '22' }]}>
-                        <Ionicons name="leaf-outline" size={16} color={getStoreAccentDark(item.storeType)} />
-                      </View>
-                      <View style={styles.suggestionInfo}>
-                        <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
-                        <Text style={styles.suggestionUnit}>{item.unit}</Text>
-                      </View>
-                      <Text style={styles.suggestionPrice}>₹{Number(item.price).toFixed(0)}</Text>
-                    </TouchableOpacity>
+                  {results.map((item, idx) => (
+                    <StaggeredItem key={item.id} anim={anim} index={idx}>
+                      <TouchableOpacity
+                        style={styles.suggestionRow}
+                        onPress={() => handleSuggestionPress(item)}
+                        activeOpacity={0.6}
+                      >
+                        <View style={[styles.suggestionThumb, { backgroundColor: getStoreAccentDark(item.storeType) + '22' }]}>
+                          <Ionicons name="leaf-outline" size={16} color={getStoreAccentDark(item.storeType)} />
+                        </View>
+                        <View style={styles.suggestionInfo}>
+                          <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+                          <Text style={styles.suggestionUnit}>{item.unit}</Text>
+                        </View>
+                        <Text style={styles.suggestionPrice}>₹{Number(item.price).toFixed(0)}</Text>
+                      </TouchableOpacity>
+                    </StaggeredItem>
                   ))}
                 </ScrollView>
               )
@@ -242,28 +242,31 @@ export default function ExpandingSearchDock({
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.landing}>
                 <Text style={styles.sectionTitle}>Shop by Store</Text>
                 <View style={styles.storeGrid}>
-                  {STORE_SHORTCUTS.map((store) => (
-                    <TouchableOpacity
-                      key={store.type}
-                      style={[styles.storeCard, { backgroundColor: getStoreAccentDark(store.type) }]}
-                      activeOpacity={0.9}
-                      onPress={() => handleStorePress(store.type)}
-                    >
-                      <Ionicons name={store.icon as any} size={22} color="rgba(255,255,255,0.5)" />
-                      <View>
-                        <Text style={styles.storeCardTag}>{store.tag}</Text>
-                        <Text style={styles.storeCardLabel}>{getStoreLabel(store.type)}</Text>
-                      </View>
-                    </TouchableOpacity>
+                  {STORE_SHORTCUTS.map((store, idx) => (
+                    <StaggeredItem key={store.type} anim={anim} index={idx}>
+                      <TouchableOpacity
+                        style={[styles.storeCard, { backgroundColor: getStoreAccentDark(store.type) }]}
+                        activeOpacity={0.9}
+                        onPress={() => handleStorePress(store.type)}
+                      >
+                        <Ionicons name={store.icon as any} size={22} color="rgba(255,255,255,0.5)" />
+                        <View>
+                          <Text style={styles.storeCardTag}>{store.tag}</Text>
+                          <Text style={styles.storeCardLabel}>{getStoreLabel(store.type)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </StaggeredItem>
                   ))}
                 </View>
 
                 <Text style={styles.sectionTitle}>Popular Searches</Text>
                 <View style={styles.chipRow}>
-                  {POPULAR_SEARCHES.map((term) => (
-                    <TouchableOpacity key={term} style={styles.chip} onPress={() => handleChipPress(term)}>
-                      <Text style={styles.chipText}>{term}</Text>
-                    </TouchableOpacity>
+                  {POPULAR_SEARCHES.map((term, idx) => (
+                    <StaggeredItem key={term} anim={anim} index={idx + 3}>
+                      <TouchableOpacity style={styles.chip} onPress={() => handleChipPress(term)} activeOpacity={0.7}>
+                        <Text style={styles.chipText}>{term}</Text>
+                      </TouchableOpacity>
+                    </StaggeredItem>
                   ))}
                 </View>
               </ScrollView>
@@ -281,33 +284,20 @@ const styles = StyleSheet.create({
     width: DOCK_SIZE, height: DOCK_SIZE, borderRadius: DOCK_SIZE / 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  backdrop: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(10,10,8,0.35)',
-  },
-  // Absolutely positioned within the Modal's own root (the whole screen), not
-  // relative to the dock's parent — that's what lets it travel from the nav
-  // bar all the way up to the top instead of only growing in place.
-  panel: { position: 'absolute', overflow: 'hidden', zIndex: 20 },
-  // Deep-shadow card — same weight as NotificationsPopover's, so both docks
-  // read as one consistent "pops forward off a blurred backdrop" language.
-  panelShadow: {
-    shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,
-  },
-  iconOnly: {
+  ghostWrap: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',
   },
-  content: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-
+  panel: { position: 'absolute', overflow: 'hidden', zIndex: 20 },
+  panelShadow: {
+    shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,
+  },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     height: SEARCH_ROW_HEIGHT, paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   searchIcon: {},
-  // outlineStyle/outlineWidth are web-only (react-native-web) — without them the
-  // browser draws its own default black focus ring around the <input>.
   input: {
     flex: 1, ...Typography.bodySmall, color: Colors.text,
     borderWidth: 0, outlineStyle: 'none' as any, outlineWidth: 0,
@@ -316,10 +306,8 @@ const styles = StyleSheet.create({
     width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center',
   },
-
   center: { padding: Spacing.xl, alignItems: 'center' },
   emptyText: { ...Typography.bodySmall, color: Colors.textSecondary },
-
   suggestionRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
@@ -333,7 +321,6 @@ const styles = StyleSheet.create({
   suggestionName: { ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   suggestionUnit: { ...Typography.caption, color: Colors.textSecondary, marginTop: 1 },
   suggestionPrice: { ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold', color: Colors.brass },
-
   landing: { padding: Spacing.lg },
   sectionTitle: { ...Typography.h3, color: Colors.text, marginBottom: Spacing.md },
   storeGrid: { gap: Spacing.md, marginBottom: Spacing.xl },
@@ -346,7 +333,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2, textAlign: 'right',
   },
   storeCardLabel: { ...Typography.h3, color: Colors.white, textAlign: 'right' },
-
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,

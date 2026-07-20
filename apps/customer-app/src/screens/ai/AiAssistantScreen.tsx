@@ -89,7 +89,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
           <Ionicons name="sparkles" size={16} color={accent} />
         </View>
       )}
-      <View style={[styles.messageContent, item.role === 'user' ? styles.userContent : styles.assistantContent]}>
+      <View style={[styles.messageContent, item.role === 'user' ? { backgroundColor: accent, borderBottomRightRadius: 4 } : styles.assistantContent]}>
         <Text style={[styles.messageText, item.role === 'user' ? styles.userText : styles.assistantText]}>
           {item.content}
         </Text>
@@ -132,7 +132,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
               style={styles.quickPromptButton}
               onPress={() => sendMessage(t(prompt))}
             >
-              <Text style={styles.quickPromptText}>{t(prompt)}</Text>
+              <Text style={[styles.quickPromptText, { color: accent }]}>{t(prompt)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -153,7 +153,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
           maxLength={500}
         />
         <TouchableOpacity
-          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+          style={[styles.sendButton, { backgroundColor: accent }, !inputText.trim() && styles.sendButtonDisabled]}
           onPress={() => sendMessage(inputText)}
           disabled={!inputText.trim() || loading}
         >
@@ -222,10 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  userContent: {
-    backgroundColor: accent,
-    borderBottomRightRadius: 4,
-  },
+
   assistantContent: {
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 4,
@@ -259,7 +256,6 @@ const styles = StyleSheet.create({
   },
   quickPromptText: {
     fontSize: 14,
-    color: accent,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -284,7 +280,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: accent,
     justifyContent: 'center',
     alignItems: 'center',
   },

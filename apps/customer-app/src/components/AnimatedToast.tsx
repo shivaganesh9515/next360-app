@@ -59,8 +59,7 @@ export default function AnimatedToast({ toast, onDismiss }: Props) {
 
   return (
     <Animated.View
-      pointerEvents="box-none"
-      style={[s.wrapper, { transform: [{ translateY }] }]}
+      style={[s.wrapper, { transform: [{ translateY }], pointerEvents: 'box-none' }]}
     >
       <View style={[s.bar, { backgroundColor: bgColor }]}>
         <Ionicons name={iconName} size={18} color="#FFF" />

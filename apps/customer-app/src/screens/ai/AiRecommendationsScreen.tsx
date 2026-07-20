@@ -69,7 +69,7 @@ export default function AiRecommendationsScreen({ navigation }: any) {
           <Text style={styles.emptyTitle}>{t('ai.recommendations.empty.title')}</Text>
           <Text style={styles.emptySubtitle}>{t('ai.recommendations.empty.subtitle')}</Text>
           <TouchableOpacity
-            style={styles.shopButton}
+            style={[styles.shopButton, { backgroundColor: accent }]}
             onPress={() => navigation.navigate('Home')}
           >
             <Text style={styles.shopButtonText}>{t('ai.recommendations.startShopping')}</Text>
@@ -89,11 +89,11 @@ export default function AiRecommendationsScreen({ navigation }: any) {
                   <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
                   <View style={styles.reasonBadge}>
                     <Ionicons name="sparkles" size={12} color={accent} />
-                    <Text style={styles.reasonText}>{item.reason}</Text>
+                    <Text style={[styles.reasonText, { color: accent }]}>{item.reason}</Text>
                   </View>
                 </View>
                 <View style={styles.scoreContainer}>
-                  <Text style={styles.scoreValue}>{t('ai.recommendations.matchScore', { score: Math.round(item.score * 100) })}</Text>
+                  <Text style={[styles.scoreValue, { color: accent }]}>{t('ai.recommendations.matchScore', { score: Math.round(item.score * 100) })}</Text>
                   <Text style={styles.scoreLabel}>{t('ai.recommendations.match')}</Text>
                 </View>
               </View>
@@ -158,7 +158,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   shopButton: {
-    backgroundColor: accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -205,7 +204,6 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     fontSize: 12,
-    color: accent,
     fontWeight: '500',
   },
   scoreContainer: {
@@ -214,7 +212,6 @@ const styles = StyleSheet.create({
   scoreValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: accent,
   },
   scoreLabel: {
     fontSize: 12,

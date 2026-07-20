@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Animated,
   ActivityIndicator, Alert, Image, LayoutAnimation, RefreshControl,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,16 +13,37 @@ import { CartItem as CartItemType } from '../../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import QuantityStepper from '../../components/QuantityStepper';
 
-function CartItemRow({ item, onQuantityChange, onRemove }: {
+function SwipeDeleteAction() {
+  return (
+    <View style={styles.swipeAction}>
+      <Ionicons name="trash-outline" size={22} color={Colors.white} />
+      <Text style={styles.swipeActionText}>Remove</Text>
+    </View>
+  );
+}
+
+function CartItemRow({ item, onQuantityChange, onRemove, index }: {
   item: CartItemType;
   onQuantityChange: (id: string, qty: number) => void;
   onRemove: (id: string) => void;
+  index: number;
 }) {
   const { t } = useTranslation();
   const [updating, setUpdating] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
+  const entranceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(entranceAnim, {
+      toValue: 1, friction: 8, tension: 80,
+      delay: Math.min(index, 8) * 30,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const handleQuantityChange = async (newQty: number) => {
     if (newQty < 1) {
+      swipeableRef.current?.close();
       onRemove(item.id);
       return;
     }
@@ -30,31 +52,55 @@ function CartItemRow({ item, onQuantityChange, onRemove }: {
     setUpdating(false);
   };
 
+  const handleSwipeDelete = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    onRemove(item.id);
+  };
+
+  // Derive vendor info from the item's product
+  const vendorName = (item as any)?.vendorName || (item.product as any)?.vendor?.storeName || (item.product as any)?.vendorName || '';
+
   return (
-    <View style={[styles.cartItem, Shadows.card]}>
-      <Image
-        source={{ uri: item.product?.images?.[0] || 'https://via.placeholder.com/80' }}
-        style={styles.itemImage}
-      />
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName} numberOfLines={2}>{item.product?.name || t('cart.fallback.productName')}</Text>
-        <Text style={styles.itemUnit}>{item.product?.unit || t('cart.fallback.unit')}</Text>
-        <Text style={styles.itemPrice}>₹{Number(item.product?.price || 0).toFixed(0)}</Text>
-      </View>
-      <QuantityStepper
-        value={item.quantity}
-        onDecrement={() => handleQuantityChange(item.quantity - 1)}
-        onIncrement={() => handleQuantityChange(item.quantity + 1)}
-        disabled={updating}
-      />
-      <TouchableOpacity
-        style={styles.removeButton}
-        onPress={() => onRemove(item.id)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    <Animated.View style={{ opacity: entranceAnim, transform: [{ translateX: entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }] }}>
+      <Swipeable
+        ref={swipeableRef}
+        renderRightActions={() => (
+          <TouchableOpacity
+            style={styles.swipeActionContainer}
+            onPress={handleSwipeDelete}
+            activeOpacity={0.85}
+          >
+            <SwipeDeleteAction />
+          </TouchableOpacity>
+        )}
+        overshootRight={false}
+        onSwipeableOpen={handleSwipeDelete}
       >
-        <Ionicons name="trash-outline" size={17} color={Colors.error} />
-      </TouchableOpacity>
-    </View>
+        <View style={[styles.cartItem, Shadows.card]}>
+          <Image
+            source={{ uri: item.product?.images?.[0] || 'https://via.placeholder.com/80' }}
+            style={styles.itemImage}
+          />
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemName} numberOfLines={2}>{item.product?.name || t('cart.fallback.productName')}</Text>
+            {vendorName ? (
+              <View style={styles.vendorRow}>
+                <View style={styles.vendorDot} />
+                <Text style={styles.vendorName} numberOfLines={1}>{vendorName}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.itemUnit}>{item.product?.unit || t('cart.fallback.unit')}</Text>
+            <Text style={styles.itemPrice}>₹{Number(item.product?.price || 0).toFixed(0)}</Text>
+          </View>
+          <QuantityStepper
+            value={item.quantity}
+            onDecrement={() => handleQuantityChange(item.quantity - 1)}
+            onIncrement={() => handleQuantityChange(item.quantity + 1)}
+            disabled={updating}
+          />
+        </View>
+      </Swipeable>
+    </Animated.View>
   );
 }
 
@@ -64,8 +110,12 @@ export default function CartScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Staggered entrance for summary sections
+  const summaryAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadCart();
+    Animated.spring(summaryAnim, { toValue: 1, friction: 7, tension: 80, delay: 200, useNativeDriver: true }).start();
   }, []);
 
   const loadCart = async () => {
@@ -86,17 +136,8 @@ export default function CartScreen({ navigation }: any) {
   };
 
   const handleRemove = async (itemId: string) => {
-    Alert.alert(t('cart.alert.removeItem.title'), t('cart.alert.removeItem.message'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.remove'),
-        style: 'destructive',
-        onPress: async () => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          await removeCartItem(itemId);
-        },
-      },
-    ]);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    await removeCartItem(itemId);
   };
 
   const handleClearCart = async () => {
@@ -111,7 +152,23 @@ export default function CartScreen({ navigation }: any) {
   };
 
   const DELIVERY_FEE = getDeliveryFee(subtotal);
-  const formatCurrency = (amount: number) => `₹${amount.toFixed(0)}`;
+  const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN')}`;
+  const total = subtotal + DELIVERY_FEE;
+
+  // Group items by vendor for section headers
+  const sections = useMemo(() => {
+    const groups: Record<string, CartItemType[]> = {};
+    cartItems.forEach((item: any) => {
+      const name = item?.vendorName || item?.product?.vendor?.storeName || item?.product?.vendorName || 'Other';
+      if (!groups[name]) groups[name] = [];
+      groups[name].push(item);
+    });
+    return Object.entries(groups).map(([vendor, data]) => ({
+      vendor,
+      data,
+      itemCount: data.length,
+    }));
+  }, [cartItems]);
 
   if (loading) {
     return (
@@ -127,13 +184,16 @@ export default function CartScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
-          <Ionicons name="bag-handle-outline" size={72} color={Colors.border} />
+          <View style={styles.emptyIconRing}>
+            <Ionicons name="bag-handle-outline" size={48} color={Colors.organic} />
+          </View>
           <Text style={styles.emptyTitle}>{t('cart.empty.title')}</Text>
           <Text style={styles.emptySubtitle}>{t('cart.empty.subtitle')}</Text>
           <TouchableOpacity
             style={[styles.shopButton, Shadows.button(Colors.organic)]}
             onPress={() => navigation.navigate('Home')}
           >
+            <Ionicons name="storefront-outline" size={16} color={Colors.white} />
             <Text style={styles.shopButtonText}>{t('cart.empty.startShopping')}</Text>
           </TouchableOpacity>
         </View>
@@ -145,7 +205,10 @@ export default function CartScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('cart.header.title', { count: cartCount })}</Text>
+        <View>
+          <Text style={styles.headerTitle}>{t('cart.header.title', { count: cartCount })}</Text>
+          <Text style={styles.headerSubtitle}>{sections.length} vendor{sections.length > 1 ? 's' : ''}</Text>
+        </View>
         <TouchableOpacity onPress={handleClearCart} hitSlop={8}>
           <Text style={styles.clearText}>{t('cart.header.clearAll')}</Text>
         </TouchableOpacity>
@@ -155,11 +218,12 @@ export default function CartScreen({ navigation }: any) {
       <FlatList
         data={cartItems}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <CartItemRow
             item={item}
             onQuantityChange={handleQuantityChange}
             onRemove={handleRemove}
+            index={index}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -168,32 +232,37 @@ export default function CartScreen({ navigation }: any) {
         }
       />
 
-      {/* Bottom Summary */}
-      <View style={[styles.summaryBar, Shadows.raised]}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>{t('cart.summary.subtotal')}</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
+      {/* Bottom Summary Card */}
+      <Animated.View style={[styles.summaryBar, Shadows.raised, { opacity: summaryAnim, transform: [{ translateY: summaryAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
+        <View style={styles.summaryInner}>
+          <View style={styles.summaryRows}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{t('cart.summary.subtotal')}</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{t('cart.summary.delivery')}</Text>
+              <Text style={[styles.summaryValue, DELIVERY_FEE === 0 && styles.summaryValueFree]}>
+                {DELIVERY_FEE === 0 ? t('common.free') : formatCurrency(DELIVERY_FEE)}
+              </Text>
+            </View>
+            <View style={[styles.summaryRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>{t('cart.summary.total')}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.checkoutButton, Shadows.button(Colors.organic)]}
+            onPress={() => navigation.navigate('Checkout')}
+          >
+            <Text style={styles.checkoutButtonText}>
+              {t('cart.checkout.proceed', { count: cartCount })}
+            </Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+          </TouchableOpacity>
         </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>{t('cart.summary.delivery')}</Text>
-          <Text style={[styles.summaryValue, DELIVERY_FEE === 0 && styles.summaryValueFree]}>
-            {DELIVERY_FEE === 0 ? t('common.free') : formatCurrency(DELIVERY_FEE)}
-          </Text>
-        </View>
-        <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={styles.totalLabel}>{t('cart.summary.total')}</Text>
-          <Text style={styles.totalValue}>{formatCurrency(subtotal + DELIVERY_FEE)}</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.checkoutButton, Shadows.button(Colors.organic)]}
-          onPress={() => navigation.navigate('Checkout')}
-        >
-          <Text style={styles.checkoutButtonText}>
-            {t('cart.checkout.proceed', { count: cartCount })}
-          </Text>
-          <Ionicons name="arrow-forward" size={16} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -222,6 +291,11 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.text,
   },
+  headerSubtitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
   clearText: {
     ...Typography.bodySmall,
     color: Colors.error,
@@ -229,6 +303,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: Spacing.lg,
+    paddingBottom: 220,
   },
   cartItem: {
     flexDirection: 'row',
@@ -253,6 +328,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     color: Colors.text,
   },
+  vendorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  vendorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.organic,
+  },
+  vendorName: {
+    ...Typography.caption,
+    color: Colors.organic,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+  },
   itemUnit: {
     ...Typography.caption,
     color: Colors.textSecondary,
@@ -263,9 +356,23 @@ const styles = StyleSheet.create({
     color: Colors.brass,
     marginTop: 4,
   },
-  removeButton: {
-    padding: Spacing.xs,
+  swipeActionContainer: {
     marginLeft: Spacing.sm,
+    justifyContent: 'center',
+  },
+  swipeAction: {
+    width: 80,
+    height: '100%',
+    backgroundColor: Colors.error,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  swipeActionText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    color: Colors.white,
   },
   emptyContainer: {
     flex: 1,
@@ -273,17 +380,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.xxl,
   },
+  emptyIconRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.organicLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+  },
   emptyTitle: {
     ...Typography.h2,
     color: Colors.text,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.sm,
   },
   emptySubtitle: {
     ...Typography.body,
     color: Colors.textSecondary,
     marginTop: Spacing.sm,
+    textAlign: 'center',
   },
   shopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: Colors.organic,
     paddingHorizontal: Spacing.xxl,
     paddingVertical: Spacing.md,
@@ -295,11 +415,20 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   summaryBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: Colors.white,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
+  },
+  summaryInner: {
     padding: Spacing.lg,
     paddingBottom: Spacing.xxl,
+  },
+  summaryRows: {
+    marginBottom: Spacing.md,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -340,7 +469,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.organic,
     borderRadius: BorderRadius.pill,
     paddingVertical: Spacing.md + 2,
-    marginTop: Spacing.md,
   },
   checkoutButtonText: {
     ...Typography.button,

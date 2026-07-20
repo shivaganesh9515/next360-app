@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Animated,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { customerApi } from '../../lib/api';
-import { Colors } from '../../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import ErrorState from '../../components/ErrorState';
-
-const GREEN = Colors.organic;
 
 const STATUS_COLORS: Record<string, string> = {
   PLACED: '#6B7280',
@@ -22,6 +20,56 @@ const STATUS_COLORS: Record<string, string> = {
   DELIVERED: '#10B981',
   CANCELLED: '#EF4444',
 };
+
+// Extract card into its own component so hooks are at top level (not inside renderItem)
+function OrderCard({ order, index, navigation, t, formatCurrency, formatDate }: {
+  order: any;
+  index: number;
+  navigation: any;
+  t: any;
+  formatCurrency: (amount: number) => string;
+  formatDate: (date: string) => string;
+}) {
+  const cardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(cardAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 80,
+      delay: Math.min(index, 5) * 50,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: cardAnim,
+        transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+      }}
+    >
+      <TouchableOpacity
+        style={[styles.orderCard, Shadows.card]}
+        onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+      >
+        <View style={styles.orderHeader}>
+          <Text style={styles.orderId}>#{order.id.slice(0, 8).toUpperCase()}</Text>
+          <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
+        </View>
+        <View style={styles.orderStatus}>
+          <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[order.status] || Colors.textSecondary }]}>
+            <Text style={styles.statusText}>{order.status.replace(/_/g, ' ')}</Text>
+          </View>
+        </View>
+        <View style={styles.orderInfo}>
+          <Text style={styles.orderItems}>{t('orderHistory.items', { count: order.items?.length || 0 })}</Text>
+          <Text style={styles.orderTotal}>{formatCurrency(order.totalAmount)}</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function OrderHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
@@ -68,7 +116,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GREEN} />
+          <ActivityIndicator size="large" color={Colors.organic} />
         </View>
       </SafeAreaView>
     );
@@ -91,13 +139,10 @@ export default function OrderHistoryScreen({ navigation }: any) {
         <ErrorState message={t('orderHistory.error.load')} onRetry={loadOrders} />
       ) : orders.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
+          <Ionicons name="receipt-outline" size={64} color={Colors.border} />
           <Text style={styles.emptyTitle}>{t('orderHistory.empty.title')}</Text>
           <Text style={styles.emptySubtitle}>{t('orderHistory.empty.subtitle')}</Text>
-          <TouchableOpacity
-            style={styles.shopButton}
-            onPress={() => navigation.navigate('Home')}
-          >
+          <TouchableOpacity style={styles.shopButton} onPress={() => navigation.navigate('Home')}>
             <Text style={styles.shopButtonText}>{t('orderHistory.empty.startShopping')}</Text>
           </TouchableOpacity>
         </View>
@@ -105,29 +150,19 @@ export default function OrderHistoryScreen({ navigation }: any) {
         <FlatList
           data={orders}
           keyExtractor={(item) => item.id}
-          renderItem={({ item: order }) => (
-            <TouchableOpacity
-              style={styles.orderCard}
-              onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
-            >
-              <View style={styles.orderHeader}>
-                <Text style={styles.orderId}>#{order.id.slice(0, 8).toUpperCase()}</Text>
-                <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
-              </View>
-              <View style={styles.orderStatus}>
-                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[order.status] || '#6B7280' }]}>
-                  <Text style={styles.statusText}>{order.status.replace(/_/g, ' ')}</Text>
-                </View>
-              </View>
-              <View style={styles.orderInfo}>
-                <Text style={styles.orderItems}>{t('orderHistory.items', { count: order.items?.length || 0 })}</Text>
-                <Text style={styles.orderTotal}>{formatCurrency(order.totalAmount)}</Text>
-              </View>
-            </TouchableOpacity>
+          renderItem={({ item: order, index }) => (
+            <OrderCard
+              order={order}
+              index={index}
+              navigation={navigation}
+              t={t}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+            />
           )}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[GREEN]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.organic]} />
           }
         />
       )}
@@ -138,7 +173,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -149,54 +184,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...Typography.h3,
+    color: Colors.text,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.xxl,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
+    ...Typography.h2,
+    color: Colors.text,
+    marginTop: Spacing.lg,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 8,
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
   },
   shopButton: {
-    backgroundColor: GREEN,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
+    backgroundColor: Colors.organic,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.pill,
+    marginTop: Spacing.xl,
   },
   shopButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...Typography.button,
+    color: Colors.white,
   },
   listContent: {
-    padding: 16,
+    padding: Spacing.lg,
   },
   orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -204,42 +236,41 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   orderId: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...Typography.bodySmall,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
   },
   orderDate: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
   orderStatus: {
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: BorderRadius.sm,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FFFFFF',
+    ...Typography.caption,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.white,
   },
   orderInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 12,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing.md,
   },
   orderItems: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
   },
   orderTotal: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: GREEN,
+    ...Typography.h3,
+    color: Colors.organic,
   },
 });

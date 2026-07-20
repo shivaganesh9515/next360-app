@@ -123,7 +123,7 @@ export default function AiHealthInsightsScreen({ navigation }: any) {
                   style={styles.shopButton}
                   onPress={() => navigation.navigate('Home')}
                 >
-                  <Text style={styles.shopButtonText}>{t('ai.health.exploreProducts')}</Text>
+                  <Text style={[styles.shopButtonText, { color: accent }]}>{t('ai.health.exploreProducts')}</Text>
                   <Ionicons name="arrow-forward" size={16} color={accent} />
                 </TouchableOpacity>
               </View>
@@ -245,7 +245,6 @@ const styles = StyleSheet.create({
   shopButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: accent,
   },
   emptyContainer: {
     alignItems: 'center',
