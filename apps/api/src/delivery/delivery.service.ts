@@ -1150,57 +1150,6 @@ export class DeliveryService {
       averagePerDelivery: totalDeliveries > 0 ? allTime / totalDeliveries : 0,
     };
   }
-  
-  /**
- * Calculate earnings based on selected period.
- */
-
-  async calculateEarnings(userId: string, period?: string) {
-  const partner = await this.prisma.deliveryPartner.findUnique({
-    where: { userId },
-  });
-  if (!partner) throw new NotFoundException('Delivery partner not found');
-
-  const now = new Date();
-  let startDate: Date;
-
-  switch (period) {
-    case 'today':
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
-    case 'week':
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - now.getDay());
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case 'month':
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    default:
-      // All time
-      startDate = new Date(0);
-  }
-
-  const assignments = await this.prisma.deliveryAssignment.findMany({
-    where: {
-      deliveryPartnerId: partner.id,
-      deliveredAt: { gte: startDate, lte: now },
-    },
-  });
-
-  const totalDeliveries = assignments.length;
-  const averagePerDelivery = 50; // ₹50 per delivery (adjust per your pricing)
-  const totalEarnings = totalDeliveries * averagePerDelivery;
-
-  return {
-    today: period === 'today' ? totalEarnings : undefined,
-    thisWeek: period === 'week' ? totalEarnings : undefined,
-    thisMonth: period === 'month' ? totalEarnings : undefined,
-    allTime: totalEarnings,
-    totalDeliveries,
-    averagePerDelivery,
-  };
-}
 
   /**
    * Weekly batch payout for Delivery Partners.
