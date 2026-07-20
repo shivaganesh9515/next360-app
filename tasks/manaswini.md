@@ -1,14 +1,10 @@
 # 👋 Hey Manaswini! Your Tasks
 
 ## 📥 First: Get Latest Code
-Open terminal and run:
+Open terminal and run each line one by one:
 ```bash
 git checkout main
 git pull origin main
-```
-
-## 📦 Install Dependencies
-```bash
 cd apps/admin-panel
 npm install
 ```
@@ -19,6 +15,30 @@ npm run dev
 ```
 
 Your app will open at: **http://localhost:3002**
+
+---
+
+## 📋 Your Summary — 6 Tasks
+
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Support Tickets list + detail pages | 2 new files | ⭐⭐ Medium |
+| 2 | Bulk product approval (checkboxes + button) | 1 edit | ⭐⭐ Medium |
+| 3 | Wire payouts & reports pages to backend | 4 edits | ⭐ Easy |
+| 4 | Settings notification toggles | 1 edit | ⭐ Easy |
+| 5 | E2E testing — walk through every page | No code, just notes | ⭐ Easy |
+| 6 | Dashboard auto-refresh (30s) + KPIs | 1 edit | ⭐ Easy |
+
+**⏱️ Total time: ~3-4 hours**
+
+**What's already done for you:**
+- ✅ Backend endpoints exist (Support module being built by Abhinaya)
+- ✅ Reports endpoints exist (Abhinaya's Task 2)
+- ✅ Payouts endpoints exist (Harshitha + Abhinaya)
+- ✅ Settings API exists (`GET /admin/settings`, `PATCH /admin/settings`)
+- ✅ CI/CD pipeline catches errors on push
+
+**⚠️ Note:** Task 1 (Support pages) depends on Abhinaya finishing the backend first. Start with Tasks 2-6!
 
 ---
 
@@ -232,3 +252,10 @@ git add .
 git commit -m "feat: admin panel improvements"
 git push origin main
 ```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Check `apps/admin-panel/src/lib/api.ts` for existing API functions
+- Run `npm run build` to check for errors before pushing
+- Start with Task 2 (bulk approval) — it's a quick win!
+- Task 1 depends on Abhinaya — skip it until she finishes

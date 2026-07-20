@@ -1,14 +1,10 @@
 # 👋 Hey Abhinaya! Your Tasks
 
 ## 📥 First: Get Latest Code
-Open terminal and run:
+Open terminal and run each line one by one:
 ```bash
 git checkout main
 git pull origin main
-```
-
-## 📦 Install Dependencies
-```bash
 cd apps/api
 npm install
 ```
@@ -17,6 +13,26 @@ npm install
 ```bash
 npm run start:dev
 ```
+
+---
+
+## 📋 Your Summary — 4 Tasks
+
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Support Tickets (Prisma + module) | 1 Prisma edit + 4 new files + 1 register | ⭐⭐ Medium |
+| 2 | Reports endpoints (sales + revenue) | 3 new files + 1 register | ⭐⭐ Medium |
+| 3 | Payouts admin oversight | 1-2 edits | ⭐ Easy |
+| 4 | Remaining admin endpoints (payments, reviews, analytics) | 3 edits | ⭐ Easy |
+
+**⏱️ Total time: ~3-4 hours**
+
+**What's already done for you:**
+- ✅ Redis + BullMQ running — background jobs ready when you need them
+- ✅ SMS/Email providers — you can use `SmsService` and `EmailService` in your modules
+- ✅ CI/CD pipeline — auto-checks your code on push
+
+**💡 Pro tip:** Copy the pattern from `apps/api/src/categories/` — you already know this pattern!
 
 ---
 
@@ -371,3 +387,8 @@ git add .
 git commit -m "feat: support tickets, reports, payouts endpoints"
 git push origin main
 ```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Copy pattern from categories/brands modules — same structure
+- Run `npx tsc --noEmit` to check for errors before pushing

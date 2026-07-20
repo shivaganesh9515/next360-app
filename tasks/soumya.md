@@ -1,14 +1,10 @@
 # 👋 Hey Soumya! Your Tasks
 
 ## 📥 First: Get Latest Code
-Open terminal and run:
+Open terminal and run each line one by one:
 ```bash
 git checkout main
 git pull origin main
-```
-
-## 📦 Install Dependencies
-```bash
 cd apps/vendor-dashboard
 npm install
 ```
@@ -19,6 +15,27 @@ npm run dev
 ```
 
 Your app will open at: **http://localhost:3001**
+
+---
+
+## 📋 Your Summary — 6 Tasks
+
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Wire payouts page to backend | 1 edit + check api client | ⭐ Easy |
+| 2 | Add Razorpay Account ID to store profile | 1 edit | ⭐ Easy |
+| 3 | Auto-refresh orders page (30s) | 1 edit | ⭐ Easy |
+| 4 | CSV export button on analytics | 1-2 edits | ⭐ Easy |
+| 5 | Cancellation reason modal on reject | 1 edit | ⭐⭐ Medium |
+| 6 | Bulk actions on products page | 1 edit | ⭐⭐ Medium |
+
+**⏱️ Total time: ~2-3 hours**
+
+**What's already done for you:**
+- ✅ Backend endpoints exist (`GET /vendors/me/payouts`, `PATCH /vendors/my-profile`)
+- ✅ Razorpay Account ID field is accepted by the backend
+- ✅ `POST /orders/:id/cancel` with reason body exists on backend
+- ✅ CI/CD pipeline set up to catch errors when you push
 
 ---
 
@@ -176,3 +193,9 @@ git add .
 git commit -m "feat: vendor dashboard improvements"
 git push origin main
 ```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Check `apps/vendor-dashboard/src/lib/api.ts` to see what API functions already exist
+- Run `npm run build` to check for errors before pushing
+- If the dev server crashes on start, check that your backend is running first

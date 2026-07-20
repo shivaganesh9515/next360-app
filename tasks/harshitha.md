@@ -1,14 +1,10 @@
 # 👋 Hey Harshitha! Your Tasks
 
 ## 📥 First: Get Latest Code
-Open terminal and run:
+Open terminal and run each line one by one:
 ```bash
 git checkout main
 git pull origin main
-```
-
-## 📦 Install Dependencies
-```bash
 cd apps/api
 npm install
 ```
@@ -17,6 +13,25 @@ npm install
 ```bash
 npm run start:dev
 ```
+
+---
+
+## 📋 Your Summary — 5 Tasks
+
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Add orderId to Payout model + migrate | 1 schema edit + 1 migrate | ⭐ Easy |
+| 2 | Payment list endpoint with filters | 2 edits (controller + service) | ⭐ Easy |
+| 3 | Razorpay refund webhook handler | 1 edit (service) | ⭐⭐ Medium |
+| 4 | Delivery partner weekly payouts | 1 edit (service) | ⭐⭐ Medium |
+| 5 | Vendor settlement (auto when threshold reached) | 1 edit (service) | ⭐⭐ Medium |
+
+**⏱️ Total time: ~2-3 hours**
+
+**What's already done for you:**
+- ✅ Redis + BullMQ running — you can use the queue for background payout jobs
+- ✅ PostgreSQL running on port 5433
+- ✅ API server can start with `npm run start:dev` from `apps/api/`
 
 ---
 
@@ -266,3 +281,9 @@ git add .
 git commit -m "feat: payment list, refund webhooks, payouts"
 git push origin main
 ```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Run `npx tsc --noEmit` to check for errors before pushing
+- The refund webhook needs to be registered in the webhook route — check `payments.controller.ts` for how other webhooks are handled
+- For migrations, run `npx prisma migrate dev --name add-payout-orderid`

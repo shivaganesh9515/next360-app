@@ -1,14 +1,10 @@
 # 👋 Hey Ashwanth! Your Tasks
 
 ## 📥 First: Get Latest Code
-Open terminal and run:
+Open terminal and run each line one by one:
 ```bash
 git checkout main
 git pull origin main
-```
-
-## 📦 Install Dependencies
-```bash
 cd apps/api
 npm install
 ```
@@ -17,6 +13,23 @@ npm install
 ```bash
 npm run start:dev
 ```
+
+---
+
+## 📋 Your Summary — 3 Tasks
+
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | User detail + status endpoints | 1 new file + 2 edits | ⭐ Easy |
+| 2 | Admin send notification endpoint | 1 edit | ⭐ Easy |
+| 3 | Install Helmet for security | 1 edit + 1 npm command | ⭐ Easy |
+
+**⏱️ Total time: ~1 hour**
+
+**What's already done for you:**
+- ✅ Redis + BullMQ running — you can use the queue for notifications
+- ✅ SMS/Email providers ready — call `this.smsService` or `this.emailService`
+- ✅ `crypto.randomInt()` — already fixed, you can skip that task
 
 ---
 
@@ -134,28 +147,14 @@ app.use(helmet());
 
 ---
 
-## ✅ Task 4: Auth Security
-
-**File to edit:**
-1. `apps/api/src/auth/auth.service.ts`
-
-### In `sendOtp` function:
-Find this line:
-```typescript
-const code = String(Math.floor(100000 + Math.random() * 900000));
-```
-
-Replace with:
-```typescript
-const crypto = require('crypto');
-const code = String(crypto.randomInt(100000, 999999));
-```
-
----
-
 ## 📤 Push Your Changes
 ```bash
 git add .
 git commit -m "feat: user detail/status endpoints, security hardening"
 git push origin main
 ```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 20 min on any one task
+- If the backend crashes, check `npm install` first
+- If `helmet` install fails, just skip it and tell me

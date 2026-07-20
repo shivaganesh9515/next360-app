@@ -1,14 +1,10 @@
 # 👋 Hey Srinitha! Your Tasks
 
 ## 📥 First: Get Latest Code
-Open terminal and run:
+Open terminal and run each line one by one:
 ```bash
 git checkout main
 git pull origin main
-```
-
-## 📦 Install Dependencies
-```bash
 cd apps/api
 npm install
 ```
@@ -17,6 +13,26 @@ npm install
 ```bash
 npm run start:dev
 ```
+
+---
+
+## 📋 Your Summary — 5 Tasks
+
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | DP Earnings endpoint (today/week/month/all) | 2 edits (controller + service) | ⭐ Easy |
+| 2 | DP Setup endpoint (vehicleType + zoneId) | 2 edits (controller + service) | ⭐ Easy |
+| 3 | Add KYC check to vendor approve endpoint | 1 edit (service) | ⭐ Easy |
+| 4 | DP batch payouts (weekly) | 1 edit (service) | ⭐⭐ Medium |
+| 5 | Auto-assign delivery to nearest available DP | 1 edit (service) | ⭐⭐ Medium |
+
+**⏱️ Total time: ~2-3 hours**
+
+**What's already done for you:**
+- ✅ Redis + BullMQ running — use the queue to schedule weekly payout jobs
+- ✅ PostgreSQL running on port 5433
+- ✅ Delivery slots seeded (28 per zone, 4 time slots × 7 days)
+- ✅ Zone pincodes added (11 pincodes per zone)
 
 ---
 
@@ -281,3 +297,9 @@ git add .
 git commit -m "feat: DP earnings, setup, auto-assignment"
 git push origin main
 ```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Run `npx tsc --noEmit` to check for errors before pushing
+- The `delivery.controller.ts` already has endpoints — just add new ones below the existing ones
+- `BadRequestException` is imported from `@nestjs/common`
