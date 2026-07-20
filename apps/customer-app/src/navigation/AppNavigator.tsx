@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import {
-  Text, View, StyleSheet, TouchableOpacity, Animated, Image,
+  Text, View, StyleSheet, TouchableOpacity, Animated, Image, Platform,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,6 +48,7 @@ import AiRecommendationsScreen from '../screens/ai/AiRecommendationsScreen';
 import AiHealthInsightsScreen from '../screens/ai/AiHealthInsightsScreen';
 import AiChatHistoryScreen from '../screens/ai/AiChatHistoryScreen';
 import ExpandingSearchDock from '../components/ExpandingSearchDock';
+import ProfileAvatarPopover from '../components/ProfileAvatarPopover';
 
 const ONBOARDING_KEY = 'next360:hasOnboarded';
 
@@ -70,9 +71,8 @@ const Tab = createBottomTabNavigator();
 // Cart/Checkout/Profile never re-theming.
 const TABS = [
   { name: 'Home',        iconFilled: 'home',    iconOutline: 'home-outline' },
-  { name: 'AllProducts', iconFilled: 'grid',    iconOutline: 'grid-outline' },
-  { name: 'Favorites',   iconFilled: 'heart',   iconOutline: 'heart-outline' },
-] as const;
+  { name: 'AllProducts', iconFilled: 'storefront',    iconOutline: 'storefront-outline' },
+];
 
 const TAB_PILL_H_PADDING = 6;
 
@@ -162,155 +162,129 @@ function MiniCartBar() {
 
   return (
     <Animated.View
-      pointerEvents={cartCount > 0 && !hideMiniCart ? 'auto' : 'none'}
       style={{ width: '100%', height: hideMiniCart ? 0 : height, marginBottom: hideMiniCart ? 0 : marginBottom, opacity: hideMiniCart ? 0 : anim, overflow: 'hidden', transform: [{ translateY }] }}
+      pointerEvents={Platform.OS === 'web' ? undefined : (cartCount > 0 && !hideMiniCart ? 'auto' : 'none')}
     >
-      <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
-        <Animated.View style={{ transform: [{ scale: bump }] }}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[miniCart.bar, Shadows.raised]}
-            onPress={openCartSheet}
-          >
-            <View ref={iconWrapRef} collapsable={false} style={miniCart.iconWrap}>
-              {lastItem?.product?.images?.[0] ? (
-                <Image source={{ uri: lastItem.product.images[0] }} style={miniCart.iconImage} />
-              ) : (
-                <Ionicons name="bag-handle" size={16} color={Colors.white} />
-              )}
-              {cartCount > 1 && (
-                <View style={miniCart.countBadge}>
-                  <Text style={miniCart.countBadgeText}>{cartCount}</Text>
-                </View>
-              )}
-            </View>
-            <Text style={miniCart.text} numberOfLines={1}>
-              {lastItem?.product?.name ? `${lastItem.product.name} added` : `${cartCount} items added`}
-            </Text>
-            <View style={miniCart.viewCartRow}>
-              <Text style={miniCart.viewCartText}>View Cart</Text>
-              <Ionicons name="chevron-forward" size={14} color={Colors.white} />
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
-      </Swipeable>
+      <View style={Platform.OS === 'web' ? { width: '100%', pointerEvents: cartCount > 0 && !hideMiniCart ? 'auto' : 'none' as any } : { width: '100%' }}>
+        <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
+          <Animated.View style={{ transform: [{ scale: bump }] }}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[miniCart.bar, Shadows.raised]}
+              onPress={openCartSheet}
+            >
+              <View ref={iconWrapRef} collapsable={false} style={miniCart.iconWrap}>
+                {lastItem?.product?.images?.[0] ? (
+                  <Image source={{ uri: lastItem.product.images[0] }} style={miniCart.iconImage} />
+                ) : (
+                  <Ionicons name="bag-handle" size={16} color={Colors.white} />
+                )}
+                {cartCount > 1 && (
+                  <View style={miniCart.countBadge}>
+                    <Text style={miniCart.countBadgeText}>{cartCount}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={miniCart.text} numberOfLines={1}>
+                {lastItem?.product?.name ? `${lastItem.product.name} added` : `${cartCount} items added`}
+              </Text>
+              <View style={miniCart.viewCartRow}>
+                <Text style={miniCart.viewCartText}>View Cart</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.white} />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        </Swipeable>
+      </View>
     </Animated.View>
   );
 }
 
-// Each tab owns its own bounce: icon springs up in scale and crossfades from
-// muted gray to the active near-black + accent-organic tone on selection.
-function TabButton({
-  tab, focused, onPress, badge,
-}: {
-  tab: (typeof TABS)[number];
-  focused: boolean;
-  onPress: () => void;
-  badge?: number;
-}) {
-  const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.spring(anim, { toValue: focused ? 1 : 0, useNativeDriver: true, friction: 6, tension: 260 }),
-    ]).start();
-  }, [focused]);
-
-  const scale = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.18, 1.05] });
-
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={pill.tab}>
-      <Animated.View style={[pill.iconWrap, { transform: [{ scale }] }]}>
-        <Ionicons
-          name={focused ? tab.iconFilled : tab.iconOutline}
-          size={20}
-          color={focused ? Colors.organic : Colors.textSecondary}
-        />
-        {!!badge && badge > 0 && (
-          <View style={pill.badge}>
-            <Text style={pill.badgeText}>{badge > 99 ? '99+' : badge}</Text>
-          </View>
-        )}
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
-
 // ── Floating pill tab bar ─────────────────────────────────────────────────────
-// Active tab is marked by one shared frosted-glass pill that slides/springs
-// between tab slots (BlurView, not a per-tab background) while that tab's own
-// icon bounces and crossfades color — since a WebGL glass shader (the reference
-// asked for) can't run in Expo React Native, this is the native-RN equivalent:
-// real optical blur via expo-blur + spring physics via core Animated.
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const [containerWidth, setContainerWidth] = useState(0);
   const { wishlistCount } = useStore();
-  // Profile is still a registered Tab.Screen (for nested `navigate('Profile',
-  // {screen: ...})` targets from ProfileSheet) but no longer has a pill button
-  // — its route index (3) falls outside TABS' own index range (0-2), so it
-  // must be clamped here or the indicator's interpolation would extrapolate
-  // past the last tab's slot while a Profile-stack screen is active.
-  const isOnHiddenTab = state.index >= TABS.length;
-  const clampedIndex = Math.min(state.index, TABS.length - 1);
-  const indicatorAnim = useRef(new Animated.Value(clampedIndex)).current;
 
-  useEffect(() => {
-    Animated.spring(indicatorAnim, {
-      toValue: clampedIndex,
-      useNativeDriver: true,
-      friction: 8,
-      tension: 90,
-    }).start();
-  }, [clampedIndex]);
+  const handleTabPress = (routeIndex: number, routeName: string) => {
+    const isFocused = state.index === routeIndex;
+    const route = state.routes[routeIndex];
 
-  const tabWidth = containerWidth > 0 ? (containerWidth - TAB_PILL_H_PADDING * 2) / TABS.length : 0;
-  const indicatorX = indicatorAnim.interpolate({
-    inputRange: TABS.map((_, i) => i),
-    outputRange: TABS.map((_, i) => i * tabWidth),
-  });
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route?.key,
+      canPreventDefault: true,
+    });
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(routeName);
+    }
+  };
+
+  const isProfileActive = state.index === 3;
 
   return (
     <View style={[pill.outer, { bottom: insets.bottom + 16 }]}>
       <MiniCartBar />
       <View style={pill.row}>
-        <View
-          style={[pill.container, Shadows.raised]}
-          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-        >
-          {tabWidth > 0 && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                pill.indicator,
-                { width: tabWidth, opacity: isOnHiddenTab ? 0 : 1, transform: [{ translateX: indicatorX }] },
-              ]}
-            >
-              <BlurView intensity={40} tint="light" style={pill.indicatorBlur} />
-            </Animated.View>
-          )}
+        <View style={[pill.container, Shadows.raised]}>
+          {/* Button 0: Home */}
+          <TouchableOpacity
+            style={pill.tab}
+            onPress={() => {}}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={state.index === 0 ? 'home' : 'home-outline'}
+              size={22}
+              color={state.index === 0 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+            />
+          </TouchableOpacity>
 
-          {TABS.map((tab, index) => {
-            const focused = state.index === index;
-            const route   = state.routes[index];
+          {/* Button 1: Offers / Tag */}
+          <TouchableOpacity
+            style={pill.tab}
+            onPress={() => handleTabPress(1, 'AllProducts')}
+            activeOpacity={0.7}
+          >
+            <View style={pill.iconWrap}>
+              <Ionicons
+                name={state.index === 1 ? 'storefront' : 'storefront-outline'}
+                size={22}
+                color={state.index === 1 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+              />
+            </View>
+          </TouchableOpacity>
 
-            const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!focused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            };
 
-            return <TabButton key={tab.name} tab={tab} focused={focused} onPress={onPress} badge={tab.name === 'Favorites' ? wishlistCount : undefined} />;
-          })}
+
+          {/* Button 3: Wishlist */}
+          <TouchableOpacity
+            style={pill.tab}
+            onPress={() => handleTabPress(2, 'Wishlist')}
+            activeOpacity={0.7}
+          >
+            <View style={pill.iconWrap}>
+              <Ionicons
+                name={state.index === 2 ? 'heart' : 'heart-outline'}
+                size={22}
+                color={state.index === 2 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+              />
+              {wishlistCount > 0 && (
+                <View style={pill.badge}>
+                  <Text style={pill.badgeText}>{wishlistCount > 99 ? '99+' : wishlistCount}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+
+            {/* Profile Avatar Popover — self-contained, no outer wrapper needed */}
+            <View style={pill.profileTab}>
+              <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
+            </View>
         </View>
 
         <ExpandingSearchDock
-          dockBg={Colors.text}
+          dockBg="#0A0A0A"
           navigation={navigation}
           onSearch={(q) => navigation.navigate('Home', { screen: 'Search', params: { initialQuery: q } })}
         />
@@ -403,7 +377,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Home"        component={HomeStackNavigator} />
       <Tab.Screen name="AllProducts" component={ProductListScreen} />
-      <Tab.Screen name="Favorites"   component={WishlistScreen} />
+      <Tab.Screen name="Wishlist"    component={WishlistScreen} />
       <Tab.Screen name="Profile"     component={ProfileStackNavigator} />
     </Tab.Navigator>
   );
@@ -465,39 +439,42 @@ export default function AppNavigator() {
 const pill = StyleSheet.create({
   outer: {
     position: 'absolute',
-    left: 24,
-    right: 24,
+    left: 20,
+    right: 20,
     alignItems: 'center',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    gap: 10,
+    gap: 12,
   },
   container: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    paddingHorizontal: TAB_PILL_H_PADDING,
-    paddingVertical: 8,
-    overflow: 'hidden',
-  },
-  // Shared active-tab marker — a real frosted-glass blur (expo-blur), springs
-  // between tab slots instead of each tab owning its own static background.
-  indicator: {
-    position: 'absolute',
-    top: 8, bottom: 8, left: TAB_PILL_H_PADDING,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  indicatorBlur: {
-    flex: 1,
-    backgroundColor: 'rgba(92,107,77,0.16)',
+    backgroundColor: '#0A0A0A',
+    borderRadius: 40,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 64,
   },
   tab: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+  },
+  profileTab: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 6,
+  },
+  profileCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -506,7 +483,6 @@ const pill = StyleSheet.create({
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 21,
   },
   badge: {
     position: 'absolute',

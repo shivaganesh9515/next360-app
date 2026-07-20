@@ -1,17 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { formatDeliveryFee } from '../../lib/pricing';
+import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
+import { useStaggeredEntrance } from '../../hooks/useDeliveryAnimation';
+import EmptyState from '../../components/EmptyState';
 
 export default function NewOrdersScreen() {
   const { newOrders, fetchNewOrders, isLoading } = useDeliveryStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'new'>('all');
 
-  useEffect(() => {
-    fetchNewOrders();
-  }, []);
+  useFocusEffect(
+    useCallback(() => { fetchNewOrders(); }, [])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -19,38 +23,48 @@ export default function NewOrdersScreen() {
     setRefreshing(false);
   };
 
-  const renderOrder = ({ item: order, index }: { item: any; index: number }) => (
-    <OrderCard order={order} index={index} />
+  const renderOrder = ({ item, index }: { item: any; index: number }) => (
+    <OrderCard order={item} index={index} />
   );
 
   if (isLoading && newOrders.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
-        <Text style={styles.loadingText}>Loading new orders...</Text>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Loading orders...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Summary Bar */}
+      {newOrders.length > 0 && (
+        <View style={styles.summaryBar}>
+          <Ionicons name="notifications" size={18} color={Colors.warning} />
+          <Text style={styles.summaryText}>
+            <Text style={styles.summaryCount}>{newOrders.length}</Text> delivery request{newOrders.length !== 1 ? 's' : ''} available
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={newOrders}
         renderItem={renderOrder}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#10B981']} />}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>No New Orders</Text>
-            <Text style={styles.emptySubtitle}>
-              When customers place orders, you'll see delivery requests here
-            </Text>
-            <TouchableOpacity style={styles.refreshButton} onPress={fetchNewOrders}>
-              <Text style={styles.refreshText}>Refresh</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon="notifications-off-outline"
+            iconColor={Colors.textTertiary}
+            title="No pending orders"
+            subtitle="When customers place orders, you'll see delivery requests here"
+            actionLabel="Refresh"
+            actionIcon="refresh"
+            onAction={fetchNewOrders}
+          />
         }
       />
     </View>
@@ -60,112 +74,95 @@ export default function NewOrdersScreen() {
 function OrderCard({ order, index = 0 }: { order: any; index?: number }) {
   const { acceptOrder, rejectOrder } = useDeliveryStore();
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Staggered entrance animation
-  const cardAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(cardAnim, {
-      toValue: 1, duration: 400, delay: Math.min(index, 8) * 80, useNativeDriver: true,
-    }).start();
-  }, []);
+  const cardAnim = useStaggeredEntrance(index);
 
   const handleAccept = async () => {
     setIsProcessing(true);
     try {
       await acceptOrder(order.id);
       router.push(`/delivery/${order.id}`);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to accept order');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleReject = async () => {
-    Alert.alert('Reject Order', 'Are you sure you want to reject this delivery?', [
+  const handleReject = () => {
+    Alert.alert('Decline Order', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Reject',
-        style: 'destructive',
+        text: 'Decline', style: 'destructive',
         onPress: async () => {
           setIsProcessing(true);
-          try {
-            await rejectOrder(order.id);
-          } catch (error) {
-            Alert.alert('Error', 'Failed to reject order');
-          } finally {
-            setIsProcessing(false);
-          }
+          try { await rejectOrder(order.id); } catch { Alert.alert('Error', 'Failed to decline'); }
+          finally { setIsProcessing(false); }
         },
       },
     ]);
   };
 
   const timeAgo = (date: string) => {
-    const minutes = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ago`;
+    const m = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
+    if (m < 1) return 'Just now';
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
   };
 
   return (
-    <Animated.View style={[styles.card, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
+    <Animated.View
+      style={[styles.card, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}
+    >
+      {/* Header */}
       <View style={styles.cardHeader}>
-        <View style={styles.orderInfo}>
+        <View style={styles.cardInfo}>
           <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
-          <Text style={styles.orderTime}>{timeAgo(order.createdAt)}</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>NEW</Text>
+          </View>
         </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>NEW</Text>
-        </View>
+        <Text style={styles.timeAgo}>{timeAgo(order.createdAt)}</Text>
       </View>
 
+      {/* Location chain */}
       <View style={styles.locationSection}>
         <View style={styles.locationRow}>
-          <View style={[styles.locationDot, { backgroundColor: '#10B981' }]} />
-          <View style={styles.locationInfo}>
-            <Text style={styles.locationLabel}>PICKUP</Text>
-            <Text style={styles.locationText} numberOfLines={1}>
-              {order.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}
-            </Text>
+          <View style={[styles.locDot, { backgroundColor: Colors.primary }]} />
+          <View style={styles.locInfo}>
+            <Text style={styles.locLabel}>PICKUP</Text>
+            <Text style={styles.locText} numberOfLines={1}>{order.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}</Text>
           </View>
         </View>
-        <View style={styles.locationLine} />
+        <View style={styles.locLine} />
         <View style={styles.locationRow}>
-          <View style={[styles.locationDot, { backgroundColor: '#EF4444' }]} />
-          <View style={styles.locationInfo}>
-            <Text style={styles.locationLabel}>DROP</Text>
-            <Text style={styles.locationText} numberOfLines={1}>
-              {order.address?.street || 'Customer location'}
-            </Text>
+          <View style={[styles.locDot, { backgroundColor: Colors.danger }]} />
+          <View style={styles.locInfo}>
+            <Text style={styles.locLabel}>DROP</Text>
+            <Text style={styles.locText} numberOfLines={1}>{order.address?.street || 'Customer location'}</Text>
           </View>
         </View>
       </View>
 
+      {/* Items preview */}
+      {order.items && order.items.length > 0 && (
+        <View style={styles.itemsPreview}>
+          <Ionicons name="cube-outline" size={14} color={Colors.textTertiary} />
+          <Text style={styles.itemsText}>{order.items.length} item{order.items.length > 1 ? 's' : ''}</Text>
+        </View>
+      )}
+
+      {/* Footer */}
       <View style={styles.cardFooter}>
-        <View style={styles.earnings}>
-          <Text style={styles.earningsLabel}>Your Earning</Text>
-          <Text style={styles.earningsAmount}>{formatDeliveryFee(order.deliveryFee)}</Text>
+        <View style={styles.earningBox}>
+          <Text style={styles.earningLabel}>Your earning</Text>
+          <Text style={styles.earningAmount}>{formatDeliveryFee(order.deliveryFee)}</Text>
         </View>
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.rejectBtn}
-            onPress={handleReject}
-            disabled={isProcessing}
-          >
-            <Text style={styles.rejectText}>Reject</Text>
+          <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} disabled={isProcessing} activeOpacity={0.7}>
+            <Text style={styles.rejectText}>Decline</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.acceptBtn}
-            onPress={handleAccept}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.acceptText}>Accept</Text>
-            )}
+          <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept} disabled={isProcessing} activeOpacity={0.85}>
+            {isProcessing ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.acceptText}>Accept</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -174,173 +171,45 @@ function OrderCard({ order, index = 0 }: { order: any; index?: number }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  loadingText: { marginTop: Spacing.md, fontSize: 15, color: Colors.textSecondary },
+  listContent: { padding: Spacing.lg, paddingBottom: 100 },
+  // Summary bar
+  summaryBar: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.warningLight,
+    marginHorizontal: Spacing.lg, marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md, gap: 8,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  listContainer: {
-    padding: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingTop: 64,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 32,
-  },
-  refreshButton: {
-    marginTop: 24,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  refreshText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  orderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginRight: 8,
-  },
-  orderTime: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  badge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#D97706',
-  },
-  locationSection: {
-    marginBottom: 16,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 12,
-  },
-  locationLine: {
-    width: 2,
-    height: 20,
-    backgroundColor: '#E5E7EB',
-    marginLeft: 4,
-    marginVertical: 4,
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  locationLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    letterSpacing: 0.5,
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#374151',
-    marginTop: 2,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 12,
-  },
-  earnings: {},
-  earningsLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  earningsAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#10B981',
-    marginTop: 2,
-  },
-  actions: {
-    flexDirection: 'row',
-  },
-  rejectBtn: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  rejectText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#EF4444',
-  },
-  acceptBtn: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  acceptText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  summaryText: { fontSize: 14, color: Colors.textSecondary },
+  summaryCount: { fontWeight: '700', color: Colors.warning },
+  // Card
+  card: { backgroundColor: Colors.white, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md, ...Shadow.sm },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
+  cardInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  orderNumber: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  badge: { backgroundColor: Colors.warningLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
+  badgeText: { fontSize: 10, fontWeight: '700', color: Colors.warning, letterSpacing: 0.5 },
+  timeAgo: { fontSize: 13, color: Colors.textTertiary },
+  // Location
+  locationSection: { marginBottom: Spacing.md },
+  locationRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  locDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4, marginRight: 12 },
+  locLine: { width: 2, height: 20, backgroundColor: Colors.border, marginLeft: 4, marginVertical: 4 },
+  locInfo: { flex: 1 },
+  locLabel: { fontSize: 10, fontWeight: '700', color: Colors.textTertiary, letterSpacing: 0.8 },
+  locText: { fontSize: 14, color: Colors.textPrimary, marginTop: 2 },
+  // Items
+  itemsPreview: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.md },
+  itemsText: { fontSize: 13, color: Colors.textTertiary },
+  // Footer
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: Spacing.md },
+  earningBox: {},
+  earningLabel: { fontSize: 11, color: Colors.textTertiary, fontWeight: '600', letterSpacing: 0.5 },
+  earningAmount: { fontSize: 20, fontWeight: '700', color: Colors.primary, marginTop: 2 },
+  actions: { flexDirection: 'row', gap: 8 },
+  rejectBtn: { backgroundColor: Colors.dangerLight, paddingHorizontal: 20, paddingVertical: 11, borderRadius: BorderRadius.md },
+  rejectText: { fontSize: 14, fontWeight: '600', color: Colors.danger },
+  acceptBtn: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 11, borderRadius: BorderRadius.md, minWidth: 85, alignItems: 'center' },
+  acceptText: { fontSize: 14, fontWeight: '600', color: Colors.white },
 });

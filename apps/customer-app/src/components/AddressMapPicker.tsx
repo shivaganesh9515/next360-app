@@ -159,7 +159,7 @@ export default function AddressMapPicker({ visible, onClose, onConfirm }: Addres
           />
           {/* Fixed center pin (Swiggy/Zomato pattern) — the map moves under it,
               so the pin never needs its own drag gesture handling. */}
-          <View style={s.pinWrap} pointerEvents="none">
+          <View style={[s.pinWrap, { pointerEvents: 'none' }]}>
             <Ionicons name="location" size={40} color={Colors.organic} />
           </View>
 
