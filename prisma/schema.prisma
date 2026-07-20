@@ -105,6 +105,9 @@ model User {
   aiRecommendations AI_Recommendation[]
   pushTokens        PushToken[]
   auditLogs         AuditLog[]
+  supportTickets    SupportTicket[]
+  assignedTickets   SupportTicket[] @relation("AssignedTickets")
+  ticketReplies     TicketReply[]
 }
 
 // Zone — city-based zone gating (MVP: Hyderabad + Vijayawada)
@@ -112,6 +115,7 @@ model Zone {
   id        String   @id @default(uuid())
   name      String
   city      String
+  pincodes  String[] @default([])
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -574,6 +578,35 @@ model Permission {
   resource  String
   action    String   // create, read, update, delete, manage
   createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id           String   @id @default(uuid())
+  userId       String
+  subject      String
+  message      String
+  category     String   // ORDER_ISSUE, VENDOR_ISSUE, DELIVERY_ISSUE, REFUND, OTHER
+  orderId      String?
+  status       String   @default("OPEN") // OPEN, ASSIGNED, RESOLVED, CLOSED
+  priority     String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  assignedToId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User  @relation(fields: [userId], references: [id])
+  assignedTo User? @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  replies    TicketReply[]
+}
+
+model TicketReply {
+  id        String   @id @default(uuid())
+  ticketId  String
+  userId    String
+  message   String
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 // ── Platform Settings — single-row table for global platform configuration

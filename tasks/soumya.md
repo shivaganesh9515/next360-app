@@ -1,101 +1,201 @@
-# Soumya — Frontend: Vendor Dashboard
+# 👋 Hey Soumya! Your Tasks
 
-> **Area**: `apps/vendor-dashboard/`
-> **Status**: Mostly Complete
-> **Priority**: 🟠 P1 → 🟡 P2
+## 📥 First: Get Latest Code
+Open terminal and run each line one by one:
+```bash
+git checkout main
+git pull origin main
+cd apps/vendor-dashboard
+npm install
+```
 
----
+## 🚀 Start the App
+```bash
+npm run dev
+```
 
-## ✅ Already Completed
-
-### All Pages Exist
-- [x] Dashboard with KPIs, recent orders, low-stock alerts
-- [x] Products list + add + edit + variants management
-- [x] Inventory stock management + low-stock alerts
-- [x] Orders list + detail + accept/reject/ready-for-pickup
-- [x] Coupons CRUD
-- [x] Offers CRUD
-- [x] Customers list
-- [x] Analytics overview + sales + revenue
-- [x] Earnings overview + payouts + transactions
-- [x] Store profile (view + edit with working-hours, delivery radius)
-- [x] Notifications page
-- [x] Settings page
-- [x] Support page
-
-### Features
-- [x] Vendor auth: Remember Me, Forgot Password, session expiry, 401 auto-logout
-- [x] UI polish: Slate color palette, transition improvements
-- [x] Orders page: Accept/Reject/Ready for Pickup buttons
-- [x] Order detail: Fixed to use vendor group status endpoint (groupId-based)
+Your app will open at: **http://localhost:3001**
 
 ---
 
-## 🟠 P1 — Remaining Work
+## 📋 Your Summary — 6 Tasks
 
-### 1. Payouts Page — Wire to Real Backend
-**Files**: `apps/vendor-dashboard/src/app/(dashboard)/earnings/payouts/page.tsx`
-**What**:
-- **Backend exists**: `GET /vendors/me/payouts` (Srinitha's endpoint)
-- Verify the payouts page is calling the correct API method
-- Fix any response data shape mismatches
-- Add payout status badges (PENDING / PROCESSED / FAILED)
-- Add payout history with date range filter
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Wire payouts page to backend | 1 edit + check api client | ⭐ Easy |
+| 2 | Add Razorpay Account ID to store profile | 1 edit | ⭐ Easy |
+| 3 | Auto-refresh orders page (30s) | 1 edit | ⭐ Easy |
+| 4 | CSV export button on analytics | 1-2 edits | ⭐ Easy |
+| 5 | Cancellation reason modal on reject | 1 edit | ⭐⭐ Medium |
+| 6 | Bulk actions on products page | 1 edit | ⭐⭐ Medium |
 
-### 2. Razorpay Account Linking
-**Files**: `apps/vendor-dashboard/src/app/(dashboard)/store/edit/page.tsx`
-**What**:
-- Add input field for `razorpayAccountId` in store profile edit form
-- Add validation: must be a valid Razorpay account ID format (acc_...)
-- Add helper text: "Link your Razorpay account to receive instant payouts via Route"
-- Backend already accepts this via `updateVendorProfile` DTO
+**⏱️ Total time: ~2-3 hours**
 
-### 3. Auto-Refresh for Orders Page
-**Files**: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`
-**What**:
-- Add 30-second polling interval to refresh orders list
-- Show visual indicator when new orders arrive (pulse animation)
-- Optional: browser notification for new orders using Notification API
-- Preserve current filters/tabs on refresh
+**What's already done for you:**
+- ✅ Backend endpoints exist (`GET /vendors/me/payouts`, `PATCH /vendors/my-profile`)
+- ✅ Razorpay Account ID field is accepted by the backend
+- ✅ `POST /orders/:id/cancel` with reason body exists on backend
+- ✅ CI/CD pipeline set up to catch errors when you push
 
 ---
 
-## 🟡 P2 — Enhancement
+## ✅ Task 1: Wire Payouts Page to Backend
 
-### 4. Export Reports
-**Files**: `apps/vendor-dashboard/src/app/(dashboard)/analytics/`
-**What**:
-- Add "Export CSV" button to analytics pages
-- Export sales data, revenue data
-- Client-side CSV generation from existing data
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/earnings/payouts/page.tsx`**
 
-### 5. Order Cancellation Reason
-**Files**: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`
-**What**:
-- When rejecting an order, prompt for cancellation reason
-- Send reason to backend via cancel endpoint
-- Show reason on order detail page
+Find the API call and make sure it calls the right endpoint. The backend already has:
+- `GET /vendors/me/payouts` — returns payout list
 
-### 6. Product Bulk Actions
-**Files**: `apps/vendor-dashboard/src/app/(dashboard)/products/page.tsx`
-**What**:
-- Batch status toggle (activate/deactivate multiple products)
-- Batch price update
+In your API client (`apps/vendor-dashboard/src/lib/api.ts`), find the function that gets payouts and make sure it calls:
+```typescript
+async getMyPayouts() {
+  return this.get('/vendors/me/payouts');
+}
+```
+
+Then in your payouts page, show a simple table with: **Period, Amount, Status, Date**
 
 ---
 
-## Implementation Order
-1. Payouts page wire-up (quick win, backend already exists)
-2. Razorpay account linking UI
-3. Auto-refresh for orders page
-4. Export reports
-5. Order cancellation reason
-6. Product bulk actions
+## ✅ Task 2: Add Razorpay Account Field to Store Profile
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/store/edit/page.tsx`**
+
+Add an input field for `razorpayAccountId`:
+
+```tsx
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-1">Razorpay Account ID</label>
+  <input
+    type="text"
+    value={form.razorpayAccountId || ''}
+    onChange={(e) => setForm({ ...form, razorpayAccountId: e.target.value })}
+    placeholder="acc_xxxxxxxxxxxx"
+    className="w-full px-3 py-2 border rounded-md"
+  />
+  <p className="text-xs text-gray-500 mt-1">
+    Link your Razorpay account to receive instant payouts via Route.
+    Format: acc_xxxxxxxxxxxx
+  </p>
+</div>
+```
+
+The backend already accepts this field in `PATCH /vendors/my-profile`.
 
 ---
 
-## Reference
-- API client: `apps/vendor-dashboard/src/lib/api.ts`
-- Orders page: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`
-- Store profile edit: `apps/vendor-dashboard/src/app/(dashboard)/store/edit/page.tsx`
-- Earnings payouts: `apps/vendor-dashboard/src/app/(dashboard)/earnings/payouts/page.tsx`
+## ✅ Task 3: Auto-Refresh Orders Page
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`**
+
+Add this at the top of your component (inside the function):
+
+```typescript
+import { useEffect } from 'react';
+
+// Add this inside your component:
+useEffect(() => {
+  const interval = setInterval(() => {
+    // Call your fetch orders function
+    fetchOrders();
+  }, 30000); // Refresh every 30 seconds
+
+  return () => clearInterval(interval);
+}, []);
+```
+
+---
+
+## ✅ Task 4: Export CSV from Analytics
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/analytics/` pages**
+
+Add a button at the top of analytics pages:
+
+```tsx
+<button
+  onClick={() => {
+    // Convert table data to CSV
+    const headers = Object.keys(data[0] || {}).join(',');
+    const rows = data.map(row => Object.values(row).join(','));
+    const csv = [headers, ...rows].join('\n');
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analytics.csv';
+    a.click();
+  }}
+  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+>
+  Export CSV
+</button>
+```
+
+---
+
+## ✅ Task 5: Order Cancellation Reason
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`**
+
+When a vendor clicks "Reject" on an order, show a small modal/popup asking:
+- **Why are you rejecting this order?** (textarea)
+- **Submit** button
+
+Send the reason to backend:
+```typescript
+await api.post(`/orders/${orderId}/cancel`, { reason })
+```
+
+---
+
+## ✅ Task 6: Product Bulk Actions
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/products/page.tsx`**
+
+Add checkbox column to products table:
+```tsx
+// Add this state
+const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+// Add checkbox column in table header
+<th className="p-2">
+  <input type="checkbox" onChange={(e) => {
+    if (e.target.checked) {
+      setSelectedIds(products.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  }} />
+</th>
+
+// Add action buttons when items are selected
+{selectedIds.length > 0 && (
+  <div className="mb-4 p-3 bg-gray-100 rounded flex gap-2">
+    <span>{selectedIds.length} selected</span>
+    <button onClick={() => bulkToggleStatus(true)} className="px-3 py-1 bg-green-500 text-white rounded">
+      Activate All
+    </button>
+    <button onClick={() => bulkToggleStatus(false)} className="px-3 py-1 bg-red-500 text-white rounded">
+      Deactivate All
+    </button>
+  </div>
+)}
+```
+
+---
+
+## 📤 Push Your Changes
+```bash
+git add .
+git commit -m "feat: vendor dashboard improvements"
+git push origin main
+```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Check `apps/vendor-dashboard/src/lib/api.ts` to see what API functions already exist
+- Run `npm run build` to check for errors before pushing
+- If the dev server crashes on start, check that your backend is running first

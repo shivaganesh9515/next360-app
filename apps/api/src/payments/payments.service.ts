@@ -457,6 +457,21 @@ export class PaymentsService {
   }
 
   /**
+   * List all payments (admin only).
+   */
+  async listAll() {
+    return this.prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        order: {
+          select: { orderNo: true, userId: true, totalAmount: true },
+        },
+      },
+    });
+  }
+
+  /**
    * Get payment history for an order.
    */
   async getPaymentsForOrder(orderId: string) {

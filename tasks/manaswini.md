@@ -1,131 +1,261 @@
-# Manaswini — Frontend: Admin Panel
+# 👋 Hey Manaswini! Your Tasks
 
-> **Area**: `apps/admin-panel/`
-> **Status**: In Progress
-> **Priority**: 🔴 P0 → 🟡 P2
+## 📥 First: Get Latest Code
+Open terminal and run each line one by one:
+```bash
+git checkout main
+git pull origin main
+cd apps/admin-panel
+npm install
+```
 
----
+## 🚀 Start the App
+```bash
+npm run dev
+```
 
-## ✅ Already Completed
-
-### All 35+ Pages Exist
-- [x] Dashboard — with live aggregate KPIs from `/admin/dashboard`
-- [x] Dashboard sidebar with all nav items configured
-- [x] Vendors list + approvals + detail page (with KYC, performance, admin actions)
-- [x] Delivery Partners list + approvals + detail page
-- [x] Products list + approvals + add + detail page
-- [x] Categories + Sub-Categories CRUD
-- [x] Brands CRUD
-- [x] Orders list + detail + returns + refunds
-- [x] Payments transactions + vendor-payouts + delivery-payouts
-- [x] Inventory management
-- [x] Coupons CRUD
-- [x] Offers CRUD
-- [x] Reviews + Ratings pages
-- [x] AI Logs (chat, recommendations, analytics)
-- [x] Reports (sales, revenue)
-- [x] CMS (pages, banners, notifications)
-- [x] Zones CRUD
-- [x] Disputes management
-- [x] Roles + Permissions CRUD
-- [x] Settings (general) — with live data from PlatformSettings
+Your app will open at: **http://localhost:3002**
 
 ---
 
-## 🔴 P0 — New Pages Needed
+## 📋 Your Summary — 6 Tasks
 
-### 1. Audit Logs Page
-**Files**: `apps/admin-panel/src/app/(dashboard)/audit-logs/page.tsx`, `apps/admin-panel/src/app/(dashboard)/audit-logs/layout.tsx`
-**What**: Build frontend page for the existing Audit Log backend
-- **Backend exists**: `GET /audit-logs`, `GET /audit-logs/summary`
-- UI: Full-screen paginated table with columns: Timestamp, Admin, Action, Resource, Resource ID, Details, IP
-- Filters: Action type dropdown, Resource type dropdown, Date range picker
-- Summary widget: Pie chart or bar chart showing top actions today
-- Detail expand: Click row to see full Details JSON
-- **Design**: Follow existing DataTable pattern used in other pages
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Support Tickets list + detail pages | 2 new files | ⭐⭐ Medium |
+| 2 | Bulk product approval (checkboxes + button) | 1 edit | ⭐⭐ Medium |
+| 3 | Wire payouts & reports pages to backend | 4 edits | ⭐ Easy |
+| 4 | Settings notification toggles | 1 edit | ⭐ Easy |
+| 5 | E2E testing — walk through every page | No code, just notes | ⭐ Easy |
+| 6 | Dashboard auto-refresh (30s) + KPIs | 1 edit | ⭐ Easy |
 
-### 2. Support Tickets Pages
-**Files**: 
-- `apps/admin-panel/src/app/(dashboard)/support/page.tsx` — tickets list
-- `apps/admin-panel/src/app/(dashboard)/support/[id]/page.tsx` — ticket detail
-**What**:
-- **Backend pending**: Support module is assigned to Ashwanth (create tickets first if needed)
-- Tickets list table: ID, Subject, User, Status, Priority, Date, Assigned To
-- Status filter tabs: Open / Assigned / Resolved / All
-- Ticket detail: Full thread view with replies, status update, assignee change
-- Reply form at bottom with text input + submit
+**⏱️ Total time: ~3-4 hours**
 
-### 3. Add "Audit Logs" and "Support" to Sidebar
-**Files**: `apps/admin-panel/src/components/AdminSidebar.tsx`
-**What**:
-- Add Audit Logs nav item under a new "System" section or standalone
-- Add Support nav item with unread ticket count badge
+**What's already done for you:**
+- ✅ Backend endpoints exist (Support module being built by Abhinaya)
+- ✅ Reports endpoints exist (Abhinaya's Task 2)
+- ✅ Payouts endpoints exist (Harshitha + Abhinaya)
+- ✅ Settings API exists (`GET /admin/settings`, `PATCH /admin/settings`)
+- ✅ CI/CD pipeline catches errors on push
+
+**⚠️ Note:** Task 1 (Support pages) depends on Abhinaya finishing the backend first. Start with Tasks 2-6!
 
 ---
 
-## 🟠 P1 — Enhancements
+## ✅ Task 1: Support Tickets Admin Pages
 
-### 4. Bulk Product Approval
-**Files**: `apps/admin-panel/src/app/(dashboard)/products/approvals/page.tsx`
-**What**:
-- Add checkbox column to product approvals table
-- "Approve Selected" button in header
-- Sends batch PATCH requests to `/products/:id/approve`
-- Shows success/failure count after bulk operation
+**Backend is being built by Abhinaya** — once her endpoints are ready, create these pages:
 
-### 5. Wire Payouts Pages to Backend
-**Files**: `apps/admin-panel/src/app/(dashboard)/payments/vendor-payouts/page.tsx`, `delivery-payouts/page.tsx`
-**What**:
-- **Backend pending**: Payouts endpoints assigned to Ashwanth
-- When endpoints exist: wire up the data tables with real data
-- Add export to CSV button
+### Page 1: Tickets List
 
-### 6. Wire Reports Pages to Backend
-**Files**: `apps/admin-panel/src/app/(dashboard)/reports/sales/page.tsx`, `reports/revenue/page.tsx`
-**What**:
-- **Backend pending**: Reports endpoints assigned to Ashwanth
-- When endpoints exist: wire up charts and tables with real data
-- Add date range picker and export button
+**Create file: `apps/admin-panel/src/app/(dashboard)/support/page.tsx`**
 
-### 7. Settings Page — Wire Notification Toggles
-**Files**: `apps/admin-panel/src/app/(dashboard)/settings/page.tsx`
-**What**:
-- Wire the notification preference toggles to PlatformSettings backend (endpoint exists)
-- Test save/load cycle
+Create a simple table page showing: **Ticket ID, Subject, User, Status, Priority, Date**
+
+Copy the pattern from an existing page like `apps/admin-panel/src/app/(dashboard)/vendors/page.tsx`.
+
+```tsx
+'use client';
+import { useState, useEffect } from 'react';
+import { adminApi } from '@/lib/api';
+
+export default function SupportPage() {
+  const [tickets, setTickets] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('OPEN');
+
+  useEffect(() => {
+    adminApi.getTickets(statusFilter).then(setTickets);
+  }, [statusFilter]);
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Support Tickets</h1>
+
+      {/* Status filter tabs */}
+      <div className="flex gap-2 mb-4">
+        {['OPEN', 'ASSIGNED', 'RESOLVED', 'ALL'].map(status => (
+          <button
+            key={status}
+            onClick={() => setStatusFilter(status)}
+            className={`px-4 py-2 rounded ${statusFilter === status ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-2 text-left">Subject</th>
+            <th className="p-2 text-left">User</th>
+            <th className="p-2 text-left">Status</th>
+            <th className="p-2 text-left">Priority</th>
+            <th className="p-2 text-left">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tickets.map((ticket: any) => (
+            <tr key={ticket.id} className="border-b hover:bg-gray-50">
+              <td className="p-2">{ticket.subject}</td>
+              <td className="p-2">{ticket.user?.name || ticket.user?.email}</td>
+              <td className="p-2">{ticket.status}</td>
+              <td className="p-2">{ticket.priority}</td>
+              <td className="p-2">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+### Page 2: Ticket Detail
+
+**Create file: `apps/admin-panel/src/app/(dashboard)/support/[id]/page.tsx`**
+
+Show the full ticket with replies and a reply form at bottom. Copy the pattern from `vendors/[id]/page.tsx`.
 
 ---
 
-## 🟡 P2 — Polish
+## ✅ Task 2: Bulk Product Approval
 
-### 8. End-to-End Testing
-**Files**: All pages
-**What**:
-- Walk through every admin panel page against live backend
-- Document what works and what doesn't
-- Fix any broken API calls
+**File to edit: `apps/admin-panel/src/app/(dashboard)/products/approvals/page.tsx`**
 
-### 9. Dashboard Enhancement
-**Files**: `apps/admin-panel/src/app/(dashboard)/page.tsx`
-**What**:
-- Add real-time refresh (30s polling)
-- Add more KPIs: DAU, conversion rate, avg delivery time
+Add checkboxes to the approval table and a "Approve Selected" button:
+
+```tsx
+const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+// Add checkbox in table header
+<th><input type="checkbox" onChange={() => {
+  if (selectedIds.length === products.length) {
+    setSelectedIds([]);
+  } else {
+    setSelectedIds(products.map(p => p.id));
+  }
+}} /></th>
+
+// Add checkbox in each row
+<td><input type="checkbox" checked={selectedIds.includes(product.id)} onChange={() => {
+  setSelectedIds(prev =>
+    prev.includes(product.id) ? prev.filter(id => id !== product.id) : [...prev, product.id]
+  );
+}} /></td>
+
+// Add approve button
+<button
+  onClick={async () => {
+    for (const id of selectedIds) {
+      await adminApi.approveProduct(id);
+    }
+    alert(`Approved ${selectedIds.length} products`);
+    setSelectedIds([]);
+    // Refresh list
+  }}
+  disabled={selectedIds.length === 0}
+  className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+>
+  Approve Selected ({selectedIds.length})
+</button>
+```
 
 ---
 
-## Implementation Order
-1. Audit Logs page (backend ready, quick win)
-2. Add Audit Logs + Support to sidebar navigation
-3. Support Tickets pages (after Ashwanth finishes backend)
-4. Bulk product approval
-5. Wire pages to backend endpoints as they become available
-6. Settings notification toggles
-7. E2E testing and polish
+## ✅ Task 3: Wire Payouts & Reports Pages
+
+**File to edit: `apps/admin-panel/src/app/(dashboard)/payments/vendor-payouts/page.tsx`**
+**File to edit: `apps/admin-panel/src/app/(dashboard)/payments/delivery-payouts/page.tsx`**
+**File to edit: `apps/admin-panel/src/app/(dashboard)/reports/sales/page.tsx`**
+**File to edit: `apps/admin-panel/src/app/(dashboard)/reports/revenue/page.tsx`**
+
+Check that each page is calling the right API function from `adminApi`. If the backend endpoint exists, just wire it. If not, wait until the backend is ready (Abhinaya's task).
+
+API functions to use:
+- `adminApi.getPayouts()` → `GET /payouts`
+- `adminApi.getVendorPayouts()` → `GET /payouts/vendors`
+- `adminApi.getDeliveryPayouts()` → `GET /payouts/delivery`
+- `adminApi.getSalesReport(startDate, endDate)` → `GET /reports/sales`
+- `adminApi.getRevenueReport(startDate, endDate)` → `GET /reports/revenue`
 
 ---
 
-## Reference
-- Sidebar: `apps/admin-panel/src/components/AdminSidebar.tsx`
-- API client: `apps/admin-panel/src/lib/api.ts`
-- Existing page pattern: `apps/admin-panel/src/app/(dashboard)/vendors/[id]/page.tsx`
-- Dashboard component: `apps/admin-panel/src/components/DataTable.tsx`
-- Audit Logs API: `adminApi.getAuditLogs()` in api.ts
+## ✅ Task 4: Settings Notification Toggles
+
+**File to edit: `apps/admin-panel/src/app/(dashboard)/settings/page.tsx`**
+
+The backend already has `GET /admin/settings` and `PATCH /admin/settings`.
+
+Add toggle switches for:
+- Auto-approve vendors
+- Auto-approve products
+- COD enabled
+- Maintenance mode
+
+Example:
+```tsx
+<div className="flex items-center justify-between mb-4">
+  <div>
+    <p className="font-medium">Auto-Approve Vendors</p>
+    <p className="text-sm text-gray-500">Automatically approve new vendor registrations</p>
+  </div>
+  <input
+    type="checkbox"
+    checked={settings.autoApproveVendors}
+    onChange={(e) => updateSetting('autoApproveVendors', e.target.checked)}
+    className="toggle"
+  />
+</div>
+```
+
+---
+
+## ✅ Task 5: E2E Testing
+
+Walk through every page in the admin panel and check:
+1. ✅ Page loads without errors
+2. ✅ Data appears from backend
+3. ✅ Buttons work (approve, reject, delete, edit)
+4. ✅ Filters work
+5. ✅ Pagination works
+
+**If you find any broken page, just make a note of it here.**
+
+---
+
+## ✅ Task 6: Dashboard Enhancement
+
+**File to edit: `apps/admin-panel/src/app/(dashboard)/page.tsx`**
+
+Add auto-refresh (every 30 seconds):
+```typescript
+useEffect(() => {
+  const interval = setInterval(() => {
+    fetchDashboardData();
+  }, 30000);
+  return () => clearInterval(interval);
+}, []);
+```
+
+Add more KPIs if the backend provides them:
+- DAU (Daily Active Users)
+- Conversion rate
+- Average delivery time
+
+---
+
+## 📤 Push Your Changes
+```bash
+git add .
+git commit -m "feat: admin panel improvements"
+git push origin main
+```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Check `apps/admin-panel/src/lib/api.ts` for existing API functions
+- Run `npm run build` to check for errors before pushing
+- Start with Task 2 (bulk approval) — it's a quick win!
+- Task 1 depends on Abhinaya — skip it until she finishes

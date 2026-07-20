@@ -78,14 +78,22 @@ export default function ProductApprovalsPage() {
   const handleBulkApprove = async () => {
     if (!confirmAction) return;
     setApproving(true);
-    const { ids } = confirmAction;
+    const { ids, action } = confirmAction;
     let successCount = 0;
     let failCount = 0;
 
     // Sequential to avoid hammering the API
     for (const id of ids) {
       try {
-        await adminApi.updateProductApproval(id, confirmAction.action === 'approve');
+        if (action === 'approve') {
+          // Use the correct backend endpoint: PATCH /products/:id/approve
+          await adminApi.approveProduct(id);
+        } else {
+          // Reject: backend has no dedicated reject endpoint yet, so fall
+          // back to the generic PATCH /products/:id (only works if the
+          // UpdateProductDto accepts isApproved = false).
+          await adminApi.updateProduct(id, { isApproved: false });
+        }
         successCount++;
       } catch {
         failCount++;

@@ -40,6 +40,41 @@ export class ReviewsService {
     });
   }
 
+  async getRatingSummary() {
+    const [totalReviews, avgRating, ratingDistribution, topRated] = await Promise.all([
+      this.prisma.review.count(),
+      this.prisma.review.aggregate({ _avg: { rating: true } }),
+      this.prisma.review.groupBy({
+        by: ['rating'],
+        _count: true,
+        orderBy: { rating: 'desc' },
+      }),
+      this.prisma.review.groupBy({
+        by: ['productId'],
+        _avg: { rating: true },
+        _count: true,
+        orderBy: { _avg: { rating: 'desc' } },
+        take: 10,
+      }),
+    ]);
+
+    return {
+      totalReviews,
+      averageRating: avgRating._avg.rating
+        ? Number(avgRating._avg.rating.toFixed(1))
+        : 0,
+      ratingDistribution: ratingDistribution.map((r) => ({
+        rating: r.rating,
+        count: r._count,
+      })),
+      topRatedProducts: topRated.map((p) => ({
+        productId: p.productId,
+        averageRating: Number(p._avg.rating?.toFixed(1) || 0),
+        totalReviews: p._count,
+      })),
+    };
+  }
+
   async findByProduct(productId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 

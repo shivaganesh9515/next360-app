@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
-  RefreshControl, ScrollView, Dimensions, Animated,
+  RefreshControl, ScrollView, Dimensions, Animated, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../../lib/store';
 import { useProductSheet } from '../../lib/productSheet';
-import ProfileAvatarPopover from '../../components/ProfileAvatarPopover';
+// import ProfileAvatarPopover from '../../components/ProfileAvatarPopover'; // removed per design
 import { customerApi } from '../../lib/api';
 import { Product, Category } from '../../types';
 import {
@@ -213,16 +213,14 @@ export default function HomeScreen({ navigation }: any) {
             {/* Overscroll dark overlay — fades in as user pulls down */}
             <Animated.View
               style={[s.overscrollOverlay, { opacity: overscrollOverlay }]}
-              pointerEvents="none"
+              pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
             />
 
             <SafeAreaView edges={['top']}>
               {/* Top bar — fades out on scroll-down */}
               <Animated.View style={{ opacity: headerOpacity }}>
                 <View style={s.topBar}>
-                  <View style={[s.topBarSide, s.topBarLeft]}>
-                    <ProfileAvatarPopover navigation={navigation} />
-                  </View>
+                  {/* <ProfileAvatarPopover navigation={navigation} /> removed per design */}
                   <LocationPopover accent={accent} />
                   <View style={[s.topBarSide, s.topIcons]}>
                     <NotificationsPopover />
@@ -425,6 +423,7 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: '#0A0A08',
     zIndex: 10,
+    ...Platform.select({ web: { pointerEvents: 'none' as any } }),
   },
 
   topBar: {

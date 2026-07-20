@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -101,11 +101,18 @@ const s = StyleSheet.create({
     width: 68, height: 68, borderRadius: 34,
     backgroundColor: Colors.white,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.organic,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 4px 12px rgba(92, 107, 77, 0.15)',
+      },
+      default: {
+        shadowColor: Colors.organic,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 4,
+      },
+    }),
   },
   title: { ...Typography.display, color: Colors.text, marginBottom: Spacing.sm, textAlign: 'center' },
   subtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.xl },

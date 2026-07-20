@@ -16,7 +16,10 @@ interface Props {
 // backdrop feels connected to the panel, not like two separate layers.
 export default function PopoverBackdrop({ style, onPress, pointerEvents }: Props) {
   return (
-    <Reanimated.View style={[s.backdrop, style, pointerEvents ? { pointerEvents: pointerEvents } : undefined]}>
+    <Reanimated.View
+      style={[s.backdrop, style]}
+      pointerEvents={Platform.OS === 'web' ? undefined : pointerEvents}
+    >
       {Platform.OS === 'ios' && (
         <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       )}
@@ -29,5 +32,6 @@ const s = StyleSheet.create({
   backdrop: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(10,10,8,0.4)',
+    ...Platform.select({ web: { pointerEvents: 'auto' as any } }),
   },
 });

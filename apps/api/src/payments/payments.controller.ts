@@ -130,6 +130,13 @@ export class PaymentsController {
     return this.paymentsService.getPaymentAnalytics(startDate, endDate);
   }
 
+  @Get('list-all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async listAll() {
+    return this.paymentsService.listAll();
+  }
+
   @Get(':orderId')
   @UseGuards(JwtAuthGuard)
   getPayments(@Param('orderId') orderId: string) {

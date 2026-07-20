@@ -8,19 +8,22 @@ import Reanimated, {
   SharedValue,
 } from 'react-native-reanimated'
 
-// ── Spring config inspired by Framer Motion FloatingPanel ──
-// bounce: 0.1, duration: 0.4 — lower bounce, snappier return, cleaner feel.
+// ── Panel expansion spring ──
+// Higher mass + lower stiffness = slower, more stable opening.
+// On low-end Android, a mass of 0.55 with 240 stiffness creates visible
+// micro-jitter because each frame has to compute the physics AND paint
+// the growing panel.  Mass 0.8 smooths this out.
 export const PANEL_SPRING_CONFIG = {
-  damping: 26,
-  stiffness: 240,
-  mass: 0.55,
+  damping: 28,
+  stiffness: 200,
+  mass: 0.8,
 }
 
-// ── Quick press feedback ──
+// ── Quick press feedback (spring back) ──
 export const PRESS_SPRING_CONFIG = {
-  damping: 12,
-  stiffness: 300,
-  mass: 0.5,
+  damping: 14,
+  stiffness: 280,
+  mass: 0.6,
 }
 
 export interface PanelOrigin {
@@ -34,7 +37,7 @@ export interface PanelAnimations {
   /** Shared value driving all animations (0 = closed, 1 = open) */
   anim: SharedValue<number>
   /** Call when trigger is pressed — springs open */
-  open: (origin: PanelOrigin) => void
+  open: () => void
   /** Call to close — springs back, runs onClose callback when done */
   close: (onClose?: () => void) => void
   /** Animated style for the backdrop overlay (opacity 0→1) */
@@ -57,7 +60,7 @@ export interface PanelAnimations {
 export function usePanelAnimation(): PanelAnimations {
   const anim = useSharedValue(0)
 
-  const open = useCallback((_origin: PanelOrigin) => {
+  const open = useCallback(() => {
     requestAnimationFrame(() => {
       anim.value = withSpring(1, PANEL_SPRING_CONFIG)
     })
@@ -144,18 +147,26 @@ export function StaggeredSection({ anim, index, children, style }: StaggeredSect
   )
 }
 
-// ── Body content stagger (fade + slide up as a group) ──
-export function useBodyStaggerStyle(anim: SharedValue<number>): object {
-  return useAnimatedStyle(() => ({
-    opacity: interpolate(anim.value, [0, 0.35, 0.45], [0, 0, 1]),
-    transform: [{ translateY: interpolate(anim.value, [0, 0.4, 0.5], [14, 14, 0]) }],
-  }))
-}
+// ── Backward-compatible aliases ──
+// LocationPopover and NotificationsPopover still import these.
+// They now alias to useContentFadeIn so nothing breaks.
+export const useBodyStaggerStyle = useContentFadeIn;
+export const useHeaderStaggerStyle = useContentFadeIn;
 
-// ── Header stagger (fade + slide slightly later) ──
-export function useHeaderStaggerStyle(anim: SharedValue<number>): object {
+// ── Single content fade-in (replaces body + header + per-item stagger) ──
+// A SINGLE opacity + translateY animation for ALL panel content.
+// Content becomes visible between anim=0.25 and 0.4 — by then the panel
+// has already grown to ~40-50% of its target size, so content appears
+// naturally as the panel opens.
+//
+// No per-item stagger, no multiple animation layers fighting each other.
+// This is the correct approach for mobile: one animation driver,
+// predictable behavior, minimal UI thread work.
+export function useContentFadeIn(anim: SharedValue<number>): object {
   return useAnimatedStyle(() => ({
-    opacity: interpolate(anim.value, [0, 0.2, 0.3], [0, 0, 1]),
-    transform: [{ translateY: interpolate(anim.value, [0, 0.25, 0.35], [14, 14, 0]) }],
+    opacity: interpolate(anim.value, [0, 0.25, 0.4], [0, 0, 1]),
+    transform: [{
+      translateY: interpolate(anim.value, [0, 0.28, 0.42], [10, 10, 0]),
+    }],
   }))
 }
