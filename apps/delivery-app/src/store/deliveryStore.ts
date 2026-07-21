@@ -67,8 +67,9 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   fetchNewOrders: async () => {
     set({ isLoading: true });
     try {
-      const res = await deliveryApi.getNewOrders();
-      set({ newOrders: res?.data || [] });
+      const res: any = await deliveryApi.getNewOrders();
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      set({ newOrders: list });
     } catch (error) {
       console.error('Fetch new orders error:', error);
     } finally {
@@ -79,8 +80,9 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   fetchActiveDeliveries: async () => {
     set({ isLoading: true });
     try {
-      const res = await deliveryApi.getActiveDeliveries();
-      set({ activeDeliveries: res?.data || [] });
+      const res: any = await deliveryApi.getActiveDeliveries();
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      set({ activeDeliveries: list });
     } catch (error) {
       console.error('Fetch active deliveries error:', error);
     } finally {
@@ -91,8 +93,9 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   fetchDeliveryHistory: async (params?: any) => {
     set({ isLoading: true });
     try {
-      const res = await deliveryApi.getDeliveryHistory(params);
-      set({ deliveryHistory: res?.data || [] });
+      const res: any = await deliveryApi.getDeliveryHistory(params);
+      const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+      set({ deliveryHistory: list });
     } catch (error) {
       console.error('Fetch delivery history error:', error);
     } finally {
