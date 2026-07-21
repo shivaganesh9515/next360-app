@@ -47,25 +47,24 @@ export default function AnalyticsPage() {
     </div>
   );
 
-  return (
-    const exportCsv = () => {
-      if (!analytics) return;
-      const headers = ['Metric', 'Value'];
-      const rows = [
-        ['Total Revenue', analytics.totalRevenue],
-        ['Total Orders', analytics.totalOrders],
-        ['Avg Order Value', analytics.avgOrderValue],
-        ['Top Product', analytics.topProduct?.name || 'N/A'],
-      ];
-      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'analytics.csv'; a.click();
-      URL.revokeObjectURL(url);
-    };
+  const exportCsv = () => {
+    if (!analytics) return;
+    const headers = ['Metric', 'Value'];
+    const rows = [
+      ['Total Revenue', analytics.totalRevenue],
+      ['Total Orders', analytics.totalOrders],
+      ['Avg Order Value', analytics.avgOrderValue],
+      ['Top Product', analytics.topProduct?.name || 'N/A'],
+    ];
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'analytics.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
 
-    return (
+  return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>

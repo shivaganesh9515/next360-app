@@ -36,13 +36,6 @@ export default function EditStorePage() {
     finally { setSaving(false); }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setSaving(true);
-    try { await vendorApi.updateMyProfile(form); router.push('/store'); }
-    catch (err: any) { setError(err.message); }
-    finally { setSaving(false); }
-  };
-
   if (loading) return <div className="text-center py-12 text-slate-500">Loading...</div>;
 
   return (
