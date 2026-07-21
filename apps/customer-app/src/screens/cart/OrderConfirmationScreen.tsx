@@ -71,7 +71,7 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
 
         <TouchableOpacity
           style={s.ordersButton}
-          onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { screen: 'OrderHistory' } })}
+          onPress={() => navigation.navigate('Orders')}
           activeOpacity={0.7}
         >
           <Text style={s.ordersButtonText}>{t('orderConfirm.viewOrders')}</Text>

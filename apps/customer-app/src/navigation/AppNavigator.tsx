@@ -37,7 +37,6 @@ import SupportScreen from '../screens/profile/SupportScreen';
 import LoyaltyScreen from '../screens/profile/LoyaltyScreen';
 import ReferralScreen from '../screens/profile/ReferralScreen';
 import SubscriptionScreen from '../screens/profile/SubscriptionScreen';
-import WishlistScreen from '../screens/wishlist/WishlistScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import PromosScreen from '../screens/promos/PromosScreen';
 import VendorStorefrontScreen from '../screens/vendor/VendorStorefrontScreen';
@@ -257,28 +256,23 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
 
 
-          {/* Button 3: Wishlist */}
+          {/* Button 2: Orders (Reorder / History) */}
           <TouchableOpacity
             style={pill.tab}
-            onPress={() => handleTabPress(2, 'Wishlist')}
+            onPress={() => handleTabPress(2, 'Orders')}
             activeOpacity={0.7}
           >
             <View style={pill.iconWrap}>
               <Ionicons
-                name={state.index === 2 ? 'heart' : 'heart-outline'}
+                name={state.index === 2 ? 'receipt' : 'receipt-outline'}
                 size={22}
                 color={state.index === 2 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
               />
-              {wishlistCount > 0 && (
-                <View style={pill.badge}>
-                  <Text style={pill.badgeText}>{wishlistCount > 99 ? '99+' : wishlistCount}</Text>
-                </View>
-              )}
             </View>
           </TouchableOpacity>
 
-            {/* Profile Avatar Popover — self-contained, no outer wrapper needed */}
-            <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
+          {/* Profile Avatar Popover */}
+          <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
         </View>
 
         <ExpandingSearchDock
@@ -354,8 +348,8 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders', headerShown: false }} />
       <ProfileStack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="OrderTracking" component={OrderTrackingScreen} options={{ headerShown: false }} />
-      <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />
-      <ProfileStack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address' }} />
+      <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses', headerShown: false }} />
+      <ProfileStack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address', headerShown: false }} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Support" component={SupportScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
@@ -375,7 +369,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Home"        component={HomeStackNavigator} />
       <Tab.Screen name="AllProducts" component={ProductListScreen} />
-      <Tab.Screen name="Wishlist"    component={WishlistScreen} />
+      <Tab.Screen name="Orders"      component={OrderHistoryScreen} />
       <Tab.Screen name="Profile"     component={ProfileStackNavigator} />
     </Tab.Navigator>
   );

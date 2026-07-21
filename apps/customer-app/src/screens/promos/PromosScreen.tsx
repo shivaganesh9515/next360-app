@@ -1,20 +1,21 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
 import { useStore } from '../../lib/store';
 import { Offer } from '../../types';
-import { Colors, Typography, Spacing, BorderRadius, getStoreAccent, getStoreLabel } from '../../constants/theme';
+import { Colors, BorderRadius, Spacing, Shadows } from '../../constants/theme';
 import ErrorState from '../../components/ErrorState';
-import { useTranslation } from 'react-i18next';
 
 export default function PromosScreen() {
-  const { t } = useTranslation();
+  const navigation = useNavigation<any>();
   const { storeType } = useStore();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -31,48 +32,83 @@ export default function PromosScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const handleCopyCode = async (code: string) => {
+    try {
+      const expoClipboard = require('expo-clipboard');
+      if (expoClipboard?.setStringAsync) {
+        await expoClipboard.setStringAsync(code);
+      }
+    } catch {}
+    setCopiedCode(code);
+    Alert.alert('Coupon Copied!', `Use code "${code}" at checkout to claim your discount.`);
+    setTimeout(() => setCopiedCode(null), 2500);
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={s.container}>
-        <View style={s.center}><ActivityIndicator size="large" color={Colors.organic} /></View>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#22FF88" />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={s.container}>
+      {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>{t('promos.title')}</Text>
-        <Text style={s.headerSub}>{t('promos.subtitle', { storeLabel: getStoreLabel(storeType) })}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#1A1A1A" />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Offers & Coupons</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       {error ? (
-        <ErrorState message={t('promos.error.load')} onRetry={load} />
+        <ErrorState message="Could not load active promo codes." onRetry={load} />
       ) : offers.length === 0 ? (
         <View style={s.center}>
-          <Text style={s.emptyEmoji}>🏷️</Text>
-          <Text style={s.emptyTitle}>{t('promos.empty.title')}</Text>
-          <Text style={s.emptySubtitle}>{t('promos.empty.subtitle')}</Text>
+          <View style={s.emptyIconBox}>
+            <Ionicons name="pricetag-outline" size={48} color="#0A0A0A" />
+          </View>
+          <Text style={s.emptyTitle}>No Active Coupons</Text>
+          <Text style={s.emptySubtitle}>Check back soon for new organic farm discounts & cashback vouchers!</Text>
         </View>
       ) : (
         <FlatList
           data={offers}
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
-            const accent = getStoreAccent(item.storeType);
+            const isPercent = item.discountType === 'PERCENTAGE';
+            const valueText = isPercent ? `${item.discountValue}% OFF` : `₹${item.discountValue} OFF`;
+            const code = item.title?.split(' ')?.[0]?.toUpperCase() || 'NEXT360';
+
             return (
-              <View style={[s.card, { borderColor: accent }]}>
-                <View style={[s.discountPill, { backgroundColor: accent }]}>
-                  <Text style={s.discountText}>
-                    {item.discountType === 'PERCENTAGE' ? t('promos.discount.percent', { value: item.discountValue }) : t('promos.discount.fixed', { value: item.discountValue })}
-                  </Text>
+              <View style={s.couponCard}>
+                <View style={s.cardTopRow}>
+                  <View style={s.discountBadge}>
+                    <Text style={s.discountBadgeText}>{valueText}</Text>
+                  </View>
+                  <TouchableOpacity style={s.copyBtn} onPress={() => handleCopyCode(code)} activeOpacity={0.8}>
+                    <Text style={s.copyBtnText}>{copiedCode === code ? 'COPIED' : 'COPY CODE'}</Text>
+                  </TouchableOpacity>
                 </View>
+
                 <Text style={s.cardTitle}>{item.title}</Text>
                 {!!item.description && <Text style={s.cardDesc}>{item.description}</Text>}
-                <Text style={s.cardExpiry}>
-                  {t('promos.validTill', { date: new Date(item.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) })}
-                </Text>
+
+                <View style={s.cardFooterRow}>
+                  <View style={s.codeTag}>
+                    <Ionicons name="pricetag" size={13} color="#2E7D32" />
+                    <Text style={s.codeTagText}>{code}</Text>
+                  </View>
+                  <Text style={s.cardExpiry}>
+                    Valid till {new Date(item.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
               </View>
             );
           }}
@@ -83,31 +119,96 @@ export default function PromosScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerTitle: { ...Typography.h3, color: Colors.text },
-  headerSub: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
-
+  container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
-  emptyTitle: { ...Typography.h3, color: Colors.text },
-  emptySubtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#1A1A1A' },
+
+  emptyIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#22FF88',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#1A1A1A' },
+  emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#757575', textAlign: 'center', marginTop: 6 },
 
   list: { padding: Spacing.lg },
-  card: {
-    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
-    borderWidth: 1.5, borderStyle: 'dashed',
-    padding: Spacing.lg, marginBottom: Spacing.md,
+
+  couponCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: '#EFEFEF',
+    borderStyle: 'dashed',
+    ...Shadows.card,
   },
-  discountPill: {
-    alignSelf: 'flex-start', borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.md, paddingVertical: 4, marginBottom: Spacing.sm,
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  discountText: { ...Typography.caption, color: Colors.white, fontFamily: 'Inter_600SemiBold' },
-  cardTitle: { ...Typography.h3, color: Colors.text, marginBottom: 4 },
-  cardDesc: { ...Typography.bodySmall, color: Colors.textSecondary, marginBottom: Spacing.sm },
-  cardExpiry: { ...Typography.caption, color: Colors.textSecondary },
+  discountBadge: {
+    backgroundColor: '#22FF88',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.pill,
+  },
+  discountBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#0A0A0A' },
+
+  copyBtn: {
+    backgroundColor: '#0A0A0A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.sm,
+  },
+  copyBtnText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: '#22FF88' },
+
+  cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#1A1A1A' },
+  cardDesc: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#616161', marginTop: 4, lineHeight: 18 },
+
+  cardFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+    paddingTop: 10,
+  },
+  codeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.pill,
+  },
+  codeTagText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#2E7D32' },
+  cardExpiry: { fontFamily: 'Inter_400Regular', fontSize: 12, color: '#757575' },
 });

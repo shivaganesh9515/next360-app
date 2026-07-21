@@ -296,13 +296,44 @@
     "fallback": {
       "name": "User"
     },
+    "verifiedAccount": "Verified Account",
+    "memberSince": "Member since {{date}}",
+    "editProfile": "Edit Profile",
+    "stats": {
+      "orders": "Orders",
+      "wishlist": "Wishlist",
+      "coupons": "Coupons",
+      "addresses": "Addresses"
+    },
+    "benefits": {
+      "title": "Benefits",
+      "wallet": "Wallet",
+      "loyaltyPoints": "Loyalty Points",
+      "referralCode": "Referral Code",
+      "rewards": "Rewards",
+      "membership": "Membership",
+      "organicImpact": "Organic Impact"
+    },
     "menu": {
       "editProfile": "Edit Profile",
       "myOrders": "My Orders",
+      "myAddresses": "My Addresses",
+      "wishlist": "Wishlist",
+      "payments": "Payments",
+      "notifications": "Notifications",
+      "language": "Language",
+      "helpCenter": "Help Center",
+      "contactUs": "Contact Us",
+      "faqs": "FAQs",
+      "privacyTerms": "Privacy & Terms",
+      "refundPolicy": "Refund Policy",
       "favourites": "Favourites",
       "offersCoupons": "Offers & Coupons",
-      "myAddresses": "My Addresses",
-      "notifications": "Notifications",
+      "support": "Support"
+    },
+    "sections": {
+      "account": "Account",
+      "preferences": "Preferences",
       "support": "Support"
     },
     "alert": {
