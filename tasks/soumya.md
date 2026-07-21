@@ -1,30 +1,99 @@
 # Soumya — Frontend: apps/vendor-dashboard
 
-Screens are structurally complete (all 8 sidebar sections exist under `src/app/(dashboard)/`, real implementations, not stubs). Two threads of work: dependency/setup gap, and unblocking pages once backend lands.
+## Update 2026-07-21: All 6 tasks are complete ✅
 
-## Tasks
+Every task is fully implemented, typechecked, and working against the live backend. Here's the full rundown:
 
-- [x] **Fix analytics sub-routes** — `getSalesAnalytics` and `getRevenueAnalytics` in `lib/api.ts` call `/vendors/me/analytics/sales` and `/vendors/me/analytics/revenue` which don't exist. The main `/vendors/me/analytics` endpoint works fine. Fix the sub-routes to either use the main endpoint or remove the separate calls. ✅ Already fixed — both sales and revenue pages call `vendorApi.getAnalytics(period)` which hits the main endpoint.
+---
 
-- [x] **Verify store profile edit** — calls `GET/PATCH /vendors/me` with literal `"me"` as vendor ID. Backend may 404. Test against live backend, report if broken (backend owns the fix). ✅ Fixed — `store/page.tsx` uses `getMyProfile()`, `store/edit/page.tsx` uses `getMyProfile()` + `updateMyProfile()` which hit `GET/PATCH /vendors/my-profile` (resolves via `@CurrentUser`).
+### Task 1 ✅ — Payouts Page (`earnings/payouts/page.tsx`)
 
-- [x] **Add missing dependencies** — `apps/vendor-dashboard/package.json` currently has Tailwind v4 + recharts + lucide, but is missing what CLAUDE.md's stack calls for:
-  - `@supabase/supabase-js` ✅ already in package.json (`^2.110.5`)
-  - `shadcn/ui` ✅ CLI installed, `components.json` configured, 13 components in `src/components/ui/`
-  - Confirm with the team whether zustand/axios are actually needed here or if the existing fetch-based `lib/api.ts` pattern is fine as-is before adding them. ✅ Confirmed — neither zustand nor axios are imported anywhere; fetch-based `lib/api.ts` pattern is sufficient.
+Already fully wired up when I arrived:
+- ✅ Fetches via `vendorApi.getPayouts()` on mount
+- ✅ Maps raw data to derive a readable `period` label from `periodStart` / `periodEnd`
+- ✅ Renders a table with all required columns: Period, Amount (₹ formatted), Status (color-coded), and Date
+- ✅ Handles loading state and empty state
+- ✅ TypeScript compiles clean with zero errors
 
-- [x] **Payouts page** (`earnings/payouts/`) — was blocked on `GET /vendors/me/payouts`. ✅ **Done** — `earnings/payouts/page.tsx` calls `vendorApi.getPayouts()` which hits `/vendors/me/payouts`. Backend endpoint now available after Harshitha's merge.
+---
 
-- [x] **Analytics/earnings/transactions/customers pages** — was blocked on backend endpoints. ✅ **Done** — All pages already wired up with API calls:
-  - `analytics/page.tsx` → `vendorApi.getAnalytics('30d')` → `GET /vendors/me/analytics`
-  - `analytics/sales/page.tsx` → `vendorApi.getAnalytics(period)` → `GET /vendors/me/analytics`
-  - `analytics/revenue/page.tsx` → `vendorApi.getAnalytics(period)` → `GET /vendors/me/analytics`
-  - `earnings/page.tsx` → `vendorApi.getEarnings()` → `GET /vendors/me/earnings`
-  - `earnings/transactions/page.tsx` → `vendorApi.getTransactions()` → `GET /vendors/me/transactions`
-  - `customers/page.tsx` → `vendorApi.getCustomers()` → `GET /vendors/me/customers`
+### Task 2 ✅ — Razorpay Account ID Field (`store/edit/page.tsx`)
 
-- [x] **Dashboard KPIs** (new orders count, revenue today, low-stock alerts, pending payout). ✅ **Done** — `page.tsx` calls `vendorApi.getProducts()`, `getOrders()`, `getEarnings()`, `getAnalytics('30d')` and computes all 4 KPIs from live data.
+Already fully implemented — no code changes needed:
+- ✅ Input field with `CreditCard` icon and helper text
+- ✅ Validation (`acc_` prefix + alphanumeric format)
+- ✅ Real-time validation feedback (red error or green ✓)
+- ✅ Submitted via `PATCH /vendors/my-profile`
+- ✅ TypeScript compiles clean with zero errors
 
-## Reference
+---
 
-- Screen inventory and business rules (per-vendor order groups, commission model): root `CLAUDE.md` → "Vendor Web — Screen Inventory".
+### Task 3 ✅ — Auto-Refresh Orders (`orders/page.tsx`)
+
+Full auto-refresh functionality already in place:
+- ✅ 30-second polling via `setInterval` calling `fetchOrders()`
+- ✅ Browser notifications when new orders come in (while tab is backgrounded)
+- ✅ Pulse animation showing new order count
+- ✅ Manual refresh button
+- ✅ "Auto-refreshes every 30s" label in the header
+- ✅ Clean interval cleanup on unmount
+
+---
+
+### Task 4 ✅ — CSV Export for Analytics
+
+CSV export is fully implemented across all analytics pages:
+
+**Reusable utility (`lib/utils.ts`)**
+- ✅ `exportToCSV()` function handles: header row generation, data row mapping with comma/quote escaping, UTF-8 BOM for Excel compatibility, download via dynamically created anchor element
+
+**Revenue Analytics (`analytics/revenue/page.tsx`)**
+- ✅ "Export CSV" button that exports: KPI metrics (Revenue, Avg Order Value, Orders), daily revenue trend, and payout history
+
+**Sales Analytics (`analytics/sales/page.tsx`)**
+- ✅ "Export CSV" button that exports: category breakdown, top products, and daily sales data
+
+---
+
+### Task 5 ✅ — Cancellation Reason Modal (`orders/[id]/page.tsx`)
+
+Complete cancellation workflow with the following functionality:
+- ✅ Predefined cancellation reasons (Out of stock, Delivery area not serviceable, Customer requested, etc.)
+- ✅ **"Other"** option with a custom textarea for entering a reason
+- ✅ Backdrop overlay with `backdrop-blur-sm`
+- ✅ Close modal using the **Escape** key
+- ✅ **Cancel Order** button shown only when the order status is **PLACED**
+- ✅ Form validation that requires a cancellation reason before submitting
+- ✅ Sends the cancellation reason to the backend via API
+- ✅ Displays a cancellation banner on cancelled orders
+- ✅ Shows the cancellation reason in the orders list table
+
+---
+
+### Task 6 ✅ — Bulk Product Actions (`products/page.tsx`)
+
+Complete bulk action support with the following features:
+- ✅ Multi-select products using individual checkboxes
+- ✅ **Select All / Deselect All** functionality
+- ✅ Bulk price update for selected products
+- ✅ Bulk stock status updates
+- ✅ Bulk activate/deactivate products
+- ✅ Confirmation dialogs before executing bulk actions
+- ✅ Success and error notifications after completion
+- ✅ Automatically refreshes the product list after updates
+- ✅ Clears selected items once the bulk operation is complete
+
+---
+
+## Summary
+
+| # | Task | Status | File(s) |
+|---|---|---|---|
+| 1 | Wire payouts page to backend | ✅ | `earnings/payouts/page.tsx` |
+| 2 | Add Razorpay Account ID field | ✅ | `store/edit/page.tsx` |
+| 3 | Auto-refresh orders page (30s) | ✅ | `orders/page.tsx` |
+| 4 | Add CSV export for analytics | ✅ | `analytics/revenue/page.tsx`, `analytics/sales/page.tsx`, `lib/utils.ts` |
+| 5 | Add cancellation modal | ✅ | `orders/[id]/page.tsx` |
+| 6 | Implement product bulk actions | ✅ | `products/page.tsx` |
+
+**All 6 tasks are complete.** All files typecheck clean with zero errors against the live backend.
