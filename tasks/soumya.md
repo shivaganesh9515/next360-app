@@ -1,99 +1,201 @@
-# Soumya — Frontend: apps/vendor-dashboard
+# 👋 Hey Soumya! Your Tasks
 
-## Update 2026-07-21: All 6 tasks are complete ✅
+## 📥 First: Get Latest Code
+Open terminal and run each line one by one:
+```bash
+git checkout main
+git pull origin main
+cd apps/vendor-dashboard
+npm install
+```
 
-Every task is fully implemented, typechecked, and working against the live backend. Here's the full rundown:
+## 🚀 Start the App
+```bash
+npm run dev
+```
 
----
-
-### Task 1 ✅ — Payouts Page (`earnings/payouts/page.tsx`)
-
-Already fully wired up when I arrived:
-- ✅ Fetches via `vendorApi.getPayouts()` on mount
-- ✅ Maps raw data to derive a readable `period` label from `periodStart` / `periodEnd`
-- ✅ Renders a table with all required columns: Period, Amount (₹ formatted), Status (color-coded), and Date
-- ✅ Handles loading state and empty state
-- ✅ TypeScript compiles clean with zero errors
-
----
-
-### Task 2 ✅ — Razorpay Account ID Field (`store/edit/page.tsx`)
-
-Already fully implemented — no code changes needed:
-- ✅ Input field with `CreditCard` icon and helper text
-- ✅ Validation (`acc_` prefix + alphanumeric format)
-- ✅ Real-time validation feedback (red error or green ✓)
-- ✅ Submitted via `PATCH /vendors/my-profile`
-- ✅ TypeScript compiles clean with zero errors
+Your app will open at: **http://localhost:3001**
 
 ---
 
-### Task 3 ✅ — Auto-Refresh Orders (`orders/page.tsx`)
+## 📋 Your Summary — 6 Tasks
 
-Full auto-refresh functionality already in place:
-- ✅ 30-second polling via `setInterval` calling `fetchOrders()`
-- ✅ Browser notifications when new orders come in (while tab is backgrounded)
-- ✅ Pulse animation showing new order count
-- ✅ Manual refresh button
-- ✅ "Auto-refreshes every 30s" label in the header
-- ✅ Clean interval cleanup on unmount
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | Wire payouts page to backend | 1 edit + check api client | ⭐ Easy |
+| 2 | Add Razorpay Account ID to store profile | 1 edit | ⭐ Easy |
+| 3 | Auto-refresh orders page (30s) | 1 edit | ⭐ Easy |
+| 4 | CSV export button on analytics | 1-2 edits | ⭐ Easy |
+| 5 | Cancellation reason modal on reject | 1 edit | ⭐⭐ Medium |
+| 6 | Bulk actions on products page | 1 edit | ⭐⭐ Medium |
 
----
+**⏱️ Total time: ~2-3 hours**
 
-### Task 4 ✅ — CSV Export for Analytics
-
-CSV export is fully implemented across all analytics pages:
-
-**Reusable utility (`lib/utils.ts`)**
-- ✅ `exportToCSV()` function handles: header row generation, data row mapping with comma/quote escaping, UTF-8 BOM for Excel compatibility, download via dynamically created anchor element
-
-**Revenue Analytics (`analytics/revenue/page.tsx`)**
-- ✅ "Export CSV" button that exports: KPI metrics (Revenue, Avg Order Value, Orders), daily revenue trend, and payout history
-
-**Sales Analytics (`analytics/sales/page.tsx`)**
-- ✅ "Export CSV" button that exports: category breakdown, top products, and daily sales data
+**What's already done for you:**
+- ✅ Backend endpoints exist (`GET /vendors/me/payouts`, `PATCH /vendors/my-profile`)
+- ✅ Razorpay Account ID field is accepted by the backend
+- ✅ `POST /orders/:id/cancel` with reason body exists on backend
+- ✅ CI/CD pipeline set up to catch errors when you push
 
 ---
 
-### Task 5 ✅ — Cancellation Reason Modal (`orders/[id]/page.tsx`)
+## ✅ Task 1: Wire Payouts Page to Backend
 
-Complete cancellation workflow with the following functionality:
-- ✅ Predefined cancellation reasons (Out of stock, Delivery area not serviceable, Customer requested, etc.)
-- ✅ **"Other"** option with a custom textarea for entering a reason
-- ✅ Backdrop overlay with `backdrop-blur-sm`
-- ✅ Close modal using the **Escape** key
-- ✅ **Cancel Order** button shown only when the order status is **PLACED**
-- ✅ Form validation that requires a cancellation reason before submitting
-- ✅ Sends the cancellation reason to the backend via API
-- ✅ Displays a cancellation banner on cancelled orders
-- ✅ Shows the cancellation reason in the orders list table
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/earnings/payouts/page.tsx`**
 
----
+Find the API call and make sure it calls the right endpoint. The backend already has:
+- `GET /vendors/me/payouts` — returns payout list
 
-### Task 6 ✅ — Bulk Product Actions (`products/page.tsx`)
+In your API client (`apps/vendor-dashboard/src/lib/api.ts`), find the function that gets payouts and make sure it calls:
+```typescript
+async getMyPayouts() {
+  return this.get('/vendors/me/payouts');
+}
+```
 
-Complete bulk action support with the following features:
-- ✅ Multi-select products using individual checkboxes
-- ✅ **Select All / Deselect All** functionality
-- ✅ Bulk price update for selected products
-- ✅ Bulk stock status updates
-- ✅ Bulk activate/deactivate products
-- ✅ Confirmation dialogs before executing bulk actions
-- ✅ Success and error notifications after completion
-- ✅ Automatically refreshes the product list after updates
-- ✅ Clears selected items once the bulk operation is complete
+Then in your payouts page, show a simple table with: **Period, Amount, Status, Date**
 
 ---
 
-## Summary
+## ✅ Task 2: Add Razorpay Account Field to Store Profile
 
-| # | Task | Status | File(s) |
-|---|---|---|---|
-| 1 | Wire payouts page to backend | ✅ | `earnings/payouts/page.tsx` |
-| 2 | Add Razorpay Account ID field | ✅ | `store/edit/page.tsx` |
-| 3 | Auto-refresh orders page (30s) | ✅ | `orders/page.tsx` |
-| 4 | Add CSV export for analytics | ✅ | `analytics/revenue/page.tsx`, `analytics/sales/page.tsx`, `lib/utils.ts` |
-| 5 | Add cancellation modal | ✅ | `orders/[id]/page.tsx` |
-| 6 | Implement product bulk actions | ✅ | `products/page.tsx` |
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/store/edit/page.tsx`**
 
-**All 6 tasks are complete.** All files typecheck clean with zero errors against the live backend.
+Add an input field for `razorpayAccountId`:
+
+```tsx
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-1">Razorpay Account ID</label>
+  <input
+    type="text"
+    value={form.razorpayAccountId || ''}
+    onChange={(e) => setForm({ ...form, razorpayAccountId: e.target.value })}
+    placeholder="acc_xxxxxxxxxxxx"
+    className="w-full px-3 py-2 border rounded-md"
+  />
+  <p className="text-xs text-gray-500 mt-1">
+    Link your Razorpay account to receive instant payouts via Route.
+    Format: acc_xxxxxxxxxxxx
+  </p>
+</div>
+```
+
+The backend already accepts this field in `PATCH /vendors/my-profile`.
+
+---
+
+## ✅ Task 3: Auto-Refresh Orders Page
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`**
+
+Add this at the top of your component (inside the function):
+
+```typescript
+import { useEffect } from 'react';
+
+// Add this inside your component:
+useEffect(() => {
+  const interval = setInterval(() => {
+    // Call your fetch orders function
+    fetchOrders();
+  }, 30000); // Refresh every 30 seconds
+
+  return () => clearInterval(interval);
+}, []);
+```
+
+---
+
+## ✅ Task 4: Export CSV from Analytics
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/analytics/` pages**
+
+Add a button at the top of analytics pages:
+
+```tsx
+<button
+  onClick={() => {
+    // Convert table data to CSV
+    const headers = Object.keys(data[0] || {}).join(',');
+    const rows = data.map(row => Object.values(row).join(','));
+    const csv = [headers, ...rows].join('\n');
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analytics.csv';
+    a.click();
+  }}
+  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+>
+  Export CSV
+</button>
+```
+
+---
+
+## ✅ Task 5: Order Cancellation Reason
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/orders/page.tsx`**
+
+When a vendor clicks "Reject" on an order, show a small modal/popup asking:
+- **Why are you rejecting this order?** (textarea)
+- **Submit** button
+
+Send the reason to backend:
+```typescript
+await api.post(`/orders/${orderId}/cancel`, { reason })
+```
+
+---
+
+## ✅ Task 6: Product Bulk Actions
+
+**File to edit: `apps/vendor-dashboard/src/app/(dashboard)/products/page.tsx`**
+
+Add checkbox column to products table:
+```tsx
+// Add this state
+const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+// Add checkbox column in table header
+<th className="p-2">
+  <input type="checkbox" onChange={(e) => {
+    if (e.target.checked) {
+      setSelectedIds(products.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  }} />
+</th>
+
+// Add action buttons when items are selected
+{selectedIds.length > 0 && (
+  <div className="mb-4 p-3 bg-gray-100 rounded flex gap-2">
+    <span>{selectedIds.length} selected</span>
+    <button onClick={() => bulkToggleStatus(true)} className="px-3 py-1 bg-green-500 text-white rounded">
+      Activate All
+    </button>
+    <button onClick={() => bulkToggleStatus(false)} className="px-3 py-1 bg-red-500 text-white rounded">
+      Deactivate All
+    </button>
+  </div>
+)}
+```
+
+---
+
+## 📤 Push Your Changes
+```bash
+git add .
+git commit -m "feat: vendor dashboard improvements"
+git push origin main
+```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Check `apps/vendor-dashboard/src/lib/api.ts` to see what API functions already exist
+- Run `npm run build` to check for errors before pushing
+- If the dev server crashes on start, check that your backend is running first
