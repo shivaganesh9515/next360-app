@@ -64,7 +64,7 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
 
   const contentFade = useContentFadeIn(anim);
 
-  // ── Start spring ONLY after Modal is committed ──
+  // ── Start spring immediately when Modal becomes visible ──
   const animationStarted = useRef(false);
   useEffect(() => {
     if (visible && !animationStarted.current) {
@@ -150,10 +150,8 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
       originY.value = y + statusBarOffset;
       originW.value = width;
       originH.value = height;
-      setTimeout(() => {
-        setVisible(true);
-        setExpanded(true);
-      }, 50);
+      setVisible(true);
+      setExpanded(true);
     });
   }, []);
 
@@ -390,10 +388,10 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   headerTitle: { ...Typography.h3, color: Colors.text },

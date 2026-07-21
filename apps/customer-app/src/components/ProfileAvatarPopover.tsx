@@ -1,22 +1,22 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
-  Alert, Platform, useWindowDimensions, Pressable,
+  Alert, Platform, StatusBar, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
-  useAnimatedStyle, useSharedValue, interpolate, withSpring, runOnJS,
+  useAnimatedStyle, useSharedValue, interpolate, interpolateColor, withSpring,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
-import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
-import { PRESS_SPRING_CONFIG } from '../lib/panelAnimation';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../constants/theme';
+import PopoverBackdrop from './PopoverBackdrop';
+import {
+  usePanelAnimation,
+  useContentFadeIn, PRESS_SPRING_CONFIG,
+} from '../lib/panelAnimation';
 
 const DOCK_SIZE = 44;
-const H_INSET   = 16; // px from each screen edge
-
-// TRANSITION: spring, bounce: 0.1, duration: 0.4
-const TRANSITION_SPRING = { damping: 20, stiffness: 220, mass: 0.5 };
 
 interface MenuItem { icon: string; label: string; go: () => void }
 interface Props { navigation?: any; active?: boolean }
@@ -24,119 +24,72 @@ interface Props { navigation?: any; active?: boolean }
 export default function ProfileAvatarPopover({ navigation, active = false }: Props) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const dockRef = useRef<View>(null);
+  
+  const panelWidth = Math.min(420, screenWidth - Spacing.xl * 2);
+  const panelHeight = Math.min(550, screenHeight * 1);
 
-  const sheetWidth  = screenWidth - H_INSET * 2;
-  const sheetHeight = Math.min(screenHeight * 0.72, 580);
-  const sheetBottom = insets.bottom + 90; // Sits above bottom navbar
+  // Opens just above the trigger button — stays low, like a card popping up from the dock
+  // We'll compute openTop dynamically inside panelStyle from originY SharedValue
 
   const { user, signOut } = useAuth();
-
+  const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const animationStarted = useRef(false);
 
-  const panelAnim = useSharedValue(0); // 0 = hidden, 1 = visible
+  // Position coordinates on screen
+  const originX = useSharedValue(screenWidth - DOCK_SIZE - Spacing.xl);
+  const originY = useSharedValue(screenHeight * 0.88);
+
+  const {
+    anim, open: animOpen, close: animClose, backdropStyle, triggerGhostStyle,
+  } = usePanelAnimation();
+
   const triggerScale = useSharedValue(1);
+  const triggerAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: triggerScale.value }],
+    opacity: interpolate(anim.value, [0, 0.05], [1, 0]),
+  }));
 
-  // Position of trigger button relative to the viewport
-  const [triggerRect, setTriggerRect] = useState({ x: 0, y: 0, width: DOCK_SIZE, height: DOCK_SIZE });
-
-  /* ── Open ── */
-  const onDockPress = useCallback(() => {
-    triggerScale.value = withSpring(0.95, PRESS_SPRING_CONFIG);
-    dockRef.current?.measureInWindow((x, y, width, height) => {
-      setTriggerRect({ x, y, width, height });
-      setVisible(true);
-    });
-  }, []);
+  const contentFade = useContentFadeIn(anim);
 
   useEffect(() => {
-    if (mounted) {
-      panelAnim.value = withSpring(1, TRANSITION_SPRING);
-      triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
+    if (visible && !animationStarted.current) {
+      animationStarted.current = true;
+      requestAnimationFrame(() => {
+        animOpen();
+        triggerScale.value = withSpring(1, PRESS_SPRING_CONFIG);
+      });
     }
-  }, [mounted]);
+    if (!visible) animationStarted.current = false;
+  }, [visible, animOpen]);
 
-  /* ── Close ── */
-  const closeSheet = useCallback(() => {
-    panelAnim.value = withSpring(0, TRANSITION_SPRING, (done) => {
-      if (done) {
-        runOnJS(setMounted)(false);
-        runOnJS(setVisible)(false);
-      }
+  const open = useCallback(() => {
+    triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
+    dockRef.current?.measureInWindow((x, y, width, height) => {
+      originX.value = x;
+      const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
+      originY.value = y + statusBarOffset;
+      setVisible(true);
+      setExpanded(true);
     });
   }, []);
 
-  /* ── Animated styles matching Framer Motion's structure ── */
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(panelAnim.value, [0, 1], [0, 1]),
-  }));
+  const finishClose = useCallback(() => {
+    setExpanded(false);
+    setVisible(false);
+  }, []);
 
-  // Mimicking:
-  // left: triggerRect ? triggerRect.left : "50%"
-  // top: triggerRect ? triggerRect.bottom + 8 : "50%"
-  // transformOrigin: "top left"
-  // variants: { hidden: { opacity: 0, scale: 0.9, y: 10 }, visible: { opacity: 1, scale: 1, y: 0 } }
-  const panelStyle = useAnimatedStyle(() => {
-    // We anchor it cleanly with the layout parameters (left, bottom) 
-    // and interpolate the transform origin from the trigger point.
-    const originX = triggerRect.x + triggerRect.width / 2;
-    const originY = triggerRect.y + triggerRect.height / 2;
-    
-    // Position of the sheet center
-    const sheetCenterX = H_INSET + sheetWidth / 2;
-    const sheetCenterY = screenHeight - sheetBottom - (sheetHeight / 2);
-
-    // Delta between center of trigger and center of sheet
-    const dx = originX - sheetCenterX;
-    const dy = originY - sheetCenterY;
-
-    const scale = interpolate(panelAnim.value, [0, 1], [0.9, 1]);
-    const opacity = interpolate(panelAnim.value, [0, 1], [0, 1]);
-    
-    // Animates scale and translation from the trigger button coordinates
-    const translateX = interpolate(panelAnim.value, [0, 1], [dx * 0.1, 0]);
-    const translateY = interpolate(panelAnim.value, [0, 1], [dy * 0.1 + 10, 0]);
-
-    return {
-      opacity,
-      transform: [
-        { translateX },
-        { translateY },
-        { scale },
-      ],
-    };
-  });
-
-  const triggerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: triggerScale.value }],
-  }));
-
-  // Staggered delay mapping:
-  // Header: delay: 0.1
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(panelAnim.value, [0, 0.25, 1], [0, 0, 1]),
-    transform: [{ translateY: interpolate(panelAnim.value, [0, 0.25, 1], [-10, -10, 0]) }],
-  }));
-
-  // Body: delay: 0.2
-  const bodyStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(panelAnim.value, [0, 0.5, 1], [0, 0, 1]),
-    transform: [{ translateY: interpolate(panelAnim.value, [0, 0.5, 1], [10, 10, 0]) }],
-  }));
-
-  // Footer: delay: 0.3
-  const footerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(panelAnim.value, [0, 0.75, 1], [0, 0, 1]),
-    transform: [{ translateY: interpolate(panelAnim.value, [0, 0.75, 1], [10, 10, 0]) }],
-  }));
+  const close = useCallback(() => {
+    animClose(finishClose);
+  }, [animClose, finishClose]);
 
   /* ── Navigation ── */
   const goTo = useCallback((screen: string) => {
     if (!navigation) return;
-    closeSheet();
+    close();
     setTimeout(() => navigation.navigate('Profile', { screen }), 300);
-  }, [navigation, closeSheet]);
+  }, [navigation, close]);
 
   const menuItems: MenuItem[] = [
     { icon: 'person-outline',        label: 'Edit Profile',     go: () => goTo('EditProfile') },
@@ -153,10 +106,37 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out', style: 'destructive',
-        onPress: () => { closeSheet(); setTimeout(() => signOut(), 350); },
+        onPress: () => { close(); setTimeout(() => signOut(), 350); },
       },
     ]);
-  }, [signOut, closeSheet]);
+  }, [signOut, close]);
+
+  // Exact same pattern as NotificationsPopover — pops up from the trigger, RIGHT-aligned
+  const panelStyle = useAnimatedStyle(() => {
+    const width  = interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, panelWidth, panelWidth]);
+    const height = interpolate(anim.value, [0, 0.4, 1], [DOCK_SIZE, panelHeight * 0.4, panelHeight]);
+
+    // Right-align to the trigger button (same as notifications)
+    const desiredLeft = originX.value + DOCK_SIZE - panelWidth;
+    const openX = Math.max(20, Math.min(screenWidth - panelWidth - 20, desiredLeft));
+    const left = interpolate(anim.value, [0, 1], [originX.value, openX]);
+
+    // Open UPWARD from trigger — panel bottom sits just above the navbar
+    const openTop = originY.value - panelHeight - 8;
+    const clampedTop = Math.max(insets.top + 16, openTop);
+    const top = interpolate(anim.value, [0, 1], [originY.value, clampedTop]);
+
+    return {
+      left,
+      top,
+      width,
+      height,
+      borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
+      backgroundColor: interpolateColor(anim.value, [0, 0.3, 1],
+        ['rgba(255,255,255,0.14)', 'rgba(250,249,246,0.95)', '#FAF9F6'],
+      ),
+    };
+  }, [screenWidth, screenHeight, panelWidth, panelHeight, insets.top]);
 
   const initials = user?.name
     ? user.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -165,102 +145,105 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
   return (
     <>
       {/* ── Dock trigger — self-contained ── */}
-      <View ref={dockRef} collapsable={false}>
+      <Reanimated.View ref={dockRef} style={[styles.reserve, triggerAnimStyle]} collapsable={false}>
         <TouchableOpacity
-          onPress={onDockPress}
+          style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }]}
           activeOpacity={0.75}
+          onPress={open}
           hitSlop={8}
         >
-          <Reanimated.View style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }, triggerStyle]}>
-            <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
-              {initials}
-            </Text>
-          </Reanimated.View>
+          <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
+            {initials}
+          </Text>
         </TouchableOpacity>
-      </View>
+      </Reanimated.View>
 
-      {/* ── Modal panel ── */}
+      {/* ── Bottom popover Modal ── */}
       <Modal
         visible={visible}
         transparent
         animationType="none"
         statusBarTranslucent
-        onRequestClose={closeSheet}
-        onShow={() => setMounted(true)}
+        onRequestClose={close}
       >
-        {/* Backdrop (Blur overlay) */}
-        <Reanimated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
-        </Reanimated.View>
+        {/* Semi-transparent backdrop */}
+        <PopoverBackdrop style={backdropStyle} onPress={close} />
 
-        {/* Floating Panel - matching Framer Motion's structure */}
-        <Reanimated.View
-          style={[
-            styles.sheet,
-            {
-              width: sheetWidth,
-              height: sheetHeight,
-              left: H_INSET,
-              bottom: sheetBottom,
-            },
-            panelStyle,
-          ]}
-        >
-          <View style={styles.handle} />
-
-          {/* ── Header (Staggered Delay 0.1) ── */}
-          <Reanimated.View style={[styles.header, headerStyle]}>
-            <View style={styles.headerLeft}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-              <View style={styles.headerInfo}>
-                <Text style={styles.userName} numberOfLines={1}>{user?.name || 'User'}</Text>
-                <Text style={styles.userSub} numberOfLines={1}>
-                  {user?.phone ? `+91 ${user.phone}` : (user?.email || '')}
-                </Text>
-              </View>
+        {/* Morphing panel matching Search Popover */}
+        <Reanimated.View style={[styles.panel, styles.panelShadow, panelStyle]}>
+          {/* Ghost wrap trigger view inside the expanding panel */}
+          <Reanimated.View
+            style={[styles.ghostWrap, triggerGhostStyle]}
+            pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
+          >
+            <View style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }]}>
+              <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
+                {initials}
+              </Text>
             </View>
-            <TouchableOpacity onPress={closeSheet} style={styles.closeBtn} hitSlop={10}>
-              <Ionicons name="close" size={18} color={Colors.text} />
-            </TouchableOpacity>
           </Reanimated.View>
 
-          {/* ── Body (Staggered Delay 0.2) ── */}
-          <Reanimated.View style={[{ flex: 1 }, bodyStyle]}>
-            <ScrollView
-              contentContainerStyle={styles.scroll}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
-              <View style={styles.menuCard}>
-                {menuItems.map((item, i) => (
-                  <TouchableOpacity
-                    key={item.label}
-                    style={[styles.menuRow, i < menuItems.length - 1 && styles.menuDivider]}
-                    onPress={item.go}
-                    activeOpacity={0.6}
-                  >
-                    <View style={styles.menuLeft}>
-                      <View style={styles.menuIcon}>
-                        <Ionicons name={item.icon as any} size={17} color={Colors.textSecondary} />
-                      </View>
-                      <Text style={styles.menuLabel}>{item.label}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={15} color={Colors.border} />
-                  </TouchableOpacity>
-                ))}
+          {/* Staggered Content view fade-in */}
+          <Reanimated.View
+            style={[StyleSheet.absoluteFill, contentFade, { width: panelWidth }]}
+            pointerEvents={Platform.OS === 'web' ? undefined : (expanded ? 'auto' : 'none')}
+          >
+            <View style={{ flex: 1.7, width: panelWidth }}>
+              {/* Drag handle */}
+              <View style={styles.handle} />
+
+              {/* ── Header ── */}
+              <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{initials}</Text>
+                  </View>
+                  <View style={styles.headerInfo}>
+                    <Text style={styles.userName} numberOfLines={1}>{user?.name || 'User'}</Text>
+                    <Text style={styles.userSub} numberOfLines={1}>
+                      {user?.phone ? `+91 ${user.phone}` : (user?.email || '')}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={10}>
+                  <Ionicons name="close" size={18} color={Colors.text} />
+                </TouchableOpacity>
               </View>
-            </ScrollView>
-          </Reanimated.View>
 
-          {/* ── Footer (Staggered Delay 0.3) ── */}
-          <Reanimated.View style={[styles.footer, footerStyle]}>
-            <TouchableOpacity style={styles.signOut} onPress={handleSignOut} activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={17} color={Colors.error} />
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
-            <Text style={styles.version}>Next360 v1.0.0</Text>
+              {/* ── Menu/Body ── */}
+              <ScrollView
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                <View style={styles.menuCard}>
+                  {menuItems.map((item, i) => (
+                    <TouchableOpacity
+                      key={item.label}
+                      style={[styles.menuRow, i < menuItems.length - 1 && styles.menuDivider]}
+                      onPress={item.go}
+                      activeOpacity={0.6}
+                    >
+                      <View style={styles.menuLeft}>
+                        <View style={styles.menuIcon}>
+                          <Ionicons name={item.icon as any} size={17} color={Colors.textSecondary} />
+                        </View>
+                        <Text style={styles.menuLabel}>{item.label}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={15} color={Colors.border} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Sign Out */}
+                <TouchableOpacity style={styles.signOut} onPress={handleSignOut} activeOpacity={0.7}>
+                  <Ionicons name="log-out-outline" size={17} color={Colors.error} />
+                  <Text style={styles.signOutText}>Sign Out</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.version}>Next360 v1.0.0</Text>
+              </ScrollView>
+            </View>
           </Reanimated.View>
         </Reanimated.View>
       </Modal>
@@ -269,6 +252,7 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
 }
 
 const styles = StyleSheet.create({
+  reserve: { width: DOCK_SIZE, height: DOCK_SIZE },
   dock: {
     width: DOCK_SIZE, height: DOCK_SIZE,
     borderRadius: DOCK_SIZE / 2,
@@ -276,47 +260,44 @@ const styles = StyleSheet.create({
   },
   initials: { fontFamily: 'Inter_600SemiBold', fontSize: 14, letterSpacing: 0.5 },
 
-  backdrop: { backgroundColor: 'rgba(10,10,10,0.55)' },
-
-  sheet: {
-    position: 'absolute',
-    backgroundColor: '#FAF9F6',
-    borderRadius: 24,
-    overflow: 'hidden',
-    ...Platform.select({
-      web:     { boxShadow: '0px -8px 48px rgba(10,10,8,0.22), 0px 0px 0px 1px rgba(0,0,0,0.05)' },
-      default: {
-        shadowColor: '#0A0A08',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.20,
-        shadowRadius: 28,
-        elevation: 30,
-      },
-    }),
+  ghostWrap: {
+    position: 'absolute', top: 0, left: 0, width: DOCK_SIZE, height: DOCK_SIZE,
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({ web: { pointerEvents: 'none' as any } }),
   },
 
+  panel: { position: 'absolute', overflow: 'hidden' },
+  panelShadow: Platform.select({
+    web: { boxShadow: '0px 24px 48px rgba(10, 10, 8, 0.28), 0px 4px 12px rgba(10, 10, 8, 0.08)' },
+    default: {
+      shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 16 },
+      shadowOpacity: 0.28, shadowRadius: 32, elevation: 20,
+    },
+  }) as any,
+
   handle: {
-    alignSelf: 'center', marginTop: 10,
+    alignSelf: 'center', marginTop: 14,
     width: 36, height: 4,
     borderRadius: 2, backgroundColor: Colors.border,
+    marginBottom: 4,
   },
 
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
-    gap: Spacing.sm,
+    paddingHorizontal: 16, paddingTop: 40, paddingBottom: 4,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    gap: 8,
   },
-  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minWidth: 0 },
+  headerLeft: { flex: 10, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minWidth: 0 },
   avatar: {
-    width: 48, height: 48, borderRadius: 24,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.organic,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  avatarText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.white },
-  headerInfo: { flex: 1, minWidth: 0 },
+  avatarText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.white },
+  headerInfo: { flex: 3, minWidth: 0 },
   userName:   { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.text, lineHeight: 20 },
-  userSub:    { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
+  userSub:    { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: 2 },
   closeBtn: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: Colors.background,
@@ -324,38 +305,31 @@ const styles = StyleSheet.create({
   },
 
   scroll: {
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.xxl,
   },
   menuCard: {
     backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.border,
-    overflow: 'hidden',
+    borderWidth: 1, borderColor: Colors.border,
+    overflow: 'hidden', marginBottom: Spacing.md,
   },
   menuRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 14, paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  menuDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  menuDivider: { borderBottomWidth: 0 },
   menuLeft:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   menuIcon: {
-    width: 32, height: 32, borderRadius: 10,
+    width: 36, height: 36, borderRadius: BorderRadius.md,
     backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center',
   },
-  menuLabel: { ...Typography.body, color: Colors.text },
+  menuLabel: { ...Typography.body, fontFamily: 'Inter_500Medium', color: Colors.text },
 
-  footer: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xs,
-    paddingBottom: Spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
-  },
   signOut: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
-    backgroundColor: '#FEE2E2', borderRadius: BorderRadius.lg, paddingVertical: 14,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
+    backgroundColor: '#FEE2E2', borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md, marginBottom: Spacing.sm,
   },
-  signOutText: { ...Typography.button, color: Colors.error },
-  version: { ...Typography.caption, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.xs },
+  signOutText: { ...Typography.body, fontFamily: 'Inter_600SemiBold', color: Colors.error },
+  version: { ...Typography.bodySmall, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
 });

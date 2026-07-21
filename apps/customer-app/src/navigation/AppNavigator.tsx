@@ -230,7 +230,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           {/* Button 0: Home */}
           <TouchableOpacity
             style={pill.tab}
-            onPress={() => {}}
+            onPress={() => handleTabPress(0, 'Home')}
             activeOpacity={0.7}
           >
             <Ionicons
@@ -278,9 +278,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           </TouchableOpacity>
 
             {/* Profile Avatar Popover — self-contained, no outer wrapper needed */}
-            <View style={pill.profileTab}>
-              <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
-            </View>
+            <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
         </View>
 
         <ExpandingSearchDock
@@ -353,7 +351,7 @@ function ProfileStackNavigator() {
       }}
     >
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
-      <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders' }} />
+      <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders', headerShown: false }} />
       <ProfileStack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="OrderTracking" component={OrderTrackingScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />

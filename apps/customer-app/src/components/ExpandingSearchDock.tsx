@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   panel: { position: 'absolute', overflow: 'hidden', zIndex: 20 },
   panelShadow: Platform.select({
     web: {
-      boxShadow: '0px 20px 40px rgba(10, 10, 8, 0.35)',
+      boxShadow: '0px 10px 40px rgba(10, 10, 8, 0.35)',
     },
     default: {
       shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,

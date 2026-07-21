@@ -284,7 +284,7 @@ export default function CheckoutScreen({ navigation }: any) {
           {selectedAddress ? (
             <TouchableOpacity
               style={[styles.addressCard, Shadows.card]}
-              onPress={() => navigation.navigate('AddressList', { onSelect: setSelectedAddress })}
+              onPress={() => navigation.navigate('Profile', { screen: 'AddressList', params: { onSelect: setSelectedAddress } })}
             >
               <View style={styles.addressIconWrap}>
                 <Ionicons name="location" size={18} color={Colors.white} />
@@ -300,7 +300,7 @@ export default function CheckoutScreen({ navigation }: any) {
           ) : (
             <TouchableOpacity
               style={styles.addAddressButton}
-              onPress={() => navigation.navigate('AddressList')}
+              onPress={() => navigation.navigate('Profile', { screen: 'AddressList' })}
             >
               <View style={[styles.addAddressIcon, { backgroundColor: Colors.organicLight }]}>
                 <Ionicons name="add" size={22} color={Colors.organic} />
