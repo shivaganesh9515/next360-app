@@ -47,4 +47,11 @@ export class ProductsController {
   async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.productsService.remove(userId, id);
   }
+
+  @Patch(':id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async approve(@Param('id') id: string) {
+    return this.productsService.approve(id);
+  }
 }

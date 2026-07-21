@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, BorderRadius, Shadow } from '../constants/theme';
 
 interface Props {
   children: React.ReactNode;
@@ -25,7 +27,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     console.error('Error caught by boundary:', error, errorInfo);
   }
 
-  handleTryAgain = () => {
+  handleRetry = () => {
     this.setState({ hasError: false, error: null });
   };
 
@@ -40,93 +42,78 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View style={styles.container}>
-          <Text style={styles.icon}>🚚</Text>
+          {/* Branded error illustration */}
+          <View style={styles.iconRing}>
+            <View style={styles.iconBg}>
+              <Ionicons name="alert-circle" size={48} color={Colors.white} />
+            </View>
+          </View>
+
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.message}>
             We're sorry, but something unexpected happened. Please try again.
           </Text>
-          
+
           {__DEV__ && this.state.error && (
-            <View style={styles.errorDetails}>
+            <View style={styles.errorBox}>
+              <Text style={styles.errorLabel}>Error Details</Text>
               <Text style={styles.errorText}>{this.state.error.message}</Text>
             </View>
           )}
 
-          <TouchableOpacity style={styles.button} onPress={this.handleTryAgain}>
-            <Text style={styles.buttonText}>Try Again</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={this.handleRetry} activeOpacity={0.85}>
+            <Ionicons name="refresh" size={18} color={Colors.white} />
+            <Text style={styles.primaryBtnText}>Try Again</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton]} 
-            onPress={this.handleGoHome}
-          >
-            <Text style={[styles.buttonText, styles.secondaryButtonText]}>Go to Dashboard</Text>
+
+          <TouchableOpacity style={styles.secondaryBtn} onPress={this.handleGoHome} activeOpacity={0.7}>
+            <Text style={styles.secondaryBtnText}>Go to Dashboard</Text>
           </TouchableOpacity>
         </View>
       );
     }
-
     return this.props.children;
   }
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#F0FDF4',
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    padding: Spacing.xxl, backgroundColor: Colors.background,
   },
-  icon: {
-    fontSize: 64,
-    marginBottom: 16,
+  iconRing: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: Colors.dangerLight, justifyContent: 'center', alignItems: 'center',
+    marginBottom: Spacing.xl, ...Shadow.md,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1B17',
-    marginBottom: 8,
+  iconBg: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: Colors.danger, justifyContent: 'center', alignItems: 'center',
   },
+  title: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
   message: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
+    fontSize: 15, color: Colors.textSecondary, textAlign: 'center',
+    marginBottom: Spacing.xxl, lineHeight: 22, paddingHorizontal: Spacing.lg,
   },
-  errorDetails: {
-    backgroundColor: '#FFF3CD',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 24,
+  errorBox: {
+    width: '100%', backgroundColor: Colors.dangerLight, borderRadius: BorderRadius.md,
+    padding: Spacing.lg, marginBottom: Spacing.xxl,
+  },
+  errorLabel: { fontSize: 11, fontWeight: '700', color: Colors.danger, letterSpacing: 0.5, marginBottom: 4 },
+  errorText: { fontSize: 12, color: Colors.danger, fontFamily: 'monospace' },
+  primaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
+    paddingVertical: 15, paddingHorizontal: Spacing.xxxl,
+    marginBottom: Spacing.md, width: '100%', gap: 8,
+  },
+  primaryBtnText: { fontSize: 16, fontWeight: '600', color: Colors.white },
+  secondaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
+    borderWidth: 1.5, borderColor: Colors.primary,
+    paddingVertical: 15, paddingHorizontal: Spacing.xxxl,
     width: '100%',
   },
-  errorText: {
-    fontSize: 12,
-    color: '#856404',
-    fontFamily: 'monospace',
-  },
-  button: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  secondaryButtonText: {
-    color: '#10B981',
-  },
+  secondaryBtnText: { fontSize: 16, fontWeight: '600', color: Colors.primary },
 });

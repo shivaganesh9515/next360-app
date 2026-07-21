@@ -12,8 +12,6 @@ interface StoreContextType {
   cartItems: CartItem[];
   cartCount: number;
   subtotal: number;
-  // The product just added via addToCart — lets the mini-cart bar show
-  // "X added" for the specific item that triggered it, not just a count.
   lastAddedProductId: string | null;
   fetchCart: () => Promise<void>;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
@@ -21,6 +19,9 @@ interface StoreContextType {
   removeCartItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   incrementCart: () => void;
+
+  wishlistCount: number;
+  fetchWishlistCount: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -33,8 +34,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [storeType, setStoreTypeState] = useState<StoreType>(StoreType.ORGANIC);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
-  useEffect(() => { loadStoreType(); fetchCart(); }, []);
+  useEffect(() => { loadStoreType(); fetchCart(); fetchWishlistCount(); }, []);
 
   async function loadStoreType() {
     try {
@@ -88,6 +90,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCartItems((prev) => [...prev, { id: `optimistic-${Date.now()}` } as CartItem]);
   }, []);
 
+  const fetchWishlistCount = useCallback(async () => {
+    try {
+      const res = await customerApi.getWishlist() as any;
+      const list = Array.isArray(res) ? res : (res?.data ?? []);
+      setWishlistCount(list.length);
+    } catch {
+      setWishlistCount(0);
+    }
+  }, []);
+
   const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
   const subtotal = useMemo(
     () => cartItems.reduce((sum, item) => sum + Number(item.product?.price || 0) * (item.quantity || 1), 0),
@@ -99,6 +111,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       storeType, setStoreType,
       cartItems, cartCount, subtotal, lastAddedProductId,
       fetchCart, addToCart, updateCartItem, removeCartItem, clearCart, incrementCart,
+      wishlistCount, fetchWishlistCount,
     }}>
       {children}
     </StoreContext.Provider>

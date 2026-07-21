@@ -6,8 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
-
-const GREEN = '#2A7A4B';
+import { useStore } from '../../lib/store';
+import { useTranslation } from 'react-i18next';
+import { getStoreAccent } from '../../constants/theme';
 
 interface Message {
   id: string;
@@ -17,13 +18,16 @@ interface Message {
 }
 
 const QUICK_PROMPTS = [
-  'What\'s good for immunity?',
-  'Recommend organic snacks',
-  'Track my order',
-  'Health tips for beginners',
+  'ai:assistant.prompt.immunity',
+  'ai:assistant.prompt.snacks',
+  'ai:assistant.prompt.track',
+  'ai:assistant.prompt.healthTips',
 ];
 
 export default function AiAssistantScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,7 +40,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
       {
         id: 'welcome',
         role: 'assistant',
-        content: 'Hi! I\'m your Next360 AI assistant. I can help you with product recommendations, health tips, order tracking, and more. How can I help you today?',
+        content: t('ai.assistant.welcome'),
         timestamp: new Date(),
       },
     ]);
@@ -69,7 +73,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: t('ai.assistant.error'),
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -82,10 +86,10 @@ export default function AiAssistantScreen({ navigation, route }: any) {
     <View style={[styles.messageBubble, item.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
       {item.role === 'assistant' && (
         <View style={styles.avatar}>
-          <Ionicons name="sparkles" size={16} color={GREEN} />
+          <Ionicons name="sparkles" size={16} color={accent} />
         </View>
       )}
-      <View style={[styles.messageContent, item.role === 'user' ? styles.userContent : styles.assistantContent]}>
+      <View style={[styles.messageContent, item.role === 'user' ? { backgroundColor: accent, borderBottomRightRadius: 4 } : styles.assistantContent]}>
         <Text style={[styles.messageText, item.role === 'user' ? styles.userText : styles.assistantText]}>
           {item.content}
         </Text>
@@ -101,8 +105,8 @@ export default function AiAssistantScreen({ navigation, route }: any) {
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
-          <Ionicons name="sparkles" size={20} color={GREEN} />
-          <Text style={styles.headerText}>AI Assistant</Text>
+          <Ionicons name="sparkles" size={20} color={accent} />
+          <Text style={styles.headerText}>{t('ai.assistant.title')}</Text>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('AiChatHistory')}>
           <Ionicons name="time-outline" size={24} color="#6B7280" />
@@ -126,9 +130,9 @@ export default function AiAssistantScreen({ navigation, route }: any) {
             <TouchableOpacity
               key={index}
               style={styles.quickPromptButton}
-              onPress={() => sendMessage(prompt)}
+              onPress={() => sendMessage(t(prompt))}
             >
-              <Text style={styles.quickPromptText}>{prompt}</Text>
+              <Text style={[styles.quickPromptText, { color: accent }]}>{t(prompt)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -141,7 +145,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
       >
         <TextInput
           style={styles.textInput}
-          placeholder="Ask me anything..."
+          placeholder={t('ai.assistant.placeholder')}
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={() => sendMessage(inputText)}
@@ -149,7 +153,7 @@ export default function AiAssistantScreen({ navigation, route }: any) {
           maxLength={500}
         />
         <TouchableOpacity
-          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+          style={[styles.sendButton, { backgroundColor: accent }, !inputText.trim() && styles.sendButtonDisabled]}
           onPress={() => sendMessage(inputText)}
           disabled={!inputText.trim() || loading}
         >
@@ -218,10 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  userContent: {
-    backgroundColor: GREEN,
-    borderBottomRightRadius: 4,
-  },
+
   assistantContent: {
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 4,
@@ -255,7 +256,6 @@ const styles = StyleSheet.create({
   },
   quickPromptText: {
     fontSize: 14,
-    color: GREEN,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -280,7 +280,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: GREEN,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -36,6 +36,23 @@ export class UsersController {
     );
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUserById(@Param('id') id: string) {
+    return this.usersService.findById(id);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateUserStatus(
+    @Param('id') id: string,
+    @Body() dto: { isActive: boolean; reason?: string },
+  ) {
+    return this.usersService.updateStatus(id, dto);
+  }
+
   @Patch(':id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

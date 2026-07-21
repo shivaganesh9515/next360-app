@@ -59,6 +59,7 @@ export interface Product {
   vendor?: { id: string; storeName: string };
   rating?: number;
   reviewCount?: number;
+  certification?: string; // e.g. 'USDA Organic', 'India Organic', 'Non-GMO'
   createdAt: string;
 }
 
@@ -202,6 +203,15 @@ export interface Notification {
   type: string;
   isRead: boolean;
   createdAt: string;
+  /**
+   * Optional payload for navigation on tap — e.g. { screen: 'OrderDetail', orderId: '...' }
+   * Set by the backend NotificationsService when creating the notification.
+   */
+  data?: {
+    screen?: string;
+    orderId?: string;
+    tab?: string;
+  };
 }
 
 export interface PaginatedResponse<T> {

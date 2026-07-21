@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useOrderTracking, STEPS, STEP_LABELS, currentStepFor } from '../../lib/useOrderTracking';
 import {
@@ -8,9 +9,9 @@ import {
 } from './OrderTrackingShared';
 import { Colors, Spacing } from '../../constants/theme';
 
-function formatEta(iso?: string): string | undefined {
+function formatEta(iso: string | undefined, t: any): string | undefined {
   if (!iso) return undefined;
-  return `Arriving by ${new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
+  return t('orderTracking.eta', { time: new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) });
 }
 
 // Web fallback — react-native-maps has no web implementation at all (it
@@ -19,6 +20,7 @@ function formatEta(iso?: string): string | undefined {
 // automatically for web builds; OrderTrackingScreen.tsx (with the real map)
 // is used for iOS/Android.
 export default function OrderTrackingScreenWeb({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { orderId } = route.params || {};
   const { order, assignment, loading } = useOrderTracking(orderId);
 
@@ -33,7 +35,7 @@ export default function OrderTrackingScreenWeb({ navigation, route }: any) {
   if (loading || !order) {
     return (
       <SafeAreaView style={s.container}>
-        <View style={s.center}><Text style={s.emptyText}>Loading order...</Text></View>
+        <View style={s.center}><Text style={s.emptyText}>{t('orderTracking.loading')}</Text></View>
       </SafeAreaView>
     );
   }
@@ -50,7 +52,7 @@ export default function OrderTrackingScreenWeb({ navigation, route }: any) {
         <View style={[s.mapWrap, local.mapPlaceholderWrap]}>
           <View style={s.mapPlaceholder}>
             <Ionicons name="map-outline" size={32} color={Colors.textSecondary} />
-            <Text style={s.mapPlaceholderText}>Live map view is available in the mobile app</Text>
+            <Text style={s.mapPlaceholderText}>{t('orderTracking.web.mapPlaceholder')}</Text>
           </View>
         </View>
 
@@ -62,13 +64,13 @@ export default function OrderTrackingScreenWeb({ navigation, route }: any) {
 
         {assignment?.otp && assignment.status !== 'DELIVERED' && (
           <TouchableOpacity style={s.otpCard} onPress={handleShareOtp}>
-            <Text style={s.otpLabel}>Delivery OTP — share with your rider on handoff</Text>
+            <Text style={s.otpLabel}>{t('orderTracking.otp.label')}</Text>
             <Text style={s.otpValue}>{assignment.otp}</Text>
           </TouchableOpacity>
         )}
 
         <View style={s.timelineSection}>
-          <Text style={s.sectionTitle}>Delivery Status</Text>
+          <Text style={s.sectionTitle}>{t('orderTracking.section.deliveryStatus')}</Text>
           {STEPS.map((step, i) => (
             <TimelineStep
               key={step}
@@ -76,7 +78,7 @@ export default function OrderTrackingScreenWeb({ navigation, route }: any) {
               done={i <= currentIndex}
               isLast={i === STEPS.length - 1}
               live={step === currentStep && step !== 'DELIVERED'}
-              subtext={step === currentStep && step === 'OUT_FOR_DELIVERY' ? formatEta(order.estimatedDeliveryAt) : undefined}
+              subtext={step === currentStep && step === 'OUT_FOR_DELIVERY' ? formatEta(order.estimatedDeliveryAt, t) : undefined}
             />
           ))}
         </View>

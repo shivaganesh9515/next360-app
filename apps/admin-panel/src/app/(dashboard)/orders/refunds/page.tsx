@@ -11,17 +11,31 @@ export default function RefundsPage() {
   const router = useRouter();
   const [refunds, setRefunds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  useEffect(() => { loadRefunds(); }, [page]);
+  const refundStatuses = ['', 'PENDING', 'REQUESTED', 'APPROVED', 'REJECTED'];
+  const refundStatusLabels: Record<string, string> = {
+    '': 'All',
+    PENDING: 'Pending',
+    REQUESTED: 'Requested',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+  };
+
+  useEffect(() => { loadRefunds(); }, [page, statusFilter]);
 
   const loadRefunds = async () => {
     setLoading(true);
     try {
-      const res = await adminApi.getRefunds({ page, limit: 20 });
-      setRefunds((Array.isArray(res) ? res : (res as any)?.data) || []);
+      const params: any = { page, limit: 20 };
+      if (search) params.search = search;
+      if (statusFilter) params.status = statusFilter;
+      const res = await adminApi.getRefunds(params);
+      setRefunds(Array.isArray(res) ? res : []);
       setTotalPages(res?.meta?.totalPages || 1);
     } catch { setRefunds([]); } finally { setLoading(false); }
   };
@@ -76,7 +90,21 @@ export default function RefundsPage() {
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
         <div><h2 className="text-xl font-bold text-gray-800">Refunds</h2><p className="text-sm text-gray-500">Track refund requests and processing</p></div>
       </div>
-      <DataTable columns={columns} data={refunds} loading={loading} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No refund records" emptyIcon={<RefreshCw className="w-10 h-10" />} />
+      <div className="flex gap-2 flex-wrap">
+        {refundStatuses.map((s) => (
+          <button
+            key={s}
+            onClick={() => { setStatusFilter(s); setPage(1); }}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              statusFilter === s ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {refundStatusLabels[s]}
+          </button>
+        ))}
+      </div>
+
+      <DataTable columns={columns} data={refunds} loading={loading} searchable searchPlaceholder="Search refunds..." onSearch={(q) => { setSearch(q); setPage(1); }} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage={<><p>No refund records</p><p className="text-xs text-gray-400 mt-1">Refund requests and processing history will appear here.</p></>} emptyIcon={<RefreshCw className="w-10 h-10" />} />
     </div>
   );
 }

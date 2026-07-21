@@ -28,6 +28,13 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     const response = await fetch(url, { ...fetchOptions, headers });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      }
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
@@ -72,6 +79,13 @@ export const api = {
 
     const response = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: formData });
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      }
       const error = await response.json().catch(() => ({ message: 'Upload failed' }));
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
@@ -93,9 +107,9 @@ export const adminApi = {
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
   getProfile: () => api.get<any>('/users/me'),
 
-  // Dashboard — no aggregate dashboard endpoint exists on the backend yet
-  // (no /admin/* routes at all besides the two AI ones below). Real gap, not
-  // a path typo — needs a backend endpoint before this can work.
+  // Dashboard — aggregate endpoint now exists via AdminController.
+  // Returns today's pulse, pending actions, order pipeline, weekly revenue
+  // chart, recent orders, and aggregate counts across all entities.
   getDashboard: () => api.get<any>('/admin/dashboard'),
 
   // Users
@@ -110,8 +124,10 @@ export const adminApi = {
   // Vendors
   getVendors: (params?: any) => api.get<any>('/vendors', params),
   getVendor: (id: string) => api.get<any>(`/vendors/${id}`),
-  // No generic status endpoint or DTO field — VendorsController only exposes
-  // one-way /:id/approve. Real gap for reject/suspend specifically.
+  getVendorDetail: (id: string) => api.get<any>(`/vendors/${id}/detail`),
+  // PATCH /vendors/:id/status now exists via VendorsController for admin
+  // status changes (activate, suspend). Approve is POST /vendors/:id/approve.
+  // Reject reasons can be passed in the request body.
   updateVendorStatus: (id: string, status: string) =>
     api.patch<any>(`/vendors/${id}/status`, { status }),
   // Was /vendors/:id/commission (doesn't exist) — actual route is
@@ -131,9 +147,9 @@ export const adminApi = {
   createProduct: (data: any) => api.post<any>('/products', data),
   updateProduct: (id: string, data: any) => api.patch<any>(`/products/${id}`, data),
   deleteProduct: (id: string) => api.delete<any>(`/products/${id}`),
-  // No approve endpoint and UpdateProductDto has no isApproved field either
-  // (ValidationPipe's forbidNonWhitelisted would reject it even via the
-  // generic PATCH /products/:id) — real gap, not a path typo.
+  // PATCH /products/:id/approve exists via ProductsController for admin
+  // product approval. isApproved is handled server-side by the approve
+  // method — no direct field patch is needed.
   approveProduct: (id: string) => api.patch<any>(`/products/${id}/approve`, {}),
 
   // Categories
@@ -161,6 +177,11 @@ export const adminApi = {
     api.patch<any>(`/orders/${id}/status`, { status }),
   cancelOrder: (id: string, reason: string) =>
     api.post<any>(`/orders/${id}/cancel`, { reason }),
+
+  // Disputes — dedicated disputes endpoints
+  getDisputes: () => api.get<any>('/disputes'),
+  resolveDispute: (id: string, payload: { status: string; resolution?: string }) =>
+    api.patch<any>(`/disputes/${id}/resolve`, payload),
 
   // Returns
   getReturns: (params?: any) => api.get<any>('/returns', params),
@@ -243,9 +264,10 @@ export const adminApi = {
   // Was /roles/permissions — actual route is the bare /permissions (a
   // sibling resource on the same controller, not nested under roles).
   getPermissions: (params?: any) => api.get<any>('/permissions', params),
-  // No separate /roles/:id/permissions route — permissions live on the Role
-  // record itself (CreateRoleDto.permissions: string[]), updated through the
-  // same PATCH /roles/:id updateRole already uses.
+  createPermission: (data: any) => api.post<any>('/permissions', data),
+  deletePermission: (id: string) => api.delete<any>(`/permissions/${id}`),
+  // Permissions live on the Role record (CreateRoleDto.permissions: string[]),
+  // updated through the same PATCH /roles/:id updateRole already uses.
   updatePermissions: (roleId: string, permissions: string[]) =>
     api.patch<any>(`/roles/${roleId}`, { permissions }),
 
@@ -254,6 +276,10 @@ export const adminApi = {
   createZone: (data: any) => api.post<any>('/zones', data),
   updateZone: (id: string, data: any) => api.patch<any>(`/zones/${id}`, data),
   deleteZone: (id: string) => api.delete<any>(`/zones/${id}`),
+
+  // Audit Logs
+  getAuditLogs: (params?: any) => api.get<any>('/audit-logs', params),
+  getAuditLogsSummary: (params?: any) => api.get<any>('/audit-logs/summary', params),
 
   // Analytics — no /admin/analytics route exists. The closest real endpoint
   // is /ai/admin/analytics (AI-usage analytics specifically, not general
@@ -277,8 +303,10 @@ export const adminApi = {
   // CMS (alias)
   getCMS: (params?: any) => api.get<any>('/cms/pages', params),
 
-  // Product approval — same gap as approveProduct above (no backend support
-  // for either path).
+  // Deprecated path — the correct endpoint for approving products is
+  // PATCH /products/:id/approve via approveProduct(). This method uses
+  // /products/:id/approval which doesn't exist on the backend; kept for
+  // reference but callers should use approveProduct() instead.
   updateProductApproval: (id: string, isApproved: boolean) =>
     api.patch<any>(`/products/${id}/approval`, { isApproved }),
 
@@ -295,6 +323,7 @@ export const adminApi = {
   // only has POST, my/product listings, and delete). Real gap.
   getRatings: (params?: any) => api.get<any>('/reviews/ratings', params),
 
-  // Settings — no /admin/settings route exists. Real gap.
+  // Settings — endpoints now exist via AdminModule
+  getSettings: () => api.get<any>('/admin/settings'),
   updateSettings: (settings: any) => api.patch<any>('/admin/settings', settings),
 };

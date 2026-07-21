@@ -1,34 +1,53 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
 
 interface Props {
   message?: string;
   onRetry: () => void;
+  empty?: boolean;
 }
 
-// Distinguishes "the request failed" from "there's genuinely nothing here" —
-// several screens previously swallowed a fetch failure into the same empty
-// state used for zero real results, so a real backend outage looked
-// identical to "you just haven't used this feature yet."
-export default function ErrorState({ message = "Couldn't load this right now.", onRetry }: Props) {
+// Gentle float-bob animation on the icon — makes the empty/error state feel
+// considered rather than a static placeholder. Loops indefinitely on the icon
+// itself (a calm CSS-float-like translateY) while leaving the retry button
+// fully interactive and un-animated.
+export default function ErrorState({ message = "Couldn't load this right now.", onRetry, empty }: Props) {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, { toValue: -6, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
   return (
     <View style={s.container}>
-      <Ionicons name="cloud-offline-outline" size={40} color={Colors.textSecondary} />
+      <Animated.View style={{ transform: [{ translateY: floatAnim }] }}>
+        <Ionicons
+          name={empty ? 'leaf-outline' : 'cloud-offline-outline'}
+          size={empty ? 56 : 40}
+          color={Colors.textSecondary}
+        />
+      </Animated.View>
       <Text style={s.title}>{message}</Text>
-      <Text style={s.subtitle}>Check your connection and try again.</Text>
+      <Text style={s.subtitle}>
+        {empty ? 'Nothing here yet. Start exploring!' : 'Check your connection and try again.'}
+      </Text>
       <TouchableOpacity style={s.retryBtn} onPress={onRetry}>
-        <Text style={s.retryText}>Retry</Text>
+        <Text style={s.retryText}>{empty ? 'Browse Products' : 'Retry'}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  // paddingVertical (not flex:1) so this renders sensibly both as a lone
-  // full-screen child (a flex:1 SafeAreaView) and as an item inside a
-  // flex-wrap grid, where flex:1 would collapse to zero height.
   container: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 64 },
   title: { ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginTop: Spacing.md, textAlign: 'center' },
   subtitle: { ...Typography.caption, color: Colors.textSecondary, textAlign: 'center', marginTop: 4 },

@@ -13,8 +13,6 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
 
@@ -98,7 +96,6 @@ export default function ProductsPage() {
     setSelectAll(false);
     fetchProducts();
 
-    // Auto-dismiss result after 4 seconds
     setTimeout(() => setBulkResult(null), 4000);
   };
 

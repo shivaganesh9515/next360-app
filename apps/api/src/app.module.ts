@@ -31,12 +31,27 @@ import { SeedModule } from './seed/seed.module';
 import { DeliveryPartnersModule } from './delivery-partners/delivery-partners.module';
 import { ZonesModule } from './zones/zones.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { DeliveryModule } from './delivery/delivery.module';
+import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
+import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
+import { SupportModule } from './support/support.module';
+import { ReportsModule } from './reports/reports.module';
+import { BullModule } from '@nestjs/bullmq';
+import { QueueModule } from './queue/queue.module';
+import { SmsModule } from './providers/sms/sms.module';
+import { EmailModule } from './providers/email/email.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 @Module({
   imports: [
+    BullModule.forRoot({
+      connection: {
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+      },
+    }),
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -79,6 +94,15 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     DeliveryPartnersModule,
     ZonesModule,
     DisputesModule,
+    AuditModule,
+    AdminModule,
+    DeliverySlotModule,
+    DeliveryModule,
+    SupportModule,
+    ReportsModule,
+    QueueModule,
+    SmsModule,
+    EmailModule,
   ],
   providers: [
     {

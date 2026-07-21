@@ -1,156 +1,160 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/theme';
-
-const GREEN = Colors.organic;
+import { useTranslation } from 'react-i18next';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 
 export default function OrderConfirmationScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const { orderId } = route.params || {};
 
+  // Spring entrance animations
+  const iconScale = useRef(new Animated.Value(0)).current;
+  const contentFade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(100),
+      Animated.spring(iconScale, { toValue: 1, friction: 4, tension: 50, useNativeDriver: true }),
+      Animated.spring(contentFade, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Success Icon */}
-        <View style={styles.iconContainer}>
-          <Ionicons name="checkmark-circle" size={80} color={GREEN} />
-        </View>
-
-        {/* Success Message */}
-        <Text style={styles.title}>Order Placed!</Text>
-        <Text style={styles.subtitle}>Your order has been successfully placed</Text>
-
-        {/* Order ID */}
-        {orderId && (
-          <View style={styles.orderIdCard}>
-            <Text style={styles.orderIdLabel}>Order ID</Text>
-            <Text style={styles.orderIdValue}>#{orderId.slice(0, 8).toUpperCase()}</Text>
+    <SafeAreaView style={s.container}>
+      <View style={s.content}>
+        {/* Success Icon — springs in from 0 */}
+        <Animated.View style={[s.iconRing, { transform: [{ scale: iconScale }] }]}>
+          <View style={s.iconBg}>
+            <Ionicons name="checkmark-circle" size={48} color={Colors.organic} />
           </View>
-        )}
+        </Animated.View>
 
-        {/* Estimated Delivery */}
-        <View style={styles.deliveryInfo}>
-          <Ionicons name="time-outline" size={20} color="#6B7280" />
-          <Text style={styles.deliveryText}>Estimated delivery: 30-45 minutes</Text>
-        </View>
+        {/* Success Message — fades in */}
+        <Animated.View style={{ opacity: contentFade, transform: [{ translateY: contentFade.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }], alignItems: 'center' }}>
+          <Text style={s.title}>{t('orderConfirm.title')}</Text>
+          <Text style={s.subtitle}>{t('orderConfirm.subtitle')}</Text>
+
+          {/* Order ID */}
+          {orderId && (
+            <View style={[s.orderIdCard, Shadows.card]}>
+              <Text style={s.orderIdLabel}>{t('orderConfirm.orderId')}</Text>
+              <Text style={s.orderIdValue}>#{orderId.slice(0, 8).toUpperCase()}</Text>
+            </View>
+          )}
+
+          {/* Estimated Delivery */}
+          <View style={s.deliveryInfo}>
+            <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
+            <Text style={s.deliveryText}>{t('orderConfirm.deliveryEstimate')}</Text>
+          </View>
+
+          {/* Eco note */}
+          <View style={s.ecoNote}>
+            <Ionicons name="leaf" size={14} color={Colors.organic} />
+            <Text style={s.ecoText}>This order supports organic farmers</Text>
+          </View>
+        </Animated.View>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
+      {/* Actions */}
+      <Animated.View style={{ opacity: contentFade, padding: Spacing.lg, paddingBottom: Spacing.xxxl }}>
         <TouchableOpacity
-          style={styles.trackButton}
+          style={[s.trackButton, Shadows.button(Colors.organic)]}
           onPress={() => navigation.navigate('OrderTracking', { orderId })}
+          activeOpacity={0.85}
         >
-          <Text style={styles.trackButtonText}>Track Order</Text>
+          <Text style={s.trackButtonText}>{t('orderConfirm.trackOrder')}</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.white} />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.ordersButton}
+          style={s.ordersButton}
           onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { screen: 'OrderHistory' } })}
+          activeOpacity={0.7}
         >
-          <Text style={styles.ordersButtonText}>View Orders</Text>
+          <Text style={s.ordersButtonText}>{t('orderConfirm.viewOrders')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.shopButton}
+          style={s.shopButton}
           onPress={() => navigation.navigate('Home')}
         >
-          <Text style={styles.shopButtonText}>Continue Shopping</Text>
+          <Text style={s.shopButtonText}>{t('orderConfirm.continueShopping')}</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xxl },
+  iconRing: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: Colors.organicLight,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.xl,
   },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
+  iconBg: {
+    width: 68, height: 68, borderRadius: 34,
+    backgroundColor: Colors.white,
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 4px 12px rgba(92, 107, 77, 0.15)',
+      },
+      default: {
+        shadowColor: Colors.organic,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 4,
+      },
+    }),
   },
-  iconContainer: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
+  title: { ...Typography.display, color: Colors.text, marginBottom: Spacing.sm, textAlign: 'center' },
+  subtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.xl },
   orderIdCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
     alignItems: 'center',
-    marginBottom: 24,
-    width: '100%',
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  orderIdLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
+  orderIdLabel: { ...Typography.caption, color: Colors.textSecondary, marginBottom: 4 },
+  orderIdValue: { ...Typography.h2, color: Colors.organic },
+  deliveryInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg },
+  deliveryText: { ...Typography.bodySmall, color: Colors.textSecondary, marginLeft: Spacing.sm },
+  ecoNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.organicLight,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.pill,
   },
-  orderIdValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: GREEN,
-  },
-  deliveryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  deliveryText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
-  },
-  actions: {
-    padding: 16,
-    paddingBottom: 32,
-  },
+  ecoText: { ...Typography.caption, color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
+
   trackButton: {
-    backgroundColor: GREEN,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.organic,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: Spacing.lg,
+    marginBottom: Spacing.md,
   },
-  trackButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  trackButtonText: { ...Typography.button, color: Colors.white },
   ordersButton: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: Spacing.md,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.organicLight,
   },
-  ordersButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  shopButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  shopButtonText: {
-    fontSize: 14,
-    color: GREEN,
-  },
+  ordersButtonText: { ...Typography.button, color: Colors.organic },
+  shopButton: { paddingVertical: Spacing.md, alignItems: 'center' },
+  shopButtonText: { ...Typography.bodySmall, color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
 });

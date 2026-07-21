@@ -22,6 +22,11 @@ export class RazorpayWebhookDto {
         amount: number;
         currency: string;
         method: string;
+        /** Razorpay error fields — present only for payment.failed events */
+        error_description?: string;
+        error_reason?: string;
+        error_code?: string;
+        error_source?: string;
       };
     };
     order?: {
@@ -30,6 +35,16 @@ export class RazorpayWebhookDto {
         status: string;
         amount: number;
         currency: string;
+      };
+    };
+    refund?: {
+      entity: {
+        id: string;
+        payment_id: string;
+        order_id: string;
+        status: string;
+        amount: number;
+        created_at: number;
       };
     };
   };

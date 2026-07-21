@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors, Typography } from '../../constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -11,8 +12,8 @@ type Slide = {
   emoji: string;
   accent: string;
   accentTint: string;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
 };
 
 const SLIDES: Slide[] = [
@@ -21,28 +22,29 @@ const SLIDES: Slide[] = [
     emoji: '🌾',
     accent: Colors.organic,
     accentTint: Colors.organicLight,
-    title: 'Organic, straight from the farm',
-    subtitle: 'Certified organic produce and staples sourced directly from local growers.',
+    titleKey: 'onboarding.organic.title',
+    subtitleKey: 'onboarding.organic.subtitle',
   },
   {
     key: 'natural',
     emoji: '🍯',
     accent: Colors.natural,
     accentTint: Colors.naturalLight,
-    title: 'Natural goods, honestly made',
-    subtitle: 'Minimally processed foods and everyday essentials with nothing artificial added.',
+    titleKey: 'onboarding.natural.title',
+    subtitleKey: 'onboarding.natural.subtitle',
   },
   {
     key: 'eco',
     emoji: '♻️',
     accent: Colors.eco,
     accentTint: Colors.ecoLight,
-    title: 'Eco-friendly, kinder to the planet',
-    subtitle: 'Sustainable, low-waste products for a home that treads a little lighter.',
+    titleKey: 'onboarding.eco.title',
+    subtitleKey: 'onboarding.eco.subtitle',
   },
 ];
 
 export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList>(null);
   const isLast = index === SLIDES.length - 1;
@@ -82,12 +84,12 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
       />
 
       <View style={s.content}>
-        <Text style={s.title}>{active.title}</Text>
-        <Text style={s.subtitle}>{active.subtitle}</Text>
+        <Text style={s.title}>{t(active.titleKey)}</Text>
+        <Text style={s.subtitle}>{t(active.subtitleKey)}</Text>
 
         <View style={s.footerRow}>
           <TouchableOpacity onPress={onDone} hitSlop={12}>
-            <Text style={s.skip}>Skip</Text>
+            <Text style={s.skip}>{t('common.skip')}</Text>
           </TouchableOpacity>
 
           <View style={s.dots}>
@@ -103,7 +105,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
           </View>
 
           <TouchableOpacity style={[s.nextBtn, { backgroundColor: active.accent }]} onPress={goNext}>
-            <Text style={s.nextLabel}>{isLast ? 'Get Started' : 'Next'}</Text>
+            <Text style={s.nextLabel}>{isLast ? t('onboarding.getStarted') : t('common.next')}</Text>
           </TouchableOpacity>
         </View>
       </View>

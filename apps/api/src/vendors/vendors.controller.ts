@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ParseIntPipe, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -136,8 +136,29 @@ export class VendorsController {
   @Post(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async approve(@Param('id') id: string) {
-    return this.vendorsService.approve(id);
+  async approve(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.vendorsService.approve(id, adminId);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.vendorsService.updateStatus(id, status, adminId);
+  }
+
+  @Get(':id/detail')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminDetail(@Param('id') id: string) {
+    return this.vendorsService.getAdminDetail(id);
   }
 
   @Get(':id/stats')

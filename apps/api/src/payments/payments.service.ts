@@ -6,8 +6,10 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { QueueService } from '../queue/queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from '../commission/commission.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateRazorpayOrderDto,
   VerifyPaymentDto,
@@ -26,6 +28,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commissionService: CommissionService,
+    private readonly notificationsService: NotificationsService,
+    private readonly queueService: QueueService,
   ) {
     if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
       const Razorpay = require('razorpay');
@@ -34,6 +38,39 @@ export class PaymentsService {
         key_secret: RAZORPAY_KEY_SECRET,
       });
     }
+  }
+
+  async findAll(filters: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    page: number;
+    limit: number;
+  }) {
+    const where: any = {};
+    if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) where.createdAt.lte = new Date(filters.endDate);
+    }
+
+    const skip = (filters.page - 1) * filters.limit;
+    const [data, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        skip,
+        take: filters.limit,
+        include: { order: { select: { orderNo: true, userId: true, totalAmount: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page: filters.page, limit: filters.limit, totalPages: Math.ceil(total / filters.limit) },
+    };
   }
 
   isConfigured(): boolean {
@@ -138,6 +175,17 @@ export class PaymentsService {
         data: { paymentStatus: 'PAID' },
       }),
     ]);
+
+    // Send payment success notification
+    try {
+      await this.notificationsService.sendPaymentSuccessNotification(
+        order.userId,
+        order.id,
+        Number(order.totalAmount),
+      );
+    } catch (error: any) {
+      this.logger.error(`Payment success notification failed: ${error.message}`);
+    }
 
     return { success: true, message: 'Payment verified successfully' };
   }
@@ -333,6 +381,10 @@ export class PaymentsService {
         const failedPayment = webhookDto.payload.payment?.entity;
         if (!failedPayment) throw new BadRequestException('Invalid webhook payload');
 
+        const failedOrder = await this.prisma.order.findFirst({
+          where: { razorpayOrderId: failedPayment.order_id },
+        });
+
         await this.prisma.payment.updateMany({
           where: { razorpayOrderId: failedPayment.order_id },
           data: { status: 'FAILED' },
@@ -343,6 +395,27 @@ export class PaymentsService {
           data: { paymentStatus: 'FAILED' },
         });
 
+        if (failedOrder) {
+          try {
+            await this.notificationsService.sendPaymentFailedNotification(
+              failedOrder.userId,
+              failedOrder.id,
+              failedPayment.error_description || failedPayment.error_reason || 'Payment declined',
+            );
+          } catch (error: any) {
+            this.logger.error(`Payment failed notification error: ${error.message}`);
+          }
+
+          try {
+            await this.notificationsService.sendAdminPaymentFailedAlert(
+              failedOrder.id,
+              failedPayment.error_description || failedPayment.error_reason || 'Payment declined',
+            );
+          } catch (error: any) {
+            this.logger.error(`Admin payment failure alert error: ${error.message}`);
+          }
+        }
+
         return { received: true, status: 'failed' };
       }
 
@@ -351,9 +424,73 @@ export class PaymentsService {
         return { received: true, status: 'order_paid' };
       }
 
+      case 'refund.created': {
+        const refundCreated = webhookDto.payload.refund?.entity;
+        if (refundCreated) {
+          const paymentId = refundCreated.payment_id;
+          await this.prisma.payment.updateMany({
+            where: { razorpayPaymentId: paymentId },
+            data: { status: 'REFUNDED' },
+          });
+        }
+        return { received: true, status: 'refund_created' };
+      }
+
+      case 'refund.processed': {
+        const refundProcessed = webhookDto.payload.refund?.entity;
+        if (refundProcessed) {
+          const orderId = refundProcessed.order_id;
+          await this.prisma.order.updateMany({
+            where: { razorpayOrderId: orderId },
+            data: { status: 'REFUNDED', paymentStatus: 'REFUNDED' },
+          });
+
+          // Restore product stock
+          const order = await this.prisma.order.findFirst({
+            where: { razorpayOrderId: orderId },
+            include: { vendorGroups: { include: { items: true } } },
+          });
+          if (order) {
+            for (const group of order.vendorGroups) {
+              for (const item of group.items) {
+                await this.prisma.product.update({
+                  where: { id: item.productId },
+                  data: { stock: { increment: item.quantity } },
+                });
+              }
+            }
+          }
+
+          // Notify customer
+          if (order) {
+            try {
+              await this.notificationsService.sendRefundCompletedNotification(
+                order.userId, order.id,
+              );
+            } catch (_) {}
+          }
+        }
+        return { received: true, status: 'refund_processed' };
+      }
+
       default:
         return { received: true, event };
     }
+  }
+
+  /**
+   * List all payments (admin only).
+   */
+  async listAll() {
+    return this.prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        order: {
+          select: { orderNo: true, userId: true, totalAmount: true },
+        },
+      },
+    });
   }
 
   /**
@@ -404,6 +541,102 @@ export class PaymentsService {
       }),
     ]);
 
+    // Send refund notification to customer
+    try {
+      await this.notificationsService.sendRefundCompletedNotification(
+        order.userId,
+        orderId,
+        Number(order.totalAmount),
+      );
+    } catch (error: any) {
+      this.logger.error(`Refund notification failed: ${error.message}`);
+    }
+
     return { success: true, message: 'Refund processed successfully' };
+  }
+
+  async processWeeklyPayouts() {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    // Find completed deliveries in the past week
+    const assignments = await this.prisma.deliveryAssignment.findMany({
+      where: {
+        deliveredAt: { gte: oneWeekAgo },
+      },
+      include: { deliveryPartner: true },
+    });
+
+    // Group by delivery partner
+    const dpMap = new Map<string, number>();
+    for (const a of assignments) {
+      const current = dpMap.get(a.deliveryPartnerId) || 0;
+      dpMap.set(a.deliveryPartnerId, current + 50); // ₹50 per delivery
+    }
+
+    // Create payout records
+    let processed = 0;
+    for (const [dpId, amount] of dpMap) {
+      await this.prisma.payout.create({
+        data: {
+          deliveryPartnerId: dpId,
+          amount,
+          status: 'PENDING',
+          periodStart: oneWeekAgo,
+          periodEnd: new Date(),
+        },
+      });
+      processed++;
+    }
+
+    // Queue notification job
+    if (processed > 0) {
+      try {
+        await this.queueService.sendPush(
+          'Weekly Payouts Processed',
+          `${processed} delivery partners paid for ${assignments.length} deliveries`,
+          '',
+          { count: processed },
+        );
+      } catch (_) {}
+    }
+
+    return { processed, totalDeliveries: assignments.length };
+  }
+
+  async autoSettleVendors(threshold = 1000) {
+    const unpaidCommissions = await this.prisma.commission.groupBy({
+      by: ['vendorId'],
+      where: { isPaid: false },
+      _sum: { orderAmount: true, commissionAmount: true },
+    });
+
+    const results = [];
+    for (const c of unpaidCommissions) {
+      const totalAmount = Number(c._sum.orderAmount || 0);
+      if (totalAmount >= threshold) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: c.vendorId } });
+        if (vendor?.razorpayAccountId) {
+          await this.prisma.payout.create({
+            data: {
+              vendorId: c.vendorId,
+              amount: totalAmount,
+              status: 'PROCESSED',
+              periodStart: new Date(),
+              periodEnd: new Date(),
+            },
+          });
+
+          await this.prisma.commission.updateMany({
+            where: { vendorId: c.vendorId, isPaid: false },
+            data: { isPaid: true, paidAt: new Date() },
+          });
+
+          results.push({ vendorId: c.vendorId, amount: totalAmount, settled: true });
+        }
+      }
+    }
+
+    return { settled: results.length, vendors: results };
   }
 }

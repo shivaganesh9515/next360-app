@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const Colors = {
   background: '#FFFFFF',
   text: '#1C1B17',
@@ -122,26 +124,41 @@ export const REANIMATED_SPRING_CONFIG = {
 // rather than flat. Use `card` for product cards/tiles, `raised` for floating nav/sheets,
 // `button` for primary CTAs so they visually lift off the page.
 export const Shadows = {
-  card: {
-    shadowColor: '#3A3626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  raised: {
-    shadowColor: '#2A2718',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.14,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  button: (tint: string = '#3A3626') => ({
-    shadowColor: tint,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 6,
+  card: Platform.select({
+    web: {
+      boxShadow: '0px 4px 12px rgba(58, 54, 38, 0.08)',
+    },
+    default: {
+      shadowColor: '#3A3626',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+  }),
+  raised: Platform.select({
+    web: {
+      boxShadow: '0px 10px 24px rgba(42, 39, 24, 0.14)',
+    },
+    default: {
+      shadowColor: '#2A2718',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.14,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+  }),
+  button: (tint: string = '#3A3626') => Platform.select({
+    web: {
+      boxShadow: `0px 6px 12px ${tint}47`, // 0.28 opacity in hex is approx 47
+    },
+    default: {
+      shadowColor: tint,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.28,
+      shadowRadius: 12,
+      elevation: 6,
+    },
   }),
 };
 

@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { vendorApi } from '@/lib/api';
-import { Bell, BellRing } from 'lucide-react';
+import { Bell, BellRing, CheckCircle, XCircle, X } from 'lucide-react';
+
+const POLL_INTERVAL_MS = 30000;
 
 function requestNotificationPermission() {
   if (!('Notification' in window)) return;
@@ -17,7 +19,6 @@ function requestNotificationPermission() {
 function showBrowserNotification(title: string, body: string) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    // If the tab is focused, skip the popup notification (avoids spam when actively viewing)
     if (document.visibilityState === 'visible') return;
     new Notification(title, { body, icon: '/favicon.ico', tag: 'new-order' });
   }
@@ -31,6 +32,9 @@ export default function OrdersPage() {
   const previousCountRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectItem, setRejectItem] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   // Request notification permission on component mount
   useEffect(() => {
@@ -60,14 +64,12 @@ export default function OrdersPage() {
         const diff = normalized.length - previousCountRef.current;
         setNewOrderCount(prev => prev + diff);
 
-        // Browser notification for new orders
         if (diff === 1) {
           showBrowserNotification('New Order!', 'You have 1 new order to process.');
         } else {
           showBrowserNotification('New Orders!', `You have ${diff} new orders to process.`);
         }
 
-        // Auto-clear the pulse after 5 seconds (clear any previous timeout to avoid race)
         if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
         pulseTimeoutRef.current = setTimeout(() => setNewOrderCount(0), 5000);
       }
@@ -88,11 +90,22 @@ export default function OrdersPage() {
 
   // 30-second polling interval
   useEffect(() => {
-    intervalRef.current = setInterval(() => fetchOrders(false), 30000);
+    intervalRef.current = setInterval(() => fetchOrders(false), POLL_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchOrders]);
+
+  const handleRejectOrder = async () => {
+    if (!rejectItem || !rejectReason.trim()) return;
+    try {
+      await vendorApi.cancelVendorGroup(rejectItem.orderId || rejectItem.id, rejectItem.id, rejectReason);
+      setShowRejectModal(false);
+      setRejectReason('');
+      setRejectItem(null);
+      fetchOrders(false);
+    } catch (e) { console.error(e); }
+  };
 
   const columns = [
     { key: 'orderNo', label: 'Order #', render: (item: any) => <span className="font-mono text-sm font-medium">{item.orderNo}</span> },
@@ -111,13 +124,60 @@ export default function OrdersPage() {
     ) },
     { key: 'paymentMethod', label: 'Payment', render: (item: any) => <span className="text-xs text-slate-500">{item.paymentMethod || '—'}</span> },
     { key: 'createdAt', label: 'Date', render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
+    {
+      key: 'actions', label: 'Actions', render: (item: any) => {
+        if (item.status === 'PLACED' || item.status === 'CONFIRMED') {
+          return (
+            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={async () => {
+                  try {
+                    await vendorApi.updateOrderStatus(item.orderId || item.id, item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED');
+                    fetchOrders(false);
+                  } catch (e) { console.error(e); }
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Accept
+              </button>
+              <button
+                onClick={() => { setRejectItem(item); setShowRejectModal(true); }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Reject
+              </button>
+            </div>
+          );
+        }
+        if (item.status === 'PACKED') {
+          return (
+            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={async () => {
+                  try {
+                    await vendorApi.updateOrderStatus(item.orderId || item.id, 'READY_FOR_PICKUP');
+                    fetchOrders(false);
+                  } catch (e) { console.error(e); }
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Ready for Pickup
+              </button>
+            </div>
+          );
+        }
+        return null;
+      },
+    },
   ];
 
   const handleRowClick = (item: any) => {
     router.push(`/orders/${item.orderId || item.id}`);
   };
 
-  // Check notification permission status
   const notificationStatus = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
   const notificationsEnabled = notificationStatus === 'granted';
   const notificationsDenied = notificationStatus === 'denied';
@@ -167,6 +227,30 @@ export default function OrdersPage() {
         </div>
       </div>
       <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+
+      {/* Cancel Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Cancel Order</h3>
+              <button onClick={() => setShowRejectModal(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-3">Why are you rejecting this order?</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason for cancellation..."
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+            <div className="flex gap-3 mt-4 justify-end">
+              <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button onClick={handleRejectOrder} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">Confirm Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

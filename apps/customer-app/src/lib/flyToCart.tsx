@@ -129,10 +129,10 @@ export function FlyToCartProvider({ children }: { children: React.ReactNode }) {
           // drops the shadow on iOS, since the clip mask cuts it off too.
           <Animated.View
             key={f.id}
-            pointerEvents="none"
             style={[
               styles.ghostShadowWrap,
               Shadows.raised,
+              { pointerEvents: 'none' },
               {
                 left: f.x, top: f.y, width: f.width, height: f.height,
                 opacity,

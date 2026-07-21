@@ -1,24 +1,305 @@
-# Srinitha — Backend: delivery-partners / zones / disputes + vendor analytics endpoints
+# 👋 Hey Srinitha! Your Tasks
 
-Area: `apps/api`. These have zero backend support today despite the admin-panel already having full screens built for all three (they're currently calling into nothing).
+## 📥 First: Get Latest Code
+Open terminal and run each line one by one:
+```bash
+git checkout main
+git pull origin main
+cd apps/api
+npm install
+```
 
-## Tasks
+## 🚀 Start Backend
+```bash
+npm run start:dev
+```
 
-- [ ] **`delivery-partners/` module** — Prisma has `DeliveryPartner`, `DeliveryAssignment`. Needs: list, status, zone, completed-deliveries count, rating, document verification (KYC-gated per CLAUDE.md business rules), plus whatever the admin-panel's `delivery-partners/`, `delivery-partners/approvals`, `delivery-partners/[id]` pages already expect — check `apps/admin-panel/src/app/(dashboard)/delivery-partners/**` for the exact shape each page needs before designing the DTO.
+---
 
-- [ ] **`zones/` module** — Prisma has `Zone`. Add/edit/activate zones, delivery radius, COD cap enforcement (₹2,000 rule per CLAUDE.md). MVP is Hyderabad + Vijayawada only — zone-gating logic for signup/checkout should live here or be called from here.
+## 📋 Your Summary — 5 Tasks
 
-- [ ] **`disputes/` module** — refund requests and complaints linked to specific orders, resolution notes + action. Check `apps/admin-panel/src/app/(dashboard)/disputes/**` for the expected shape.
+| # | Task | Files to touch | Difficulty |
+|---|------|---------------|------------|
+| 1 | DP Earnings endpoint (today/week/month/all) | 2 edits (controller + service) | ⭐ Easy |
+| 2 | DP Setup endpoint (vehicleType + zoneId) | 2 edits (controller + service) | ⭐ Easy |
+| 3 | Add KYC check to vendor approve endpoint | 1 edit (service) | ⭐ Easy |
+| 4 | DP batch payouts (weekly) | 1 edit (service) | ⭐⭐ Medium |
+| 5 | Auto-assign delivery to nearest available DP | 1 edit (service) | ⭐⭐ Medium |
 
-- [ ] **Vendor analytics/earnings/payouts endpoints** — `apps/vendor-dashboard/src/lib/api.ts` calls these, none exist yet in `vendors.controller.ts`:
-  - `GET /vendors/me/analytics`
-  - `GET /vendors/me/earnings`
-  - `GET /vendors/me/payouts`
-  - `GET /vendors/me/transactions`
-  - `GET /vendors/me/customers`
-  - `GET /vendors/:id/stats`
+**⏱️ Total time: ~2-3 hours**
 
-## Reference
+**What's already done for you:**
+- ✅ Redis + BullMQ running — use the queue to schedule weekly payout jobs
+- ✅ PostgreSQL running on port 5433
+- ✅ Delivery slots seeded (28 per zone, 4 time slots × 7 days)
+- ✅ Zone pincodes added (11 pincodes per zone)
 
-- Response envelope format and Prisma error → HTTP mapping: see root `CLAUDE.md`.
-- Coordinate with Harshitha — payouts data (`/vendors/me/payouts`) overlaps with her Razorpay Route payout work; confirm who owns the payout *read* endpoint vs. the payout *automation* before duplicating work.
+---
+
+## ✅ Task 1: DP Earnings Endpoint
+
+**File to edit: `apps/api/src/delivery/delivery.controller.ts`**
+
+Add this endpoint:
+
+```typescript
+@Get('earnings')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.DELIVERY_PARTNER)
+async getEarnings(
+  @CurrentUser('id') userId: string,
+  @Query('period') period?: string, // today, week, month
+) {
+  return this.deliveryService.calculateEarnings(userId, period);
+}
+```
+
+**File to edit: `apps/api/src/delivery/delivery.service.ts`**
+
+Add this function:
+
+```typescript
+async calculateEarnings(userId: string, period?: string) {
+  const partner = await this.prisma.deliveryPartner.findUnique({
+    where: { userId },
+  });
+  if (!partner) throw new NotFoundException('Delivery partner not found');
+
+  const now = new Date();
+  let startDate: Date;
+
+  switch (period) {
+    case 'today':
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      break;
+    case 'week':
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - now.getDay());
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case 'month':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    default:
+      // All time
+      startDate = new Date(0);
+  }
+
+  const assignments = await this.prisma.deliveryAssignment.findMany({
+    where: {
+      deliveryPartnerId: partner.id,
+      deliveredAt: { gte: startDate, lte: now },
+    },
+  });
+
+  const totalDeliveries = assignments.length;
+  const averagePerDelivery = 50; // ₹50 per delivery (adjust per your pricing)
+  const totalEarnings = totalDeliveries * averagePerDelivery;
+
+  return {
+    today: period === 'today' ? totalEarnings : undefined,
+    thisWeek: period === 'week' ? totalEarnings : undefined,
+    thisMonth: period === 'month' ? totalEarnings : undefined,
+    allTime: totalEarnings,
+    totalDeliveries,
+    averagePerDelivery,
+  };
+}
+```
+
+---
+
+## ✅ Task 2: DP Setup Endpoint
+
+**File to edit: `apps/api/src/delivery/delivery.controller.ts`**
+
+Add this endpoint:
+
+```typescript
+@Post('partners/setup')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.DELIVERY_PARTNER)
+async setupPartner(
+  @CurrentUser('id') userId: string,
+  @Body() dto: { vehicleType: string; zoneId: string },
+) {
+  return this.deliveryService.setupPartner(userId, dto);
+}
+```
+
+**File to edit: `apps/api/src/delivery/delivery.service.ts`**
+
+Add this function:
+
+```typescript
+async setupPartner(userId: string, dto: { vehicleType: string; zoneId: string }) {
+  // Check if partner already exists
+  const existing = await this.prisma.deliveryPartner.findUnique({
+    where: { userId },
+  });
+
+  if (existing) {
+    // Update existing
+    return this.prisma.deliveryPartner.update({
+      where: { userId },
+      data: {
+        vehicleType: dto.vehicleType,
+        zoneId: dto.zoneId,
+        status: 'AVAILABLE',
+      },
+    });
+  }
+
+  // Create new delivery partner record
+  return this.prisma.deliveryPartner.create({
+    data: {
+      userId,
+      vehicleType: dto.vehicleType,
+      zoneId: dto.zoneId,
+      status: 'AVAILABLE',
+    },
+  });
+}
+```
+
+---
+
+## ✅ Task 3: Verify Vendor Approve Endpoint
+
+**File to open and check: `apps/api/src/vendors/vendors.controller.ts`**
+
+The endpoint `POST /vendors/:id/approve` already exists. Just make sure it also:
+1. Checks that KYC is VERIFIED before approving
+2. Sends notification to vendor
+
+**Edit `apps/api/src/vendors/vendors.service.ts` — find the `approve` function and add KYC check:**
+
+Add this line at the top of the `approve` function (after getting the vendor):
+```typescript
+// Check KYC is verified
+const kyc = await this.prisma.kYC.findUnique({
+  where: { userId: vendor.userId },
+});
+if (!kyc || kyc.status !== 'VERIFIED') {
+  throw new BadRequestException('Vendor KYC must be verified before approval');
+}
+```
+
+Also make sure `import { BadRequestException } from '@nestjs/common';` is at the top of the file (it should already be there).
+
+---
+
+## ✅ Task 4: DP Batch Payouts (Weekly)
+
+Same as Task 4 in Harshitha's tasks — but from the delivery side.
+
+**File to edit: `apps/api/src/delivery/delivery.service.ts`**
+
+Copy this code:
+
+```typescript
+async processWeeklyPayouts() {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  const assignments = await this.prisma.deliveryAssignment.findMany({
+    where: {
+      deliveredAt: { gte: oneWeekAgo },
+    },
+    include: { deliveryPartner: true },
+  });
+
+  const dpMap = new Map<string, number>();
+  for (const a of assignments) {
+    const current = dpMap.get(a.deliveryPartnerId) || 0;
+    dpMap.set(a.deliveryPartnerId, current + 50); // ₹50 per delivery
+  }
+
+  for (const [dpId, amount] of dpMap) {
+    await this.prisma.payout.create({
+      data: {
+        deliveryPartnerId: dpId,
+        amount,
+        status: 'PENDING',
+        periodStart: oneWeekAgo,
+        periodEnd: new Date(),
+      },
+    });
+  }
+
+  return { processed: dpMap.size, totalDeliveries: assignments.length };
+}
+```
+
+---
+
+## ✅ Task 5: Auto-Assignment
+
+**File to edit: `apps/api/src/delivery/delivery.service.ts`**
+
+Add a function that auto-assigns the nearest available DP:
+
+```typescript
+async autoAssignDelivery(orderVendorGroupId: string) {
+  // Find available delivery partners in the same zone
+  const group = await this.prisma.orderVendorGroup.findUnique({
+    where: { id: orderVendorGroupId },
+    include: { vendor: true },
+  });
+
+  if (!group) throw new NotFoundException('Order vendor group not found');
+
+  const availableDps = await this.prisma.deliveryPartner.findMany({
+    where: {
+      zoneId: group.vendor.zoneId,
+      status: 'AVAILABLE',
+    },
+    orderBy: { updatedAt: 'asc' },
+    take: 1,
+  });
+
+  if (availableDps.length === 0) {
+    return { message: 'No available delivery partners' };
+  }
+
+  const dp = availableDps[0];
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+  const assignment = await this.prisma.deliveryAssignment.create({
+    data: {
+      orderVendorGroupId,
+      deliveryPartnerId: dp.id,
+      otp,
+    },
+  });
+
+  // Mark DP as on delivery
+  await this.prisma.deliveryPartner.update({
+    where: { id: dp.id },
+    data: { status: 'ON_DELIVERY' },
+  });
+
+  // Update group status
+  await this.prisma.orderVendorGroup.update({
+    where: { id: orderVendorGroupId },
+    data: { status: 'ASSIGNED_TO_DELIVERY' },
+  });
+
+  return assignment;
+}
+```
+
+---
+
+## 📤 Push Your Changes
+```bash
+git add .
+git commit -m "feat: DP earnings, setup, auto-assignment"
+git push origin main
+```
+
+## 🆘 Stuck?
+- DM me on Slack — don't spend more than 30 min on any one task
+- Run `npx tsc --noEmit` to check for errors before pushing
+- The `delivery.controller.ts` already has endpoints — just add new ones below the existing ones
+- `BadRequestException` is imported from `@nestjs/common`

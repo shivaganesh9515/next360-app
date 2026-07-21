@@ -1,7 +1,10 @@
+import * as crypto from 'crypto';
 import { Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { SmsService } from '../providers/sms/sms.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -30,6 +33,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private notificationsService: NotificationsService,
+    private smsService: SmsService,
   ) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -135,13 +140,11 @@ export class AuthService {
   // verify-otp-login together replace signup/login for that client entirely
   // (email+password above stays as-is for vendor/admin, which still use it).
   async sendOtp(dto: SendOtpDto) {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(crypto.randomInt(100000, 999999));
     this.otpStore.set(dto.phone, { code, expiresAt: Date.now() + AuthService.OTP_TTL_MS });
 
-    // No SMS gateway wired up yet (see CLAUDE.md's open decisions register) —
-    // logged server-side so the code is reachable for manual testing until
-    // one is. Replace with a real provider call (e.g. MSG91/Twilio) here.
-    this.logger.log(`OTP for ${dto.phone}: ${code} (valid ${AuthService.OTP_TTL_MS / 60000} min)`);
+    // Send OTP via SMS provider (falls back to console log if no provider configured)
+    await this.smsService.sendOtp(dto.phone, code);
 
     return { message: 'OTP sent' };
   }
@@ -166,6 +169,11 @@ export class AuthService {
     }
     if (!user.isActive) {
       throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Send welcome notification for new users
+    if (isNewUser && user) {
+      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
     }
 
     const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
@@ -217,6 +225,52 @@ export class AuthService {
     }
 
     return { message: 'OTP verified successfully' };
+  }
+
+  async googleLogin(dto: { email: string; googleId: string; name?: string; avatarUrl?: string }) {
+    // Find existing user by email, or create a new one linked to this Google account
+    let user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    let isNewUser = false;
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name || null,
+          avatarUrl: dto.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+      });
+      isNewUser = true;
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Update avatar/name if Google has more recent data
+    if ((dto.name && !user.name) || (dto.avatarUrl && !user.avatarUrl)) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(dto.name && !user.name ? { name: dto.name } : {}),
+          ...(dto.avatarUrl && !user.avatarUrl ? { avatarUrl: dto.avatarUrl } : {}),
+        },
+      });
+    }
+
+    // Send welcome notification for new users
+    if (isNewUser) {
+      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+      isNewUser,
+    };
   }
 
   async forgotPassword(email: string) {

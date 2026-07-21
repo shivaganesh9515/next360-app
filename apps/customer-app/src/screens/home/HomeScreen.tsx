@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
-  RefreshControl, ScrollView, Dimensions, Animated,
+  RefreshControl, ScrollView, Dimensions, Animated, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../../lib/store';
 import { useProductSheet } from '../../lib/productSheet';
-import ProfileAvatarPopover from '../../components/ProfileAvatarPopover';
+// import ProfileAvatarPopover from '../../components/ProfileAvatarPopover'; // removed per design
 import { customerApi } from '../../lib/api';
 import { Product, Category } from '../../types';
 import {
@@ -23,6 +23,8 @@ import LocationPopover from '../../components/LocationPopover';
 import Shimmer from '../../components/Shimmer';
 import StaggerFadeIn from '../../components/StaggerFadeIn';
 import ErrorState from '../../components/ErrorState';
+import TrustBadge from '../../components/TrustBadge';
+import { useTranslation } from 'react-i18next';
 
 function SkeletonCard() {
   return (
@@ -46,33 +48,34 @@ const HERO_PLACEHOLDER_IMAGE = require('../../../assets/images/hero-plate.png');
 
 interface HeroBanner {
   id: string;
-  imageUrl?: string; // set once the CMS Banner endpoint is wired up; falls back to local art when absent
+  imageUrl?: string;
   offerValue: string;
   offerLabel: string;
   desc: string;
 }
 
-// Placeholder promo slides — swap for real data once a banners endpoint
-// (CLAUDE.md's admin-managed CMS Banner model) is wired up on the customer API.
-const HERO_SLIDES: HeroBanner[] = [
+const FALLBACK_HERO_SLIDES: HeroBanner[] = [
   { id: 'placeholder-1', offerValue: '27%', offerLabel: 'EXTRA\nDISCOUNT', desc: 'Enjoy your first order with a\nspecial discount!' },
   { id: 'placeholder-2', offerValue: '15%', offerLabel: 'FRESH\nARRIVALS', desc: 'New organic harvest,\njust landed this week!' },
   { id: 'placeholder-3', offerValue: 'FREE', offerLabel: 'DELIVERY\nOVER ₹499', desc: 'Fast, reliable delivery\nright to your doorstep.' },
 ];
 
 export default function HomeScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const { storeType, setStoreType, addToCart, incrementCart } = useStore();
   const { open: openProduct } = useProductSheet();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
+  const [banners, setBanners] = useState<HeroBanner[]>(FALLBACK_HERO_SLIDES);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [heroHeight, setHeroHeight] = useState(HERO_FALLBACK_HEIGHT);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(1)).current;
 
   const accent = getStoreAccent(storeType);
   const accentTint = getStoreAccentLight(storeType);
@@ -80,17 +83,27 @@ export default function HomeScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const [catRes, prodRes] = await Promise.all([
+      const [catRes, prodRes, bannerRes] = await Promise.all([
         customerApi.getCategories({ storeType }),
         customerApi.getProducts({ storeType, categoryId: activeCategoryId, limit: 10 }),
+        customerApi.getBanners({ storeType, isActive: true }).catch(() => null),
       ]);
       setCategories(Array.isArray(catRes) ? catRes : (catRes as any)?.data || []);
       setProducts(Array.isArray(prodRes) ? prodRes : (prodRes as any)?.data || []);
+
+      const bannerList = Array.isArray(bannerRes) ? bannerRes : (bannerRes as any)?.data;
+      if (bannerList && bannerList.length > 0) {
+        const mapped: HeroBanner[] = bannerList.map((b: any) => ({
+          id: b.id,
+          imageUrl: b.imageUrl || b.image,
+          offerValue: b.title || b.offerValue || '',
+          offerLabel: b.subtitle || b.offerLabel || '',
+          desc: b.description || b.desc || '',
+        }));
+        setBanners(mapped);
+      }
       setError(false);
     } catch {
-      // Previously this silently cleared the grid to an empty array, which
-      // rendered the exact same "No products yet" message as a genuinely
-      // empty catalog — a real outage looked identical to "nothing here."
       setProducts([]);
       setError(true);
     } finally {
@@ -112,20 +125,63 @@ export default function HomeScreen({ navigation }: any) {
     addToCart(product.id, 1).catch(() => {});
   };
 
-  // Apple-style "stretchy header": on iOS overscroll (pulling down past the top),
-  // contentOffset.y goes negative. We scale the hero up to fill that revealed
-  // gap and translate it back by half the extra height so it grows downward
-  // from a pinned top edge, instead of stretching symmetrically from center.
+  const handleVendorPress = (vendorId: string, vendorName: string) => {
+    navigation.navigate('VendorStorefront', { vendorId, vendorName });
+  };
+
+  // ── Parallax Hero Animation ──
+  // Uses react-native's Animated API with native driver for silky 60fps.
+  //
+  // Overscroll (pull-down): hero scales up dramatically, content translates
+  // upward at a slow rate, and a dark overlay fades in to preserve contrast.
+  //
+  // Scroll-down: hero compresses (scaleY), border radius increases, and
+  // the entire top bar fades out — iOS large-title collapse style.
+  const HERO_SCROLL_RANGE = heroHeight;
+  const HERO_OVERSCROLL_RANGE = heroHeight;
+
+  // ── 1. Hero container transform ──
+  // On pull-down: scale up to 2.4x, shift upward to keep focal point visible.
+  // On scroll-down: compress subtly to 0.88x for the collapse effect.
   const heroScale = scrollY.interpolate({
-    inputRange: [-heroHeight, 0],
-    outputRange: [2, 1],
+    inputRange: [-HERO_OVERSCROLL_RANGE, 0, HERO_SCROLL_RANGE * 0.6],
+    outputRange: [2.4, 1, 0.88],
     extrapolate: 'clamp',
   });
   const heroTranslateY = scrollY.interpolate({
-    inputRange: [-heroHeight, 0],
-    outputRange: [-heroHeight / 2, 0],
+    inputRange: [-HERO_OVERSCROLL_RANGE, 0, HERO_SCROLL_RANGE * 0.6],
+    outputRange: [-HERO_OVERSCROLL_RANGE * 0.45, 0, -HERO_SCROLL_RANGE * 0.12],
     extrapolate: 'clamp',
   });
+
+  // ── 2. imageParallax — multi-layer depth effect ──
+  // The hero product photo moves at ~20% of the main hero translation speed,
+  // creating a visual depth layer between the text (fast) and the image (slow).
+  // Only activates on overscroll where parallax is visible.
+  const imageParallax = scrollY.interpolate({
+    inputRange: [-HERO_OVERSCROLL_RANGE, 0],
+    outputRange: [-HERO_OVERSCROLL_RANGE * 0.1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // ── 3. Overscroll overlay — darkens as you pull down ──
+  // Preserves text readability against the scaled-up image at max overscroll.
+  const overscrollOverlay = scrollY.interpolate({
+    inputRange: [-HERO_OVERSCROLL_RANGE * 0.4, 0],
+    outputRange: [0.35, 0],
+    extrapolate: 'clamp',
+  });
+
+  // ── 4. Scroll-header fade ──
+  // The entire top bar (profile avatar, location, notifications, greeting)
+  // fades out as the user scrolls past the hero. Uses a non-native listener
+  // for the shared headerOpacity value (used both in JSX and native).
+  useEffect(() => {
+    const listenerId = scrollY.addListener((val) => {
+      headerOpacity.setValue(Math.max(0, 1 - val.value / (heroHeight * 0.35)));
+    });
+    return () => scrollY.removeListener(listenerId);
+  }, [heroHeight]);
 
   return (
     <View style={s.root}>
@@ -140,38 +196,50 @@ export default function HomeScreen({ navigation }: any) {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={accent} />
         }
       >
-        {/* Dark hero card — deep "bark" gradient (matches the app's near-black text
-            color, so it reads as a brand tone rather than a random dark) with the
-            offer copy, storefront photo bleeding off the top-right corner, and a
-            leaf accent. Search sits below, floating half-in/half-out of the hero's
-            bottom edge on a strong shadow — the one part of the layout that should
-            look "lifted" off the page. Scales/translates on overscroll for the
-            iOS-style rubber-band stretch. */}
+        {/* ── Premium Hero — editorial dark card with bottom rounding ── */}
+        {/* The outer scale+translateY creates the dramatic overscroll parallax.
+            Inside, the image has its own slower parallax for depth, and a dark
+            overlay preserves readability at maximum overscroll. */}
         <Animated.View
           onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}
           style={{ transform: [{ translateY: heroTranslateY }, { scale: heroScale }] }}
         >
           <LinearGradient
-            colors={['#26251E', Colors.text, '#100F0B']}
+            colors={['#2A2820', Colors.text, '#100F0B']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={s.hero}
           >
-            <SafeAreaView edges={['top']}>
-              <View style={s.topBar}>
-                {/* flex:1-matched to the icons zone on the right, so the location
-                    block below still lands at true horizontal center regardless
-                    of this side's own content width. Profile now opens as a
-                    popup from here instead of living in the bottom nav. */}
-                <View style={[s.topBarSide, s.topBarLeft]}>
-                  <ProfileAvatarPopover navigation={navigation} />
-                </View>
-                <LocationPopover accent={accent} />
-                <View style={[s.topBarSide, s.topIcons]}>
-                  <NotificationsPopover />
-                </View>
-              </View>
+            {/* Overscroll dark overlay — fades in as user pulls down */}
+            <Animated.View
+              style={[s.overscrollOverlay, { opacity: overscrollOverlay }]}
+              pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
+            />
 
+            <SafeAreaView edges={['top']}>
+              {/* Top bar — fades out on scroll-down */}
+              <Animated.View style={{ opacity: headerOpacity }}>
+                <View style={s.topBar}>
+                  {/* <ProfileAvatarPopover navigation={navigation} /> removed per design */}
+                  <LocationPopover accent={accent} />
+                  <View style={[s.topBarSide, s.topIcons]}>
+                    <NotificationsPopover />
+                  </View>
+                </View>
+
+                {/* Greeting + Trust badge */}
+                <View style={{ paddingHorizontal: Spacing.xl, marginTop: Spacing.sm }}>
+                  <View style={s.greetingRow}>
+                    <Text style={s.greeting}>Good {getGreetingWord()}! 👋</Text>
+                    <View style={[s.trustChip, { backgroundColor: accent + '22' }]}>
+                      <Ionicons name="shield-checkmark" size={12} color={accent} />
+                      <Text style={[s.trustChipText, { color: accent }]}>Verified {storeLabel}</Text>
+                    </View>
+                  </View>
+                </View>
+              </Animated.View>
+
+              {/* Banner carousel */}
               <View style={s.heroBody}>
                 <ScrollView
                   horizontal
@@ -181,28 +249,39 @@ export default function HomeScreen({ navigation }: any) {
                     const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                     setActiveSlide(idx);
                   }}
+                  style={{ marginTop: Spacing.md }}
                 >
-                  {HERO_SLIDES.map((slide) => (
+                  {banners.map((slide) => (
                     <View key={slide.id} style={[s.heroSlide, { width: SCREEN_WIDTH }]}>
                       <View style={s.heroCopy}>
-                        <Ionicons name="leaf-outline" size={22} color="rgba(150,185,140,0.5)" style={s.heroLeaf} />
+                        <Ionicons name="leaf-outline" size={20} color="rgba(150,185,140,0.5)" style={s.heroLeaf} />
                         <View style={s.offerRow}>
                           <Text style={[s.offerValue, { color: accent }]}>{slide.offerValue}</Text>
                           <Text style={s.offerLabel}>{slide.offerLabel}</Text>
                         </View>
                         <Text style={s.heroDesc}>{slide.desc}</Text>
                       </View>
-                      <View style={s.heroPhoto}>
+
+                      {/* Product photo with its own parallax — moves slower than
+                          the hero container for a multi-layer depth effect */}
+                      <Animated.View
+                        style={[
+                          s.heroPhoto,
+                          { transform: [{ translateY: imageParallax }] },
+                        ]}
+                      >
                         <Image
                           source={slide.imageUrl ? { uri: slide.imageUrl } : HERO_PLACEHOLDER_IMAGE}
                           style={s.heroPhotoImg}
                         />
-                      </View>
+                      </Animated.View>
                     </View>
                   ))}
                 </ScrollView>
+
+                {/* Dots */}
                 <View style={s.heroDots}>
-                  {HERO_SLIDES.map((slide, i) => (
+                  {banners.map((slide, i) => (
                     <View
                       key={slide.id}
                       style={[s.heroDot, i === activeSlide && [s.heroDotActive, { backgroundColor: accent }]]}
@@ -215,20 +294,50 @@ export default function HomeScreen({ navigation }: any) {
         </Animated.View>
 
         <SafeAreaView edges={[]} style={s.safe}>
-          {/* Store swatch selector — the core 3-storefront mechanic */}
+          {/* Store Swatch Selector */}
           <View style={{ marginBottom: Spacing.xl }}>
             <StoreToggle selected={storeType} onSelect={setStoreType} />
           </View>
 
-          {/* Categories — circular photo badges with colored ring, not flat chips */}
+          {/* Farmer Story Card — premium trust signal */}
+          {!loading && products.length > 0 && (
+            <TouchableOpacity
+              style={[s.farmerCard, Shadows.card]}
+              activeOpacity={0.92}
+              onPress={() => navigation.navigate('VendorStorefront', { vendorId: products[0]?.vendor?.id, vendorName: products[0]?.vendor?.storeName })}
+            >
+              <View style={s.farmerCardLeft}>
+                <Text style={s.farmerCardTitle}>Know Your Farmer 🌱</Text>
+                <Text style={s.farmerCardDesc}>Meet the growers behind your fresh organic produce</Text>
+                <View style={s.farmerCardCTA}>
+                  <Text style={[s.farmerCardLink, { color: accent }]}>Explore farmers</Text>
+                  <Ionicons name="arrow-forward" size={12} color={accent} />
+                </View>
+              </View>
+              <View style={[s.farmerCardIcon, { backgroundColor: accentTint }]}>
+                <Ionicons name="people" size={28} color={accent} />
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Trust Strip — certification badges */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.trustStrip}>
+            <TrustBadge type="NPOP" size="sm" />
+            <TrustBadge type="ORGANIC" size="sm" />
+            <TrustBadge type="NATURAL" size="sm" />
+            <TrustBadge type="ECO_FRIENDLY" size="sm" />
+            <TrustBadge type="FAIR_TRADE" size="sm" />
+          </ScrollView>
+
+          {/* Categories */}
           {categories.length > 0 && (
             <>
               <View style={s.sectionRow}>
-                <Text style={s.sectionTitle}>Shop by Category</Text>
+                <Text style={s.sectionTitle}>{t('home.section.categories')}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catScroll}>
                 <CategoryBadge
-                  label="All"
+                  label={t('common.all')}
                   icon="grid"
                   accent={accent}
                   accentTint={accentTint}
@@ -250,15 +359,15 @@ export default function HomeScreen({ navigation }: any) {
             </>
           )}
 
-          {/* Product grid */}
+          {/* Product Grid */}
           <View style={s.sectionRow}>
-            <Text style={s.sectionTitle}>Popular in {storeLabel}</Text>
+            <Text style={s.sectionTitle}>{t('home.section.popularIn', { storeLabel })}</Text>
             <TouchableOpacity
               style={s.seeAllRow}
               onPress={() => navigation.navigate('AllProducts', { storeType })}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Text style={[s.seeAll, { color: accent }]}>See All</Text>
+              <Text style={[s.seeAll, { color: accent }]}>{t('common.seeAll')}</Text>
               <Ionicons name="chevron-forward" size={14} color={accent} />
             </TouchableOpacity>
           </View>
@@ -268,12 +377,12 @@ export default function HomeScreen({ navigation }: any) {
               [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)
             ) : error ? (
               <View style={{ width: '100%' }}>
-                <ErrorState message="Couldn't load products" onRetry={load} />
+                <ErrorState message={t('home.error.loadProducts')} onRetry={load} />
               </View>
             ) : products.length === 0 ? (
               <View style={s.emptyState}>
                 <Ionicons name="leaf-outline" size={36} color={Colors.textSecondary} />
-                <Text style={s.emptyText}>No products yet in {storeLabel}</Text>
+                <Text style={s.emptyText}>{t('home.empty.noProducts', { storeLabel })}</Text>
               </View>
             ) : (
               products.map((product, index) => (
@@ -282,6 +391,7 @@ export default function HomeScreen({ navigation }: any) {
                     product={product}
                     onPress={(p) => openProduct(p.id)}
                     onQuickAdd={handleQuickAdd}
+                    onVendorPress={handleVendorPress}
                   />
                 </StaggerFadeIn>
               ))
@@ -299,31 +409,57 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1 },
 
-  // Hero is a dark card in the app's own "bark" tone (Colors.text), rounded at the
-  // bottom so it reads as a distinct floating panel rather than a full-bleed band.
   hero: {
     position: 'relative',
     paddingBottom: Spacing.xxxl + 8,
     borderBottomLeftRadius: BorderRadius.xl,
     borderBottomRightRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+
+  // Dark overlay that fades in during overscroll to preserve contrast
+  // when the hero image scales up beyond its natural boundaries.
+  overscrollOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#0A0A08',
+    zIndex: 10,
+    ...Platform.select({ web: { pointerEvents: 'none' as any } }),
   },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md,
   },
-  // Equal-width flex zones on each side keep the location block truly centered
-  // regardless of the icon cluster on the right (2 buttons) outweighing the
-  // single menu button on the left — space-between alone skews it off-center.
   topBarSide: { flex: 1 },
   topBarLeft: { alignItems: 'flex-start' },
-  iconGhost: {
-    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
   topIcons: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'flex-end' },
 
-  heroBody: { marginTop: Spacing.xl },
+  greeting: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: Colors.white,
+    opacity: 0.85,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  trustChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.pill,
+  },
+  trustChipText: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.3,
+  },
+
+  heroBody: { marginTop: Spacing.xs },
   heroSlide: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
@@ -347,19 +483,63 @@ const s = StyleSheet.create({
   heroDesc: {
     ...Typography.bodySmall, color: 'rgba(255,255,255,0.65)', marginTop: 12, maxWidth: 190,
   },
-
   heroPhoto: {
     width: 118, height: 118, borderRadius: 999, overflow: 'hidden',
     borderWidth: 4, borderColor: 'rgba(255,255,255,0.08)',
   },
   heroPhotoImg: { width: '100%', height: '100%', resizeMode: 'cover' },
 
+  // Farmer story card — premium editorial block
+  farmerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  farmerCardLeft: { flex: 1 },
+  farmerCardTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+  },
+  farmerCardDesc: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+  farmerCardCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.sm,
+  },
+  farmerCardLink: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  farmerCardIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.md,
+  },
+
+  // Trust strip
+  trustStrip: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+
   sectionRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl, marginBottom: Spacing.md, marginTop: Spacing.sm,
   },
-  // Bolder, bigger section headline — the confident graphic-headline energy
-  // from the Behance reference ("Get the best snacks"), not a timid label.
   sectionTitle: { ...Typography.h2, color: Colors.text },
   seeAllRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAll: { ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold' },

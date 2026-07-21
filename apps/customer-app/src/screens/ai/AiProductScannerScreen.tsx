@@ -5,10 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { customerApi } from '../../lib/api';
-
-const GREEN = '#2A7A4B';
+import { useStore } from '../../lib/store';
+import { useTranslation } from 'react-i18next';
+import { getStoreAccent } from '../../constants/theme';
 
 export default function AiProductScannerScreen({ navigation }: any) {
+  const { t } = useTranslation();
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -23,7 +27,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
       const scanResult = await customerApi.scanProduct(photo.uri);
       setResult(scanResult);
     } catch (error) {
-      Alert.alert('Error', 'Failed to scan product. Please try again.');
+      Alert.alert(t('common.error'), t('ai.scanner.error'));
     } finally {
       setScanning(false);
     }
@@ -41,7 +45,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
         const scanResult = await customerApi.scanProduct(result.assets[0].uri);
         setResult(scanResult);
       } catch (error) {
-        Alert.alert('Error', 'Failed to scan product. Please try again.');
+        Alert.alert(t('common.error'), t('ai.scanner.error'));
       } finally {
         setScanning(false);
       }
@@ -57,15 +61,15 @@ export default function AiProductScannerScreen({ navigation }: any) {
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
           <Ionicons name="camera-outline" size={64} color="#D1D5DB" />
-          <Text style={styles.permissionTitle}>Camera Access Required</Text>
+          <Text style={styles.permissionTitle}>{t('ai.scanner.permission.title')}</Text>
           <Text style={styles.permissionText}>
-            We need camera access to scan products and provide you with information.
+            {t('ai.scanner.permission.description')}
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          <TouchableOpacity style={[styles.permissionButton, { backgroundColor: accent }]} onPress={requestPermission}>
+            <Text style={styles.permissionButtonText}>{t('ai.scanner.permission.grant')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.galleryButton} onPress={pickImage}>
-            <Text style={styles.galleryButtonText}>Pick from Gallery</Text>
+            <Text style={[styles.galleryButtonText, { color: accent }]}>{t('ai.scanner.permission.gallery')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -79,7 +83,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Product Scanner</Text>
+        <Text style={styles.headerTitle}>{t('ai.scanner.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -89,13 +93,13 @@ export default function AiProductScannerScreen({ navigation }: any) {
           {/* Scan Frame Overlay */}
           <View style={styles.overlay}>
             <View style={styles.scanFrame}>
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
+              <View style={[styles.corner, styles.topLeft, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.topRight, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.bottomLeft, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.bottomRight, { borderColor: accent }]} />
             </View>
             <Text style={styles.instructionText}>
-              {scanning ? 'Identifying product...' : 'Point camera at a product'}
+              {scanning ? t('ai.scanner.instruction.scanning') : t('ai.scanner.instruction.idle')}
             </Text>
           </View>
         </CameraView>
@@ -104,12 +108,12 @@ export default function AiProductScannerScreen({ navigation }: any) {
       {/* Controls */}
       <View style={styles.controls}>
         <TouchableOpacity style={styles.galleryControl} onPress={pickImage}>
-          <Ionicons name="images" size={28} color={GREEN} />
-          <Text style={styles.controlLabel}>Gallery</Text>
+          <Ionicons name="images" size={28} color={accent} />
+          <Text style={styles.controlLabel}>{t('ai.scanner.control.gallery')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.scanButton, scanning && styles.scanButtonDisabled]}
+          style={[styles.scanButton, { backgroundColor: accent }, scanning && styles.scanButtonDisabled]}
           onPress={takePicture}
           disabled={scanning}
         >
@@ -121,8 +125,8 @@ export default function AiProductScannerScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.flashControl}>
-          <Ionicons name="flash" size={28} color={GREEN} />
-          <Text style={styles.controlLabel}>Flash</Text>
+          <Ionicons name="flash" size={28} color={accent} />
+          <Text style={styles.controlLabel}>{t('ai.scanner.control.flash')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -136,8 +140,8 @@ export default function AiProductScannerScreen({ navigation }: any) {
 
             <View style={styles.resultHeader}>
               <View style={styles.confidenceBadge}>
-                <Text style={styles.confidenceText}>
-                  {Math.round(result.confidence * 100)}% match
+                <Text style={[styles.confidenceText, { color: accent }]}>
+                  {t('ai.scanner.confidence', { confidence: Math.round(result.confidence * 100) })}
                 </Text>
               </View>
             </View>
@@ -147,11 +151,11 @@ export default function AiProductScannerScreen({ navigation }: any) {
 
             {result.nutritionalInfo && (
               <View style={styles.nutritionContainer}>
-                <Text style={styles.nutritionTitle}>Nutritional Info</Text>
+                <Text style={styles.nutritionTitle}>{t('ai.scanner.nutrition')}</Text>
                 <View style={styles.nutritionGrid}>
                   {Object.entries(result.nutritionalInfo).map(([key, value]) => (
                     <View key={key} style={styles.nutritionItem}>
-                      <Text style={styles.nutritionValue}>{String(value)}</Text>
+                      <Text style={[styles.nutritionValue, { color: accent }]}>{String(value)}</Text>
                       <Text style={styles.nutritionLabel}>{key}</Text>
                     </View>
                   ))}
@@ -162,13 +166,13 @@ export default function AiProductScannerScreen({ navigation }: any) {
             <View style={styles.resultActions}>
               {result.matchedProductId && (
                 <TouchableOpacity
-                  style={styles.viewButton}
+                  style={[styles.viewButton, { backgroundColor: accent }]}
                   onPress={() => {
                     setResult(null);
                     navigation.navigate('ProductDetail', { productId: result.matchedProductId });
                   }}
                 >
-                  <Text style={styles.viewButtonText}>View Product</Text>
+                  <Text style={styles.viewButtonText}>{t('ai.scanner.viewProduct')}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -178,7 +182,7 @@ export default function AiProductScannerScreen({ navigation }: any) {
                   navigation.navigate('AllProducts', { search: result.productName });
                 }}
               >
-                <Text style={styles.searchButtonText}>Search Manually</Text>
+                <Text style={styles.searchButtonText}>{t('ai.scanner.searchManually')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -213,7 +217,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   permissionButton: {
-    backgroundColor: GREEN,
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -229,7 +232,6 @@ const styles = StyleSheet.create({
   },
   galleryButtonText: {
     fontSize: 14,
-    color: GREEN,
   },
   header: {
     flexDirection: 'row',
@@ -266,7 +268,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: GREEN,
   },
   topLeft: {
     top: -2,
@@ -321,7 +322,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: GREEN,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -372,7 +372,6 @@ const styles = StyleSheet.create({
   confidenceText: {
     fontSize: 14,
     fontWeight: '600',
-    color: GREEN,
   },
   productName: {
     fontSize: 24,
@@ -408,7 +407,6 @@ const styles = StyleSheet.create({
   nutritionValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: GREEN,
   },
   nutritionLabel: {
     fontSize: 12,
@@ -421,7 +419,6 @@ const styles = StyleSheet.create({
   },
   viewButton: {
     flex: 1,
-    backgroundColor: GREEN,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

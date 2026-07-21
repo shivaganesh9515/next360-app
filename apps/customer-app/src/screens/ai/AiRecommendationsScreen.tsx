@@ -6,10 +6,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
-
-const GREEN = '#2A7A4B';
+import { useStore } from '../../lib/store';
+import { useTranslation } from 'react-i18next';
+import { getStoreAccent } from '../../constants/theme';
 
 export default function AiRecommendationsScreen({ navigation }: any) {
+  const { t } = useTranslation();
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,8 +45,8 @@ export default function AiRecommendationsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GREEN} />
-          <Text style={styles.loadingText}>Finding recommendations for you...</Text>
+          <ActivityIndicator size="large" color={accent} />
+          <Text style={styles.loadingText}>{t('ai.recommendations.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -55,20 +59,20 @@ export default function AiRecommendationsScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recommended for You</Text>
+        <Text style={styles.headerTitle}>{t('ai.recommendations.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       {recommendations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="sparkles-outline" size={64} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No recommendations yet</Text>
-          <Text style={styles.emptySubtitle}>Order more to get personalized recommendations</Text>
+          <Text style={styles.emptyTitle}>{t('ai.recommendations.empty.title')}</Text>
+          <Text style={styles.emptySubtitle}>{t('ai.recommendations.empty.subtitle')}</Text>
           <TouchableOpacity
-            style={styles.shopButton}
+            style={[styles.shopButton, { backgroundColor: accent }]}
             onPress={() => navigation.navigate('Home')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Text style={styles.shopButtonText}>{t('ai.recommendations.startShopping')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -84,20 +88,20 @@ export default function AiRecommendationsScreen({ navigation }: any) {
                 <View style={styles.productInfo}>
                   <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
                   <View style={styles.reasonBadge}>
-                    <Ionicons name="sparkles" size={12} color={GREEN} />
-                    <Text style={styles.reasonText}>{item.reason}</Text>
+                    <Ionicons name="sparkles" size={12} color={accent} />
+                    <Text style={[styles.reasonText, { color: accent }]}>{item.reason}</Text>
                   </View>
                 </View>
                 <View style={styles.scoreContainer}>
-                  <Text style={styles.scoreValue}>{Math.round(item.score * 100)}%</Text>
-                  <Text style={styles.scoreLabel}>Match</Text>
+                  <Text style={[styles.scoreValue, { color: accent }]}>{t('ai.recommendations.matchScore', { score: Math.round(item.score * 100) })}</Text>
+                  <Text style={styles.scoreLabel}>{t('ai.recommendations.match')}</Text>
                 </View>
               </View>
             </TouchableOpacity>
           )}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[GREEN]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[accent]} />
           }
         />
       )}
@@ -154,7 +158,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   shopButton: {
-    backgroundColor: GREEN,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -201,7 +204,6 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     fontSize: 12,
-    color: GREEN,
     fontWeight: '500',
   },
   scoreContainer: {
@@ -210,7 +212,6 @@ const styles = StyleSheet.create({
   scoreValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: GREEN,
   },
   scoreLabel: {
     fontSize: 12,

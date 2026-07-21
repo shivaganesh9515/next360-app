@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next360 — Complete App Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            padding: 40px 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.2rem;
+            color: #C9A66B;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 50px;
+            font-size: 0.95rem;
+        }
+        .section {
+            max-width: 1100px;
+            margin: 0 auto 60px;
+        }
+        .section-title {
+            font-size: 1.3rem;
+            color: #C9A66B;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 24px;
+        }
+        .mermaid {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            border: 1px solid #2a2a2a;
+        }
+        .mermaid svg { max-width: 100%; }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 800px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .card h3 {
+            color: #C9A66B;
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        footer {
+            text-align: center;
+            color: #555;
+            font-size: 0.8rem;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Next360 — Complete App Flow</h1>
+<p class="subtitle">Multi-vendor Organic Marketplace · 4 Apps · NestJS Backend · Supabase Postgres</p>
+
+<div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#5C6B4D"></div> Customer App (Expo)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2F5D62"></div> Delivery App (Expo)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#9B6A3F"></div> Vendor Dashboard (Next.js)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C9A66B"></div> Admin Panel (Next.js)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#666"></div> Backend API (NestJS :4000)</div>
+</div>
+
+<!-- SECTION 1: Master Flow -->
+<div class="section">
+    <h2 class="section-title">1 · Master Flow — Customer Journey End-to-End</h2>
+    <div class="mermaid">
+flowchart TD
+    START([Customer Opens App]) --> SPLASH[Splash Screen]
+    SPLASH --> ONBOARD{Onboarded?}
+    ONBOARD -->|No| ONBOARD_SLIDES[Onboarding 3 Slides<br/>Organic · Natural · Eco]
+    ONBOARD_SLIDES --> PHONE_AUTH
+    ONBOARD -->|Yes| AUTH_CHECK{Authenticated?}
+    AUTH_CHECK -->|No| PHONE_AUTH[Phone Number Input]
+    AUTH_CHECK -->|Yes| ZONE_CHECK{Zone Selected?}
+    PHONE_AUTH --> SEND_OTP[POST /api/auth/send-otp<br/>In-Memory OTP Store]
+    SEND_OTP --> VERIFY_OTP[POST /api/auth/verify-otp-login<br/>Auto-creates CUSTOMER if new]
+    VERIFY_OTP --> JWT([JWT Token → SecureStore])
+    JWT --> ZONE_CHECK
+    ZONE_CHECK -->|No| SELECT_ZONE[Select Location<br/>Hyderabad / Vijayawada]
+    ZONE_CHECK -->|Yes| HOME
+    SELECT_ZONE --> HOME
+
+    HOME[Home Screen<br/>Greeting · Search · StoreToggle · Banners] --> BROWSE
+    BROWSE[Browse Products<br/>GET /api/products?storeType=X] --> TAP_CARD{Tap Product Card}
+    TAP_CARD --> BOTTOM_SHEET[Bottom Sheet Opens<br/>45% Quick-Add · 90% Full Details]
+    BOTTOM_SHEET --> ADD_CART[POST /api/cart/items<br/>+ FlyToCart Animation]
+    ADD_CART --> MINI_CART[Mini Cart Bar Appears]
+    MINI_CART --> VIEW_CART{Tapped View Cart?}
+    VIEW_CART -->|No| BROWSE
+    VIEW_CART -->|Yes| CART[Cart Screen<br/>Grouped by Vendor]
+
+    CART --> CHECKOUT[Checkout Screen<br/>Address · Coupon · Payment Method]
+    CHECKOUT --> CREATE_ORDER[POST /api/orders<br/>Groups items by vendor]
+    CREATE_ORDER --> ORDER_CONFIRM([Order Confirmation])
+
+    style START fill:#5C6B4D,color:#fff
+    style ORDER_CONFIRM fill:#5C6B4D,color:#fff
+    style HOME fill:#1a3a2a,color:#C9A66B
+    style BOTTOM_SHEET fill:#1a3a2a,color:#C9A66B
+    </div>
+</div>
+
+<!-- SECTION 2: Backend Order Flow -->
+<div class="section">
+    <h2 class="section-title">2 · Backend — Order Creation & Multi-Vendor Split</h2>
+    <div class="mermaid">
+flowchart TD
+    REQ[POST /api/orders<br/>addressId, paymentMethod, couponCode?] --> VALIDATE_ADDR[Validate Address<br/>belongs to user]
+    VALIDATE_ADDR --> FETCH_CART[Fetch Cart Items<br/>+ product + vendor]
+    FETCH_CART --> CHECK_STOCK{Stock OK<br/>for all items?}
+    CHECK_STOCK -->|No| STOCK_ERR([400: Insufficient Stock])
+    CHECK_STOCK -->|Yes| CHECK_COD{COD &gt; ₹2000?}
+    CHECK_COD -->|Yes| COD_ERR([400: COD Max ₹2000])
+    CHECK_COD -->|No| COUPON{Coupon<br/>Provided?}
+    COUPON -->|Yes| VALIDATE_COUPON[Validate Coupon<br/>expire · usage · minOrder]
+    COUPON -->|No| GROUP_VENDOR
+    VALIDATE_COUPON --> GROUP_VENDOR
+
+    GROUP_VENDOR[Group Items by Vendor<br/>Map vendorId → items[]] --> CALC_TOTAL[Calculate Total<br/>subtotal - discount]
+    CALC_TOTAL --> DETERMINE_STATUS{Payment<br/>Method?}
+    DETERMINE_STATUS -->|RAZORPAY| STATUS_PLACED[status = PLACED]
+    DETERMINE_STATUS -->|COD| STATUS_CONFIRMED[status = CONFIRMED]
+
+    STATUS_PLACED --> TRANSACTION
+    STATUS_CONFIRMED --> TRANSACTION
+
+    subgraph TRANSACTION [Prisma $transaction]
+        CREATE_ORDER2[Create Order<br/>orderNo: N360-xxx] --> CREATE_GROUPS[Create OrderVendorGroup[]<br/>one per vendor with subtotal]
+        CREATE_GROUPS --> CREATE_ITEMS[Create OrderItem[]<br/>price snapshot at purchase]
+        CREATE_ITEMS --> DEC_STOCK[Decrement Product Stock]
+        DEC_STOCK --> CLEAR_CART[Clear User Cart]
+    end
+
+    TRANSACTION --> RETURN([Return Order + VendorGroups])
+
+    style STOCK_ERR fill:#5a2020,color:#ff6b6b
+    style COD_ERR fill:#5a2020,color:#ff6b6b
+    style RETURN fill:#1a3a2a,color:#C9A66B
+    style TRANSACTION fill:#1a1a2a,color:#8888ff
+    </div>
+</div>
+
+<!-- SECTION 3: Payment Flow -->
+<div class="section">
+    <h2 class="section-title">3 · Payment — Razorpay Integration</h2>
+    <div class="mermaid">
+flowchart TD
+    CHECKOUT_BTN[Customer Taps Pay] --> RZ_ORDER[POST /api/payments/razorpay/order<br/>Creates Razorpay Order]
+    RZ_ORDER --> WIDGET[Razorpay Checkout Widget<br/>Card / UPI / Netbanking]
+    WIDGET --> SUCCESS{Payment<br/>Successful?}
+    SUCCESS -->|No| FAIL_ORDER[Order → FAILED]
+    SUCCESS -->|Yes| VERIFY[POST /api/payments/razorpay/verify<br/>HMAC-SHA256 Signature Check]
+    VERIFY --> PAY_CAPTURED[Payment → CAPTURED<br/>Order.paymentStatus → PAID]
+
+    WEBHOOK_IN[Webhook: payment.captured<br/>x-razorpay-signature verified] --> WEBHOOK_CAPT[Payment → CAPTURED]
+    WEBHOOK_CAPT --> COMMISSION[Commission Service<br/>subtotal × commissionPct<br/>per vendor group]
+    COMMISSION --> ROUTE[Razorpay Route Transfer<br/>platform → vendor account<br/>subtotal - commission]
+    ROUTE --> PAYOUT[Payout Record Created<br/>PROCESSED / FAILED]
+
+    WEBHOOK_IN2[Webhook: payment.failed] --> FAIL_WEBHOOK[Payment → FAILED<br/>Order → FAILED]
+
+    COD_PATH[COD Order<br/>No Payment Step] --> AUTO_CONFIRM[Order Starts as CONFIRMED]
+    AUTO_CONFIRM --> DELIVER[Wait for Delivery]
+
+    style CHECKOUT_BTN fill:#C9A66B,color:#000
+    style FAIL_ORDER fill:#5a2020,color:#ff6b6b
+    style FAIL_WEBHOOK fill:#5a2020,color:#ff6b6b
+    style PAY_CAPTURED fill:#1a3a2a,color:#C9A66B
+    style PAYOUT fill:#1a3a2a,color:#C9A66B
+    </div>
+</div>
+
+<!-- SECTION 4: Delivery Flow -->
+<div class="section">
+    <h2 class="section-title">4 · Delivery — Partner Flow & Real-Time Tracking</h2>
+    <div class="mermaid">
+flowchart TD
+    DP_OPEN[Delivery Partner Opens App] --> DP_AUTH[Phone OTP → Supabase Auth<br/>Verify role = DELIVERY_PARTNER]
+    DP_AUTH --> DASHBOARD[Dashboard Screen<br/>Online/Offline Toggle]
+    DASHBOARD --> GO_ONLINE[Tap Go Online<br/>PATCH /delivery/availability]
+
+    GO_ONLINE --> LISTEN[Supabase Realtime<br/>postgres_changes on orders]
+    LISTEN --> NEW_ORDER{New Order<br/>Available?}
+
+    NEW_ORDER -->|No| WAIT[Waiting...]
+    WAIT --> NEW_ORDER
+
+    NEW_ORDER -->|Yes| ASSIGN_MODAL[IncomingAssignmentModal<br/>30-sec countdown]
+    ASSIGN_MODAL --> DECIDE{Accept or<br/>Reject?}
+    DECIDE -->|Reject| REJECT_ORDER[Removed from Queue]
+    REJECT_ORDER --> LISTEN
+    DECIDE -->|Accept| ACTIVE_DELIVERY[Active Delivery Screen<br/>Map-First · No Bottom Nav]
+
+    ACTIVE_DELIVERY --> OTP_MODAL[OTP Verification Modal<br/>4-digit code from vendor]
+    OTP_MODAL --> PICKUP[Picked Up → IN_TRANSIT]
+    PICKUP --> LIVE_PUSH[Live Location Push<br/>Every 15s / 50m]
+    LIVE_PUSH --> MARK_DELIVERED[Mark Delivered<br/>PATCH /delivery/status]
+    MARK_DELIVERED --> COMPLETE([Delivery Complete<br/>Returns to Dashboard])
+
+    LIVE_PUSH --> CUST_TRACK[Customer Sees<br/>Live Map via Supabase Realtime]
+
+    style DP_OPEN fill:#2F5D62,color:#fff
+    style COMPLETE fill:#2F5D62,color:#fff
+    style ASSIGN_MODAL fill:#2F5D62,color:#fff
+    style ACTIVE_DELIVERY fill:#1a2a3a,color:#6bcfff
+    </div>
+</div>
+
+<!-- SECTION 5: Vendor & Admin Lifecycle -->
+<div class="section">
+    <h2 class="section-title">5 · Vendor & Admin Lifecycle</h2>
+    <div class="grid-2">
+        <div class="mermaid">
+flowchart TD
+    VS[Vendor Signs Up<br/>email + password] --> VENDOR_REC[Vendor Record<br/>status = PENDING]
+    VENDOR_REC --> KYC[KYC Submitted<br/>doc type · number · url]
+    KYC --> ADMIN_REVIEWS{Admin<br/>Approves?}
+    ADMIN_REVIEWS -->|Reject| VENDOR_REJECTED[Vendor → REJECTED]
+    ADMIN_REVIEWS -->|Approve| VENDOR_LIVE[Vendor → APPROVED<br/>KYC → VERIFIED]
+    VENDOR_LIVE --> CREATE_PROD[Create Products<br/>isApproved = false]
+    CREATE_PROD --> ADMIN_PROD{Admin<br/>Approves?}
+    ADMIN_PROD -->|No| PENDING_PROD[Product Pending]
+    ADMIN_PROD -->|Yes| PRODUCT_LIVE[Product → isApproved = true<br/>Appears in Storefront]
+    PRODUCT_LIVE --> ORDERS_IN[Orders Come In]
+    ORDERS_IN --> CONFIRM_PACK[Vendor Confirms & Packs<br/>PATCH /orders/:id/groups/:groupId/status]
+    CONFIRM_PACK --> READY[Ready for Delivery<br/>Triggers Supabase Realtime]
+
+    style VS fill:#9B6A3F,color:#fff
+    style VENDOR_LIVE fill:#1a3a2a,color:#C9A66B
+    style PRODUCT_LIVE fill:#1a3a2a,color:#C9A66B
+    style VENDOR_REJECTED fill:#5a2020,color:#ff6b6b
+        </div>
+        <div class="mermaid">
+flowchart TD
+    A_LOGIN[Admin Logs In<br/>email + password] --> A_DASH[Admin Dashboard<br/>Orders · GMV · Vendors]
+    A_DASH --> A_VENDORS[Vendor Approvals<br/>Review KYC + Business Details]
+    A_DASH --> A_PRODUCTS[Product Approvals<br/>Bulk Approve Queue]
+    A_DASH --> A_ORDERS[Order Oversight<br/>Every Order · Every Vendor]
+    A_DASH --> A_DELIVERY[Delivery Partners<br/>Status · Zone · Rating]
+    A_DASH --> A_ZONES[Zones Management<br/>Add/Edit/Activate]
+    A_DASH --> A_CMS[CMS<br/>Pages · Banners]
+    A_DASH --> A_COMMISSION[Commissions<br/>Cross-Vendor Overview]
+    A_DASH --> A_ROLES[Roles & Permissions<br/>RBAC Management]
+
+    A_VENDORS -->|Approve/Reject| VENDOR_ACTION[Vendor Status Updated]
+    A_PRODUCTS -->|Approve| PRODUCT_ACTION[Product.isApproved = true]
+    A_COMMISSION -->|Mark Paid| COMMISSION_PAID[Commission → isPaid = true]
+
+    style A_LOGIN fill:#C9A66B,color:#000
+    style A_DASH fill:#1a2a2a,color:#C9A66B
+    style VENDOR_ACTION fill:#1a3a2a,color:#C9A66B
+    style PRODUCT_ACTION fill:#1a3a2a,color:#C9A66B
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 6: Order Status Machine -->
+<div class="section">
+    <h2 class="section-title">6 · Order Status Machine (per VendorGroup)</h2>
+    <div class="mermaid">
+stateDiagram-v2
+    [*] --> PLACED: Razorpay Order Created
+    [*] --> CONFIRMED: COD Order Created
+
+    PLACED --> CONFIRMED: Payment Captured
+    PLACED --> CANCELLED: Customer/Admin cancels
+
+    CONFIRMED --> PACKED: Vendor confirms
+    CONFIRMED --> CANCELLED: Customer/Admin cancels
+
+    PACKED --> ASSIGNED_TO_DELIVERY: Admin assigns partner
+    PACKED --> CANCELLED: Customer/Admin cancels
+
+    ASSIGNED_TO_DELIVERY --> PICKED_UP: OTP Verified
+    ASSIGNED_TO_DELIVERY --> CANCELLED: Admin cancels
+
+    PICKED_UP --> OUT_FOR_DELIVERY: Partner starts transit
+
+    OUT_FOR_DELIVERY --> DELIVERED: Mark Delivered
+
+    DELIVERED --> REFUNDED: Admin processes refund
+
+    note right of PLACED: Waiting for payment
+    note right of CONFIRMED: Vendor can start fulfilling
+    note right of DELIVERED: paymentStatus → PAID
+    note right of CANCELLED: Stock restored
+    </div>
+</div>
+
+<!-- SECTION 7: Data Model Relationships -->
+<div class="section">
+    <h2 class="section-title">7 · Core Data Model (Key Relationships)</h2>
+    <div class="mermaid">
+erDiagram
+    User ||--o| Vendor : "1:1"
+    User ||--o| DeliveryPartner : "1:1"
+    User ||--o| KYC : "1:1"
+    User ||--o{ Address : "1:N"
+    User ||--o{ Order : "1:N"
+    User ||--o{ CartItem : "1:N"
+
+    Vendor }o--|| Zone : "belongs to"
+    Vendor ||--o{ Product : "1:N"
+    Vendor ||--o{ OrderVendorGroup : "1:N"
+
+    Product }o--|| Category : "belongs to"
+    Product }o--o| SubCategory : "optional"
+    Product }o--o| Brand : "optional"
+    Product ||--o{ CartItem : "1:N"
+    Product ||--o{ OrderItem : "1:N"
+
+    Order ||--o{ OrderVendorGroup : "1:N"
+    Order ||--o{ Payment : "1:N"
+    Order ||--o{ Commission : "1:N"
+
+    OrderVendorGroup ||--o{ OrderItem : "1:N"
+    OrderVendorGroup ||--o| DeliveryAssignment : "1:1"
+
+    DeliveryPartner }o--|| Zone : "belongs to"
+    DeliveryPartner ||--o{ DeliveryAssignment : "1:N"
+
+    Zone ||--o{ Vendor : "1:N"
+    Zone ||--o{ DeliveryPartner : "1:N"
+    </div>
+</div>
+
+<footer>
+    Next360 Flowchart · Generated for architecture review<br/>
+    Backend: NestJS :4000 · DB: Supabase Postgres · Payments: Razorpay · Auth: Supabase + JWT
+</footer>
+
+<script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'dark',
+        themeVariables: {
+            primaryColor: '#1a3a2a',
+            primaryTextColor: '#C9A66B',
+            primaryBorderColor: '#5C6B4D',
+            lineColor: '#666',
+            secondaryColor: '#1a2a3a',
+            tertiaryColor: '#2a1a2a',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '14px'
+        },
+        flowchart: {
+            htmlLabels: true,
+            curve: 'basis',
+            padding: 20,
+            nodeSpacing: 50,
+            rankSpacing: 60
+        },
+        sequence: { mirrorActors: false }
+    });
+</script>
+
+</body>
+</html>

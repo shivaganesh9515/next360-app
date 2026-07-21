@@ -1,12 +1,23 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../lib/auth';
-import { Colors } from '../../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import { setLanguage } from '../../i18n';
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
+  const { i18n } = useTranslation();
+  const [showLangModal, setShowLangModal] = React.useState(false);
+
+  const currentLang = i18n.language === 'te' ? 'తెలుగు' : 'English';
+
+  const handleLanguageChange = async (lang: 'en' | 'te') => {
+    await setLanguage(lang);
+    setShowLangModal(false);
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -20,42 +31,31 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const menuItems = [
-    {
-      icon: 'person-outline',
-      label: 'Edit Profile',
-      onPress: () => navigation.navigate('EditProfile'),
-    },
-    {
-      icon: 'receipt-outline',
-      label: 'My Orders',
-      onPress: () => navigation.navigate('OrderHistory'),
-    },
-    {
-      icon: 'heart-outline',
-      label: 'Favourites',
-      onPress: () => navigation.navigate('Main', { screen: 'Favorites' }),
-    },
-    {
-      icon: 'pricetag-outline',
-      label: 'Offers & Coupons',
-      onPress: () => navigation.navigate('Promos'),
-    },
-    {
-      icon: 'location-outline',
-      label: 'My Addresses',
-      onPress: () => navigation.navigate('AddressList'),
-    },
-    {
-      icon: 'notifications-outline',
-      label: 'Notifications',
-      onPress: () => navigation.navigate('Notifications'),
-    },
-    {
-      icon: 'help-circle-outline',
-      label: 'Support',
-      onPress: () => navigation.navigate('Support'),
-    },
+    { icon: 'person-outline',     label: 'Edit Profile',      onPress: () => navigation.navigate('EditProfile') },
+    { icon: 'receipt-outline',    label: 'My Orders',          onPress: () => navigation.navigate('OrderHistory') },
+    { icon: 'heart-outline',      label: 'Favourites',         onPress: () => navigation.navigate('Main', { screen: 'Favorites' }) },
+    { icon: 'pricetag-outline',   label: 'Offers & Coupons',   onPress: () => navigation.navigate('Promos') },
+    { icon: 'location-outline',   label: 'My Addresses',       onPress: () => navigation.navigate('AddressList') },
+    { icon: 'notifications-outline', label: 'Notifications',   onPress: () => navigation.navigate('Notifications') },
+    { icon: 'language-outline',   label: `Language (${currentLang})`, onPress: () => setShowLangModal(true) },
+    { icon: 'help-circle-outline',label: 'Support',            onPress: () => navigation.navigate('Support') },
   ];
+
+  // Staggered entrance — each menu item fades in and slides up with a small
+  // per-index delay, making the profile page feel alive on mount.
+  const staggerAnim = useRef(menuItems.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    staggerAnim.forEach((anim, i) => {
+      Animated.spring(anim, {
+        toValue: 1,
+        friction: 7,
+        tension: 80,
+        delay: i * 50,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,30 +75,76 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Menu Items */}
+      {/* Menu Items — staggered entrance */}
       <View style={styles.menuCard}>
         {menuItems.map((item, index) => (
-          <TouchableOpacity
+          <Animated.View
             key={index}
-            style={[styles.menuItem, index < menuItems.length - 1 && styles.menuItemBorder]}
-            onPress={item.onPress}
+            style={{
+              opacity: staggerAnim[index],
+              transform: [{
+                translateY: staggerAnim[index].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                }),
+              }],
+            }}
           >
-            <View style={styles.menuLeft}>
-              <Ionicons name={item.icon as any} size={22} color="#6B7280" />
-              <Text style={styles.menuLabel}>{item.label}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, index < menuItems.length - 1 && styles.menuItemBorder]}
+              onPress={item.onPress}
+            >
+              <View style={styles.menuLeft}>
+                <Ionicons name={item.icon as any} size={22} color={Colors.textSecondary} />
+                <Text style={styles.menuLabel}>{item.label}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+            </TouchableOpacity>
+          </Animated.View>
         ))}
       </View>
 
       {/* Sign Out */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+        <Ionicons name="log-out-outline" size={20} color={Colors.error} />
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
 
       <Text style={styles.version}>Next360 v1.0.0</Text>
+
+      {/* Language Selection Modal */}
+      <Modal visible={showLangModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Language</Text>
+              <TouchableOpacity onPress={() => setShowLangModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.langOption}
+              onPress={() => handleLanguageChange('en')}
+            >
+              <Text style={styles.langText}>English</Text>
+              {i18n.language === 'en' && (
+                <Ionicons name="checkmark" size={22} color={Colors.organic} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.langOption}
+              onPress={() => handleLanguageChange('te')}
+            >
+              <Text style={styles.langText}>తెలుగు</Text>
+              {i18n.language === 'te' && (
+                <Ionicons name="checkmark" size={22} color={Colors.organic} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -109,24 +155,23 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...Typography.h3,
     color: Colors.text,
   },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
+    margin: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
   },
   avatar: {
     width: 60,
@@ -137,35 +182,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 24,
-    fontWeight: '600',
+    ...Typography.h2,
     color: '#FFFFFF',
   },
   userInfo: {
-    marginLeft: 16,
+    marginLeft: Spacing.lg,
   },
   userName: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...Typography.h3,
     color: Colors.text,
   },
   userEmail: {
-    fontSize: 14,
+    ...Typography.bodySmall,
     color: Colors.textSecondary,
     marginTop: 4,
   },
   menuCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    borderRadius: 12,
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
     overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   menuItemBorder: {
     borderBottomWidth: 1,
@@ -176,30 +219,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuLabel: {
-    fontSize: 16,
+    ...Typography.body,
     color: Colors.text,
-    marginLeft: 12,
+    marginLeft: Spacing.md,
   },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FEE2E2',
-    marginHorizontal: 16,
-    marginTop: 24,
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: Colors.organicLight,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md + 2,
   },
   signOutText: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Typography.button,
     color: Colors.error,
-    marginLeft: 8,
+    marginLeft: Spacing.sm,
   },
   version: {
     textAlign: 'center',
     color: Colors.textSecondary,
-    fontSize: 12,
-    marginTop: 24,
+    ...Typography.caption,
+    marginTop: Spacing.xl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+  },
+  langOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  langText: {
+    ...Typography.body,
+    color: Colors.text,
   },
 });

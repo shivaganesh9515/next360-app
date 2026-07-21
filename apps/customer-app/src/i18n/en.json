@@ -1,0 +1,685 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "all": "All",
+    "free": "FREE",
+    "retry": "Retry",
+    "delete": "Delete",
+    "remove": "Remove",
+    "clear": "Clear",
+    "other": "Other",
+    "next": "Next",
+    "skip": "Skip",
+    "signOut": "Sign Out",
+    "error": "Error",
+    "live": "LIVE",
+    "call": "Call",
+    "neverMind": "Never mind",
+    "seeAll": "See All",
+    "tapToRetry": "Tap to retry",
+    "pleaseTryAgain": "Please try again.",
+    "comingSoon": "Coming soon",
+    "version": "Next360 v1.0.0"
+  },
+  "brand": {
+    "name": "Next360"
+  },
+  "store": {
+    "organic": "Organic",
+    "natural": "Natural",
+    "ecoFriendly": "Eco-friendly"
+  },
+  "orderStatus": {
+    "placed": "Order Placed",
+    "confirmed": "Confirmed by Vendor",
+    "packed": "Packed",
+    "assignedForDelivery": "Assigned for Delivery",
+    "pickedUp": "Picked Up",
+    "outForDelivery": "Out for Delivery",
+    "delivered": "Delivered"
+  },
+  "splash": {
+    "tagline": "Organic. Natural. Eco-friendly."
+  },
+  "onboarding": {
+    "getStarted": "Get Started",
+    "organic": {
+      "title": "Organic, straight from the farm",
+      "subtitle": "Certified organic produce and staples sourced directly from local growers."
+    },
+    "natural": {
+      "title": "Natural goods, honestly made",
+      "subtitle": "Minimally processed foods and everyday essentials with nothing artificial added."
+    },
+    "eco": {
+      "title": "Eco-friendly, kinder to the planet",
+      "subtitle": "Sustainable, low-waste products for a home that treads a little lighter."
+    }
+  },
+  "auth": {
+    "devSkip": "Dev Skip",
+    "welcome": {
+      "title": "Welcome to Next360",
+      "subtitle": "Enter your mobile number to log in or sign up."
+    },
+    "phone": {
+      "placeholder": "10-digit mobile number",
+      "invalid": "Enter a valid 10-digit mobile number."
+    },
+    "otp": {
+      "sendError": {
+        "title": "Could not send code"
+      }
+    },
+    "terms": {
+      "prefix": "By continuing you are agreeing to our",
+      "link": "Terms",
+      "privacyPolicy": "Privacy Policy"
+    },
+    "verify": {
+      "title": "Verification Code",
+      "subtitle": "Enter the code we sent to +91 {{phone}}.",
+      "incomplete": {
+        "title": "Incomplete code",
+        "message": "Enter all {{length}} digits."
+      },
+      "invalid": {
+        "title": "Invalid code",
+        "message": "That code did not match. Try again."
+      },
+      "resendCountdown": "Resend code in {{countdown}}s",
+      "resending": "Resending...",
+      "resendCode": "Resend Code",
+      "resendError": {
+        "title": "Could not resend code"
+      }
+    }
+  },
+  "home": {
+    "greeting": {
+      "morning": "morning",
+      "afternoon": "afternoon",
+      "evening": "evening"
+    },
+    "section": {
+      "categories": "Shop by Category",
+      "popularIn": "Popular in {{storeLabel}}"
+    },
+    "error": {
+      "loadProducts": "Couldn't load products"
+    },
+    "empty": {
+      "noProducts": "No products yet in {{storeLabel}}"
+    }
+  },
+  "search": {
+    "placeholder": "Search products...",
+    "placeholderShort": "Search...",
+    "landing": {
+      "headline": "Find the Finest"
+    },
+    "section": {
+      "shopByStore": "Shop by Store",
+      "popularSearches": "Popular Searches"
+    },
+    "store": {
+      "organic": { "tag": "CURATED" },
+      "natural": { "tag": "ARTISANAL" },
+      "eco": { "tag": "SUSTAINABLE" }
+    },
+    "popular": {
+      "organicRice": "Organic Rice",
+      "coldPressedOil": "Cold-Pressed Oil",
+      "rawHoney": "Raw Honey",
+      "herbalTea": "Herbal Tea",
+      "milletSnacks": "Millet Snacks",
+      "bambooUtensils": "Bamboo Utensils",
+      "naturalSoap": "Natural Soap"
+    },
+    "error": {
+      "title": "Couldn't search right now"
+    },
+    "empty": {
+      "noResults": "No results for \"{{query}}\"",
+      "hint": "Try a different keyword or check another store."
+    }
+  },
+  "products": {
+    "title": {
+      "allProducts": "All Products"
+    },
+    "sort": {
+      "trending": "Trending",
+      "newest": "Newest",
+      "priceAsc": "Price: Low",
+      "priceDesc": "Price: High",
+      "rating": "Rating"
+    },
+    "price": {
+      "under200": "Under ₹200",
+      "range200to500": "₹200 – ₹500",
+      "range500to1000": "₹500 – ₹1000",
+      "above1000": "Above ₹1000"
+    },
+    "filter": {
+      "rating4": "4★ & up",
+      "inStock": "In Stock"
+    },
+    "error": {
+      "load": "Couldn't load products"
+    },
+    "empty": {
+      "noProducts": "No products found"
+    },
+    "alert": {
+      "added": {
+        "title": "Added",
+        "message": "{{name}} added to cart"
+      },
+      "signInRequired": "Please sign in to add items"
+    }
+  },
+  "cart": {
+    "fallback": {
+      "productName": "Product",
+      "unit": "per unit"
+    },
+    "alert": {
+      "removeItem": {
+        "title": "Remove Item",
+        "message": "Are you sure you want to remove this item?"
+      },
+      "clearCart": {
+        "title": "Clear Cart",
+        "message": "Remove all items from your cart?"
+      }
+    },
+    "empty": {
+      "title": "Your cart is empty",
+      "subtitle": "Add some items to get started",
+      "startShopping": "Start Shopping"
+    },
+    "header": {
+      "title": "Cart ({{count}} items)",
+      "clearAll": "Clear All"
+    },
+    "summary": {
+      "subtotal": "Subtotal",
+      "delivery": "Delivery",
+      "total": "Total"
+    },
+    "checkout": {
+      "proceed": "Proceed to Checkout ({{count}} items)"
+    }
+  },
+  "checkout": {
+    "title": "Checkout",
+    "payment": {
+      "cod": "Cash on Delivery",
+      "razorpay": "Pay Online (Razorpay)"
+    },
+    "section": {
+      "deliveryAddress": "Delivery Address",
+      "deliverySlot": "Delivery Schedule",
+      "orderItems": "Order Items ({{count}})",
+      "paymentMethod": "Payment Method",
+      "coupon": "Coupon",
+      "orderNotes": "Order Notes (Optional)",
+      "priceSummary": "Price Summary"
+    },
+    "deliverySlot": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "unavailable": "Delivery slots are not available for your area right now.",
+      "noSlots": "No slots available for this day.",
+      "full": "Full",
+      "available": "{{n}} available"
+    },
+    "fallback": {
+      "address": "Address",
+      "product": "Product"
+    },
+    "addAddress": "Add Delivery Address",
+    "coupon": {
+      "saved": "You saved {{amount}}",
+      "placeholder": "Enter coupon code",
+      "apply": "Apply",
+      "error": "Invalid or expired coupon code"
+    },
+    "notes": {
+      "placeholder": "Delivery instructions..."
+    },
+    "price": {
+      "subtotal": "Subtotal",
+      "coupon": "Coupon ({{code}})",
+      "deliveryFee": "Delivery Fee",
+      "total": "Total"
+    },
+    "codWarning": "Cash on Delivery is available up to ₹{{cap}} per order. Online payment isn't live yet — please remove some items to continue.",
+    "slide": {
+      "placing": "Placing order...",
+      "noAddress": "Add address to continue",
+      "codLimit": "COD limit is ₹{{cap}}",
+      "confirm": "Slide to confirm"
+    },
+    "alert": {
+      "selectAddress": {
+        "title": "Select Address",
+        "message": "Please add a delivery address to continue"
+      },
+      "codLimit": {
+        "title": "COD limit exceeded",
+        "message": "Cash on Delivery is available up to ₹{{cap}} per order. Online payment isn't live yet — please reduce your cart total to continue."
+      },
+      "stockChanged": {
+        "title": "Some items changed",
+        "message": "Please update your cart before continuing."
+      },
+      "orderFailed": {
+        "title": "Order Failed",
+        "message": "Failed to place order. Please try again."
+      }
+    }
+  },
+  "orderConfirm": {
+    "title": "Order Placed!",
+    "subtitle": "Your order has been successfully placed",
+    "orderId": "Order ID",
+    "deliveryEstimate": "Estimated delivery: 30-45 minutes",
+    "trackOrder": "Track Order",
+    "viewOrders": "View Orders",
+    "continueShopping": "Continue Shopping"
+  },
+  "profile": {
+    "title": "Profile",
+    "fallback": {
+      "name": "User"
+    },
+    "menu": {
+      "editProfile": "Edit Profile",
+      "myOrders": "My Orders",
+      "favourites": "Favourites",
+      "offersCoupons": "Offers & Coupons",
+      "myAddresses": "My Addresses",
+      "notifications": "Notifications",
+      "support": "Support"
+    },
+    "alert": {
+      "signOut": {
+        "message": "Are you sure you want to sign out?"
+      }
+    }
+  },
+  "editProfile": {
+    "title": "Edit Profile",
+    "placeholder": {
+      "name": "Full name",
+      "email": "Email address (optional)"
+    },
+    "label": {
+      "phone": "Phone"
+    },
+    "verified": "Verified",
+    "saveChanges": "Save Changes",
+    "alert": {
+      "saveError": {
+        "title": "Could not save changes"
+      }
+    }
+  },
+  "orderHistory": {
+    "title": "My Orders",
+    "error": {
+      "load": "Couldn't load your orders"
+    },
+    "empty": {
+      "title": "No orders yet",
+      "subtitle": "Start shopping to see your orders here",
+      "startShopping": "Start Shopping"
+    },
+    "items": "{{count}} items"
+  },
+  "orderDetail": {
+    "fallback": {
+      "vendor": "Vendor"
+    },
+    "status": {
+      "cancelled": "This part of your order was cancelled",
+      "refunded": "This part of your order was refunded"
+    },
+    "action": {
+      "writeReview": "Write a Review",
+      "requestReturn": "Request Return"
+    },
+    "trackOrderLive": "Track Order Live",
+    "section": {
+      "deliveringTo": "Delivering to",
+      "payment": "Payment"
+    },
+    "summary": {
+      "method": "Method",
+      "status": "Status",
+      "total": "Total"
+    },
+    "cancelOrder": "Cancel Order",
+    "alert": {
+      "cancelError": {
+        "title": "Could not cancel order"
+      },
+      "returnRequested": {
+        "title": "Return requested",
+        "message": "We've received your return request and will review it shortly."
+      },
+      "returnError": {
+        "title": "Could not submit return"
+      },
+      "reviewThanks": {
+        "title": "Thanks for the review!",
+        "message": "Your review helps other shoppers."
+      },
+      "reviewError": {
+        "title": "Could not submit review"
+      }
+    },
+    "error": {
+      "load": "Couldn't load this order"
+    },
+    "empty": {
+      "notFound": "Order not found."
+    },
+    "cancelModal": {
+      "title": "Why are you cancelling?"
+    },
+    "cancelReason": {
+      "mistake": "Ordered by mistake",
+      "price": "Found a better price",
+      "slow": "Delivery taking too long",
+      "other": "Other"
+    },
+    "returnModal": {
+      "title": "Why are you returning this item?",
+      "submit": "Submit Return"
+    },
+    "returnReason": {
+      "damaged": "Item damaged",
+      "wrong": "Wrong item delivered",
+      "expired": "Item expired/quality issue",
+      "other": "Other"
+    },
+    "reviewModal": {
+      "title": "Rate {{productName}}",
+      "placeholder": "Share your experience (optional)",
+      "submit": "Submit Review"
+    },
+    "reasonModal": {
+      "otherPlaceholder": "Tell us more..."
+    }
+  },
+  "orderTracking": {
+    "loading": "Loading order...",
+    "eta": "Arriving by {{time}}",
+    "header": {
+      "title": "Order #{{orderNo}}"
+    },
+    "otp": {
+      "label": "Delivery OTP — share with your rider on handoff"
+    },
+    "section": {
+      "deliveryStatus": "Delivery Status",
+      "items": "Items in this order"
+    },
+    "map": {
+      "deliveryAddress": "Delivery address"
+    },
+    "item": {
+      "qty": "Qty: {{qty}}"
+    },
+    "summary": {
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "totalAmount": "Total Amount",
+      "paidVia": "PAID VIA {{method}}"
+    },
+    "web": {
+      "mapPlaceholder": "Live map view is available in the mobile app"
+    }
+  },
+  "addressList": {
+    "title": "My Addresses",
+    "error": {
+      "load": "Couldn't load your addresses"
+    },
+    "empty": {
+      "title": "No addresses yet",
+      "subtitle": "Add your first delivery address.",
+      "addAddress": "Add Address"
+    },
+    "fallback": {
+      "label": "Address"
+    },
+    "badge": {
+      "default": "Default"
+    },
+    "action": {
+      "setDefault": "Set as default"
+    },
+    "alert": {
+      "delete": {
+        "title": "Delete address",
+        "message": "Are you sure you want to remove this address?"
+      },
+      "setDefaultError": "Failed to set default address",
+      "deleteError": "Failed to delete address"
+    }
+  },
+  "addAddress": {
+    "title": "Add Address",
+    "label": {
+      "label": "Label",
+      "fullAddress": "Full Address *",
+      "city": "City *",
+      "state": "State *",
+      "pincode": "Pincode *"
+    },
+    "placeholder": {
+      "address": "House/flat no., building, street, area, landmark",
+      "city": "City",
+      "state": "State",
+      "pincode": "6-digit pincode"
+    },
+    "mapPicker": {
+      "set": "Set location on map",
+      "change": "Location pinned — tap to change"
+    },
+    "saveAddress": "Save Address",
+    "alert": {
+      "missing": {
+        "title": "Missing details",
+        "message": "Fill in the address, city, state, and a 6-digit pincode."
+      },
+      "saveError": {
+        "title": "Could not save address"
+      }
+    }
+  },
+  "support": {
+    "title": "Support",
+    "contact": {
+      "callUs": "Call Us",
+      "emailUs": "Email Us",
+      "whatsapp": "WhatsApp"
+    },
+    "section": {
+      "faq": "Frequently Asked Questions",
+      "about": "About"
+    },
+    "faq": {
+      "trackOrder": {
+        "q": "How do I track my order?",
+        "a": "Go to Profile → My Orders and tap an order to see live tracking once it's out for delivery."
+      },
+      "deliveryAreas": {
+        "q": "What areas do you deliver to?",
+        "a": "We currently deliver in Hyderabad and Vijayawada. More cities are coming soon."
+      },
+      "cod": {
+        "q": "Can I pay cash on delivery?",
+        "a": "Yes, COD is available for orders up to ₹2,000. Larger orders require online payment."
+      },
+      "returns": {
+        "q": "How do returns work?",
+        "a": "Open the order in My Orders and tap \"Request Return\" within 24 hours of delivery."
+      }
+    },
+    "about": {
+      "text": "Next360 v1.0.0 — Organic. Natural. Eco-friendly."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "error": {
+      "load": "Couldn't load notifications"
+    },
+    "empty": {
+      "title": "You're all caught up",
+      "subtitle": "Order updates and offers will show up here."
+    }
+  },
+  "wishlist": {
+    "title": "Favourites",
+    "error": {
+      "load": "Couldn't load your favourites"
+    },
+    "empty": {
+      "title": "No favourites yet",
+      "subtitle": "Tap the heart on any product to save it here."
+    }
+  },
+  "promos": {
+    "title": "Offers & Coupons",
+    "subtitle": "Active in {{storeLabel}}",
+    "error": {
+      "load": "Couldn't load offers"
+    },
+    "empty": {
+      "title": "No active offers right now",
+      "subtitle": "Check back soon for deals in this store."
+    },
+    "discount": {
+      "percent": "{{value}}% OFF",
+      "fixed": "₹{{value}} OFF"
+    },
+    "validTill": "Valid till {{date}}"
+  },
+  "location": {
+    "title": {
+      "mandatory": "Where should we deliver?",
+      "optional": "Select Delivery Location"
+    },
+    "placeholder": "Search city or area...",
+    "trigger": "Delivery to",
+    "fallback": {
+      "select": "Select location"
+    },
+    "blocked": {
+      "title": "We're not in your area yet",
+      "text": "Next360 currently delivers only in Hyderabad and Vijayawada. We're working on expanding to more cities soon."
+    },
+    "section": {
+      "serviceable": "Serviceable areas"
+    }
+  },
+  "ai": {
+    "assistant": {
+      "title": "AI Assistant",
+      "welcome": "Hi! I'm your Next360 AI assistant. I can help you with product recommendations, health tips, order tracking, and more. How can I help you today?",
+      "error": "Sorry, I encountered an error. Please try again.",
+      "placeholder": "Ask me anything...",
+      "prompt": {
+        "immunity": "What's good for immunity?",
+        "snacks": "Recommend organic snacks",
+        "track": "Track my order",
+        "healthTips": "Health tips for beginners"
+      }
+    },
+    "chatHistory": {
+      "title": "Chat History",
+      "empty": {
+        "title": "No chat history yet",
+        "subtitle": "Start a conversation with AI Assistant"
+      },
+      "startChat": "Start Chat"
+    },
+    "health": {
+      "title": "Health Insights",
+      "loading": "Analyzing your purchase history...",
+      "wellnessProfile": "Your Wellness Profile",
+      "section": {
+        "tips": "Health Tips",
+        "improvements": "Areas for Improvement",
+        "boost": "Boost Your Health"
+      },
+      "exploreProducts": "Explore Products",
+      "empty": {
+        "title": "No insights available yet",
+        "subtitle": "Make some purchases to receive personalized health insights"
+      }
+    },
+    "scanner": {
+      "title": "Product Scanner",
+      "permission": {
+        "title": "Camera Access Required",
+        "description": "We need camera access to scan products and provide you with information.",
+        "grant": "Grant Permission",
+        "gallery": "Pick from Gallery"
+      },
+      "instruction": {
+        "scanning": "Identifying product...",
+        "idle": "Point camera at a product"
+      },
+      "control": {
+        "gallery": "Gallery",
+        "flash": "Flash"
+      },
+      "error": "Failed to scan product. Please try again.",
+      "confidence": "{{confidence}}% match",
+      "nutrition": "Nutritional Info",
+      "viewProduct": "View Product",
+      "searchManually": "Search Manually"
+    },
+    "recommendations": {
+      "title": "Recommended for You",
+      "loading": "Finding recommendations for you...",
+      "empty": {
+        "title": "No recommendations yet",
+        "subtitle": "Order more to get personalized recommendations"
+      },
+      "startShopping": "Start Shopping",
+      "matchScore": "{{score}}% match",
+      "match": "Match"
+    }
+  },
+  "error": {
+    "default": "Couldn't load this right now.",
+    "subtitle": "Check your connection and try again."
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "message": "We're sorry, but something unexpected happened. Please try again.",
+    "tryAgain": "Try Again",
+    "goHome": "Go Home"
+  },
+  "productCard": {
+    "discount": "% OFF",
+    "outOfStock": "Out of Stock"
+  },
+  "mapPicker": {
+    "placeholder": "Search for area, street, landmark...",
+    "findingAddress": "Finding address...",
+    "moveMap": "Move the map to place the pin",
+    "confirm": "Confirm Location",
+    "webHint": "Pin-drop map is available in the mobile app — search and select below on web."
+  }
+}
