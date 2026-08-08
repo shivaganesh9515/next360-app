@@ -1,9 +1,27 @@
-# Irrelevant to building the mobile app, and .agents/.claude/skills caused an
-# upload failure on Windows (EAS tried to recreate a symlink between the two
-# identical skill-content copies, which needs elevated privileges Windows
-# doesn't grant by default).
-.agents/
-.claude/
+# Exclude everything except the customer app and shared library/configs
+# needed for the Expo React Native build to run.
+
+# 1. Non-mobile apps
+apps/api/
+apps/admin-panel/
+apps/vendor-dashboard/
+apps/marketing/
+apps/delivery-app/
+
+# 2. Local database files, cache, planning and tooling
+.turbo/
+node_modules/
+.next/
+dist/
+coverage/
 .planning/
+.claude/
+.agents/
 tasks/
 organic-preview/
+supabase_full_migration.sql
+
+# 3. Standard Git Ignores
+*.log
+.DS_Store
+Thumbs.db

@@ -16,7 +16,12 @@ const FALLBACK_URL = 'https://placeholder.supabase.co';
 const FALLBACK_KEY = 'placeholder-anon-key';
 
 export function isSupabaseConfigured(): boolean {
-  return !!rawUrl && !!rawKey && rawUrl !== 'https://your-project.supabase.co' && rawKey !== 'your-anon-key';
+  const configured = !!rawUrl && !!rawKey && rawUrl !== 'https://your-project.supabase.co' && rawKey !== 'your-anon-key';
+  // Warn in production if Supabase is not properly configured
+  if (!__DEV__ && !configured) {
+    console.error('[SECURITY] Supabase is not configured. Auth and realtime features will not work.');
+  }
+  return configured;
 }
 
 const supabaseUrl = rawUrl || FALLBACK_URL;

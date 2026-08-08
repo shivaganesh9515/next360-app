@@ -15,7 +15,7 @@ import { useZone } from '../lib/zone';
 import { useStore } from '../lib/store';
 import { useFlyToCart } from '../lib/flyToCart';
 import { useCartSheet } from '../lib/cartSheet';
-import { Colors, Shadows } from '../constants/theme';
+import { Colors, Shadows, getStoreAccent } from '../constants/theme';
 import SplashScreen from '../screens/onboarding/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import PhoneAuthScreen from '../screens/auth/PhoneAuthScreen';
@@ -37,6 +37,7 @@ import SupportScreen from '../screens/profile/SupportScreen';
 import LoyaltyScreen from '../screens/profile/LoyaltyScreen';
 import ReferralScreen from '../screens/profile/ReferralScreen';
 import SubscriptionScreen from '../screens/profile/SubscriptionScreen';
+import WalletScreen from '../screens/profile/WalletScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import PromosScreen from '../screens/promos/PromosScreen';
 import VendorStorefrontScreen from '../screens/vendor/VendorStorefrontScreen';
@@ -46,6 +47,7 @@ import AiProductScannerScreen from '../screens/ai/AiProductScannerScreen';
 import AiRecommendationsScreen from '../screens/ai/AiRecommendationsScreen';
 import AiHealthInsightsScreen from '../screens/ai/AiHealthInsightsScreen';
 import AiChatHistoryScreen from '../screens/ai/AiChatHistoryScreen';
+import { PrivacyPolicyScreen, TermsOfServiceScreen } from '../screens/profile/LegalScreens';
 import ExpandingSearchDock from '../components/ExpandingSearchDock';
 import ProfileAvatarPopover from '../components/ProfileAvatarPopover';
 
@@ -202,7 +204,8 @@ function MiniCartBar() {
 // ── Floating pill tab bar ─────────────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { wishlistCount } = useStore();
+  const { wishlistCount, storeType } = useStore();
+  const accent = getStoreAccent(storeType);
 
   const handleTabPress = (routeIndex: number, routeName: string) => {
     const isFocused = state.index === routeIndex;
@@ -235,7 +238,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
             <Ionicons
               name={state.index === 0 ? 'home' : 'home-outline'}
               size={22}
-              color={state.index === 0 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+              color={state.index === 0 ? accent : 'rgba(255,255,255,0.6)'}
             />
           </TouchableOpacity>
 
@@ -249,12 +252,10 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
               <Ionicons
                 name={state.index === 1 ? 'storefront' : 'storefront-outline'}
                 size={22}
-                color={state.index === 1 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+                color={state.index === 1 ? accent : 'rgba(255,255,255,0.6)'}
               />
             </View>
           </TouchableOpacity>
-
-
 
           {/* Button 2: Orders (Reorder / History) */}
           <TouchableOpacity
@@ -266,7 +267,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
               <Ionicons
                 name={state.index === 2 ? 'receipt' : 'receipt-outline'}
                 size={22}
-                color={state.index === 2 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+                color={state.index === 2 ? accent : 'rgba(255,255,255,0.6)'}
               />
             </View>
           </TouchableOpacity>
@@ -357,6 +358,9 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Loyalty" component={LoyaltyScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Referral" component={ReferralScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Subscription" component={SubscriptionScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ headerShown: false }} />
     </ProfileStack.Navigator>
   );
 }

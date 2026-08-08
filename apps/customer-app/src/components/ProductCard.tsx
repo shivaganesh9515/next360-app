@@ -77,8 +77,8 @@ export default function ProductCard({
       onPress={() => onPress(product)}
       activeOpacity={0.92}
     >
-      {/* Image */}
-      <View ref={imageRef} collapsable={false} style={[styles.imageContainer, { height: resolvedWidth * 0.95 }]}>
+      {/* Image Container */}
+      <View ref={imageRef} collapsable={false} style={[styles.imageContainer, { height: resolvedWidth * 0.92 }]}>
         {product.images?.[0] ? (
           <Image source={{ uri: product.images[0] }} style={styles.image} />
         ) : (
@@ -94,8 +94,7 @@ export default function ProductCard({
           </Text>
         </View>
 
-        {/* Trust badge — positioned below the category pill on the left,
-            to avoid overlapping with the wishlist heart on the right */}
+        {/* Trust badge — below category badge */}
         {trustBadgeType && (
           <View style={styles.trustBadgeWrap}>
             <TrustBadge type={trustBadgeType} size="sm" />
@@ -109,13 +108,21 @@ export default function ProductCard({
           </View>
         )}
 
+        {/* Dynamic Solid Rating badge — bottom-right */}
+        {!!product.rating && (
+          <View style={[styles.ratingOverlay, { backgroundColor: accent }]}>
+            <Text style={styles.ratingText}>{product.rating.toFixed(1)}</Text>
+            <Ionicons name="star" size={9} color={Colors.white} />
+          </View>
+        )}
+
         {isOutOfStock && (
           <View style={[styles.outOfStockOverlay, { pointerEvents: 'none' }]}>
             <Text style={styles.outOfStockText}>Out of Stock</Text>
           </View>
         )}
 
-        {/* Wishlist */}
+        {/* Wishlist Heart Overlay */}
         {onToggleWishlist && (
           <Animated.View style={{ position: 'absolute', top: Spacing.sm, right: Spacing.sm, transform: [{ scale: heartScale }] }}>
             <TouchableOpacity
@@ -125,7 +132,7 @@ export default function ProductCard({
             >
               <Ionicons
                 name={isWishlisted ? 'heart' : 'heart-outline'}
-                size={15}
+                size={14}
                 color={isWishlisted ? Colors.error : Colors.textSecondary}
               />
             </TouchableOpacity>
@@ -133,38 +140,14 @@ export default function ProductCard({
         )}
       </View>
 
-      {/* Floating quick-add / restock-notify */}
-      {isOutOfStock ? (
-        onNotifyRestock && (
-          <TouchableOpacity
-            style={[styles.addBtn, Shadows.button(Colors.textSecondary), { backgroundColor: isNotifying ? Colors.textSecondary : Colors.white, top: resolvedWidth * 0.95 - 20, borderWidth: 1.5, borderColor: Colors.textSecondary }]}
-            onPress={() => onNotifyRestock(product)}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <Ionicons name={isNotifying ? 'notifications' : 'notifications-outline'} size={18} color={isNotifying ? Colors.white : Colors.textSecondary} />
-          </TouchableOpacity>
-        )
-      ) : (
-        <Animated.View style={{ position: 'absolute', right: Spacing.md, top: resolvedWidth * 0.95 - 20, transform: [{ scale: addScale }] }}>
-          <TouchableOpacity
-            style={[styles.addBtnInline, Shadows.button(accent), { backgroundColor: accent }]}
-            onPress={handleQuickAdd}
-            onPressIn={handleQuickAddPressIn}
-            onPressOut={handleQuickAddPressOut}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <Ionicons name="add" size={20} color={Colors.white} />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      {/* Info */}
+      {/* Info Section */}
       <View style={styles.info}>
+        {/* Product Title */}
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
 
-        {/* Vendor name — tappable, underlined, more prominent */}
+        {/* Vendor Detail Row */}
         {product.vendor?.storeName && onVendorPress && (
           <TouchableOpacity
             onPress={() => onVendorPress(product.vendor!.id, product.vendor!.storeName)}
@@ -178,26 +161,61 @@ export default function ProductCard({
           </TouchableOpacity>
         )}
 
-        {/* Trust badge inline for certification */}
+        {/* Zomato-style dynamic delivery speed subtitle */}
+        <View style={styles.deliveryRow}>
+          <Ionicons name="time-outline" size={10} color="#76767A" />
+          <Text style={styles.deliveryText}>
+            {product.storeType === 'ORGANIC' ? '10-15 mins • Farm Direct' : product.storeType === 'NATURAL' ? '15-20 mins • Handcrafted' : '20-25 mins • Eco-Safe'}
+          </Text>
+        </View>
+
+        {/* Trust certification row */}
         {product.certification && (
           <View style={styles.certRow}>
             <TrustBadge type={product.certification.toUpperCase().includes('NPOP') ? 'NPOP' : trustBadgeType || 'ORGANIC'} size="sm" variant="inline" compact />
           </View>
         )}
 
-        <View style={styles.metaRow}>
-          <Text style={styles.unit}>{product.unit}</Text>
-          {!!product.rating && (
-            <View style={styles.ratingPill}>
-              <Ionicons name="star" size={10} color={Colors.brass} />
-              <Text style={styles.rating}>{product.rating.toFixed(1)}</Text>
+        {/* Hairline Divider */}
+        <View style={styles.divider} />
+
+        {/* Price & ADD Action Row */}
+        <View style={styles.priceAddRow}>
+          <View style={styles.priceCol}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.price}>₹{product.price}</Text>
+              {hasDiscount && (
+                <Text style={styles.oldPrice}>₹{product.compareAtPrice}</Text>
+              )}
             </View>
-          )}
-        </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>₹{product.price}</Text>
-          {hasDiscount && (
-            <Text style={styles.oldPrice}>₹{product.compareAtPrice}</Text>
+            <Text style={styles.unitText}>{product.unit}</Text>
+          </View>
+
+          {/* ADD Button or Out of Stock option */}
+          {isOutOfStock ? (
+            onNotifyRestock && (
+              <TouchableOpacity
+                style={[styles.notifyBtn, { borderColor: Colors.textSecondary }]}
+                onPress={() => onNotifyRestock(product)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name={isNotifying ? 'notifications' : 'notifications-outline'} size={12} color={Colors.textSecondary} />
+                <Text style={[styles.notifyText, { color: Colors.textSecondary }]}>Notify</Text>
+              </TouchableOpacity>
+            )
+          ) : (
+            <Animated.View style={{ transform: [{ scale: addScale }] }}>
+              <TouchableOpacity
+                style={[styles.addBtnTextOnly, { borderColor: accent }]}
+                onPress={handleQuickAdd}
+                onPressIn={handleQuickAddPressIn}
+                onPressOut={handleQuickAddPressOut}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.addBtnLabel, { color: accent }]}>ADD</Text>
+                <Ionicons name="add" size={12} color={accent} style={{ marginLeft: 2 }} />
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </View>
       </View>
@@ -207,19 +225,17 @@ export default function ProductCard({
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1,
     marginBottom: Spacing.lg,
-    overflow: 'visible',
-    position: 'relative',
+    overflow: 'hidden',
+    elevation: 2,
   },
   imageContainer: {
-    height: CARD_WIDTH * 0.95,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
     overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F5F5F5',
   },
   image: { width: '100%', height: '100%', resizeMode: 'cover' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -231,21 +247,19 @@ const styles = StyleSheet.create({
     left: Spacing.sm,
     maxWidth: '55%',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   categoryBadgeText: {
     fontSize: 9,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
 
-  // Trust badge sits below the category pill on the left side so it
-  // doesn't collide with the wishlist heart on the top-right.
   trustBadgeWrap: {
     position: 'absolute',
-    top: Spacing.sm + 22,
+    top: Spacing.sm + 20,
     left: Spacing.sm,
     maxWidth: '55%',
   },
@@ -255,13 +269,31 @@ const styles = StyleSheet.create({
     bottom: Spacing.sm,
     left: Spacing.sm,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
     backgroundColor: Colors.error,
   },
   discountText: {
-    fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.white, letterSpacing: 0.3,
+    fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.white, letterSpacing: 0.3,
   },
+
+  ratingOverlay: {
+    position: 'absolute',
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  ratingText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    color: '#FFFFFF',
+  },
+
   outOfStockOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(28,27,23,0.55)',
@@ -269,83 +301,133 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   outOfStockText: {
-    fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.white,
+    fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.white,
     letterSpacing: 0.4, textTransform: 'uppercase',
   },
   wishlistBtn: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 26, height: 26, borderRadius: 13,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
 
   info: {
-    padding: Spacing.md,
-    paddingTop: Spacing.md + 6,
+    padding: 10,
   },
 
-  // Vendor name — larger, with a colored dot
   vendorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 3,
+    marginTop: 2,
   },
   vendorDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   vendorName: {
-    ...Typography.bodySmall,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
     textDecorationLine: 'underline',
   },
 
-  // Certification inline row
+  deliveryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 3,
+  },
+  deliveryText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: '#76767A',
+  },
+
   certRow: {
-    marginTop: 2,
+    marginTop: 3,
   },
 
   name: {
-    ...Typography.bodySmall,
-    color: Colors.text,
+    color: '#1C1C1E',
     fontFamily: 'Inter_600SemiBold',
-    minHeight: 34,
-    fontSize: 14,
+    fontSize: 13.5,
+    lineHeight: 18,
+    minHeight: 36,
   },
-  metaRow: {
+
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F3F3',
+    marginVertical: 6,
+  },
+
+  priceAddRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 3,
+    marginTop: 2,
   },
-  unit: { ...Typography.caption, color: Colors.textSecondary },
-  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  rating: { ...Typography.caption, color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
-  priceRow: {
+  priceCol: {
+    flexDirection: 'column',
+  },
+  price: {
+    fontFamily: 'Fraunces_700Bold',
+    fontSize: 15,
+    color: '#1C1C1E',
+  },
+  oldPrice: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: '#76767A',
+    textDecorationLine: 'line-through',
+    marginTop: 1,
+  },
+  unitText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: '#76767A',
+    marginTop: 1,
+  },
+
+  addBtnTextOnly: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: Spacing.xs,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  price: { ...Typography.h3, color: Colors.brass },
-  oldPrice: { ...Typography.bodySmall, color: Colors.textSecondary, textDecorationLine: 'line-through' },
+  addBtnLabel: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
 
-  addBtn: {
-    position: 'absolute',
-    right: Spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+  notifyBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  addBtnInline: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+  notifyText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
   },
 });

@@ -24,9 +24,10 @@ type Row = { city: string; locality: string };
 
 interface Props {
   accent?: string;
+  isLight?: boolean;
 }
 
-export default function LocationPopover({ accent = Colors.organic }: Props) {
+export default function LocationPopover({ accent = Colors.organic, isLight = false }: Props) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const panelWidth = Math.min(500, screenWidth - Spacing.xl * 2);
   const panelHeight = Math.min(650, screenHeight * 2);
@@ -144,7 +145,6 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
   const open = useCallback(() => {
     triggerScale.value = withSpring(0.92, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y, width, height) => {
-      console.log('[DEBUG] LocationPopover measured:', { x, y, width, height, OS: Platform.OS });
       originX.value = x;
       const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
       originY.value = y + statusBarOffset;
@@ -210,11 +210,11 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
           activeOpacity={1}
           onPress={open}
         >
-          <Text style={styles.triggerLabel}>Delivery to</Text>
+          <Text style={[styles.triggerLabel, isLight && { color: Colors.textSecondary }]}>Delivery to</Text>
           <View style={styles.triggerRow}>
-            <Ionicons name="location" size={12} color={accent} />
-            <Text style={styles.triggerName} numberOfLines={1}>{currentLabel}</Text>
-            <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="location" size={14} color={accent} />
+            <Text style={[styles.triggerName, isLight && { color: Colors.text }]} numberOfLines={1}>{currentLabel}</Text>
+            <Ionicons name="chevron-down" size={13} color={isLight ? Colors.textSecondary : "rgba(255,255,255,0.6)"} />
           </View>
         </TouchableOpacity>
       </Reanimated.View>
@@ -227,11 +227,11 @@ export default function LocationPopover({ accent = Colors.organic }: Props) {
             style={[styles.triggerGhost, triggerGhostStyle, ghostStyle]}
             pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
           >
-            <Text style={styles.triggerLabel}>Delivery to</Text>
+            <Text style={[styles.triggerLabel, isLight && { color: Colors.textSecondary }]}>Delivery to</Text>
             <View style={styles.triggerRow}>
-              <Ionicons name="location" size={12} color={accent} />
-              <Text style={styles.triggerName} numberOfLines={1}>{currentLabel}</Text>
-              <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.6)" />
+              <Ionicons name="location" size={14} color={accent} />
+              <Text style={[styles.triggerName, isLight && { color: Colors.text }]} numberOfLines={1}>{currentLabel}</Text>
+              <Ionicons name="chevron-down" size={13} color={isLight ? Colors.textSecondary : "rgba(255,255,255,0.6)"} />
             </View>
           </Reanimated.View>
 

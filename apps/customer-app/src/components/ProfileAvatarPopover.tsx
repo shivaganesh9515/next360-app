@@ -9,7 +9,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
-import { Colors, Spacing, BorderRadius, Shadows } from '../constants/theme';
+import { useStore } from '../lib/store';
+import { Colors, Spacing, BorderRadius, Shadows, getStoreAccent, getStoreAccentLight, getStoreAccentDark } from '../constants/theme';
 import PopoverBackdrop from './PopoverBackdrop';
 import {
   usePanelAnimation,
@@ -25,10 +26,24 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   
-  const panelWidth = Math.min(420, screenWidth - Spacing.md * 2);
+  const panelWidth = Math.min(440, screenWidth - Spacing.md * 2);
   const panelHeight = Math.min(620, screenHeight * 0.82);
 
   const { user, signOut } = useAuth();
+  const { storeType } = useStore();
+  const accent = getStoreAccent(storeType);
+  const accentLight = getStoreAccentLight(storeType);
+  const accentDark = getStoreAccentDark(storeType);
+
+  const getHighlightColor = (type: string) => {
+    switch (type) {
+      case 'ORGANIC': return '#22FF88';
+      case 'NATURAL': return '#E5A93B'; // Gold
+      case 'ECO_FRIENDLY': return '#00E5FF'; // Cyan
+      default: return '#22FF88';
+    }
+  };
+  const highlightColor = getHighlightColor(storeType);
   const dockRef = useRef<View>(null);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -151,7 +166,7 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
       height,
       borderRadius: interpolate(anim.value, [0, 1], [DOCK_SIZE / 2, BorderRadius.xl]),
       backgroundColor: interpolateColor(anim.value, [0, 0.3, 1],
-        ['rgba(255,255,255,0.14)', '#F7F8FA', '#F7F8FA'],
+        ['rgba(255,255,255,0.14)', Colors.white, Colors.white],
       ),
     };
   }, [screenWidth, screenHeight, panelWidth, panelHeight, insets.top]);
@@ -165,13 +180,13 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
       {/* ── Dock trigger — self-contained ── */}
       <Reanimated.View ref={dockRef} style={[styles.reserve, triggerAnimStyle]} collapsable={false}>
         <TouchableOpacity
-          style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }]}
+          style={[styles.dock, { backgroundColor: active ? highlightColor : 'rgba(255,255,255,0.14)' }]}
           activeOpacity={0.75}
           onPress={open}
           hitSlop={8}
         >
           <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
-            {initials}
+             {initials}
           </Text>
         </TouchableOpacity>
       </Reanimated.View>
@@ -194,7 +209,7 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
             style={[styles.ghostWrap, triggerGhostStyle]}
             pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
           >
-            <View style={[styles.dock, { backgroundColor: active ? '#22FF88' : 'rgba(255,255,255,0.14)' }]}>
+            <View style={[styles.dock, { backgroundColor: active ? highlightColor : 'rgba(255,255,255,0.14)' }]}>
               <Text style={[styles.initials, { color: active ? '#0A0A0A' : '#FFFFFF' }]}>
                 {initials}
               </Text>
@@ -216,15 +231,15 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
                 bounces={false}
               >
                 {/* ── Top Header Card (Zomato Style) ── */}
-                <View style={styles.headerCard}>
+                <View style={[styles.headerCard, { backgroundColor: accent }]}>
                   <View style={styles.headerTop}>
-                    <View style={styles.avatarWrap}>
-                      <Text style={styles.avatarText}>{initials}</Text>
+                    <View style={[styles.avatarWrap, { backgroundColor: Colors.white, borderColor: `${accent}4D` }]}>
+                      <Text style={[styles.avatarText, { color: accent }]}>{initials}</Text>
                     </View>
                     <View style={styles.userInfo}>
                       <View style={styles.nameRow}>
                         <Text style={styles.userName} numberOfLines={1}>{user?.name || 'Valued Customer'}</Text>
-                        <Ionicons name="checkmark-seal-fill" size={16} color="#22FF88" />
+                        <Ionicons name="checkmark-circle" size={16} color={highlightColor} />
                       </View>
                       <Text style={styles.userContact} numberOfLines={1}>
                         {user?.phone ? `+91 ${user.phone}` : (user?.email || 'Member since 2026')}
@@ -234,8 +249,8 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
                         onPress={() => goTo('EditProfile')}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.editProfileText}>Edit Profile</Text>
-                        <Ionicons name="chevron-forward" size={12} color="#22FF88" />
+                        <Text style={[styles.editProfileText, { color: highlightColor }]}>Edit Profile</Text>
+                        <Ionicons name="chevron-forward" size={12} color={highlightColor} />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity onPress={close} style={styles.closeBtn} hitSlop={10}>
@@ -252,20 +267,20 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
                 >
                   <View style={styles.vipLeft}>
                     <View style={styles.vipBadgeRow}>
-                      <Ionicons name="sparkles" size={13} color="#FFD700" />
-                      <Text style={styles.vipTag}>NEXT360 VIP CLUB</Text>
+                      <Ionicons name="sparkles" size={13} color={highlightColor} />
+                      <Text style={[styles.vipTag, { color: highlightColor }]}>NEXT360 VIP CLUB</Text>
                     </View>
                     <Text style={styles.vipTitle}>Free Express Delivery Enabled</Text>
                     <Text style={styles.vipSub}>Saved ₹420 on organic orders this month</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#FFD700" />
+                  <Ionicons name="chevron-forward" size={16} color={highlightColor} />
                 </TouchableOpacity>
 
                 {/* ── 2x2 Quick Action Grid ── */}
                 <View style={styles.gridSection}>
                   <TouchableOpacity style={styles.gridCard} onPress={() => goTo('Orders')} activeOpacity={0.75}>
-                    <View style={[styles.gridIconBox, { backgroundColor: '#E8F5E9' }]}>
-                      <Ionicons name="receipt" size={20} color="#2E7D32" />
+                    <View style={[styles.gridIconBox, { backgroundColor: `${accent}14` }]}>
+                      <Ionicons name="receipt" size={20} color={accent} />
                     </View>
                     <View style={styles.gridTextWrap}>
                       <Text style={styles.gridTitle}>My Orders</Text>
@@ -274,8 +289,8 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.gridCard} onPress={() => goTo('AddressList')} activeOpacity={0.75}>
-                    <View style={[styles.gridIconBox, { backgroundColor: '#E1F5FE' }]}>
-                      <Ionicons name="location" size={20} color="#0288D1" />
+                    <View style={[styles.gridIconBox, { backgroundColor: `${accent}14` }]}>
+                      <Ionicons name="location" size={20} color={accent} />
                     </View>
                     <View style={styles.gridTextWrap}>
                       <Text style={styles.gridTitle}>Addresses</Text>
@@ -284,8 +299,8 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.gridCard} onPress={() => goTo('Promos')} activeOpacity={0.75}>
-                    <View style={[styles.gridIconBox, { backgroundColor: '#F3E5F5' }]}>
-                      <Ionicons name="pricetags" size={20} color="#7B1FA2" />
+                    <View style={[styles.gridIconBox, { backgroundColor: `${accent}14` }]}>
+                      <Ionicons name="pricetags" size={20} color={accent} />
                     </View>
                     <View style={styles.gridTextWrap}>
                       <Text style={styles.gridTitle}>Offers</Text>
@@ -294,8 +309,8 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.gridCard} onPress={() => goTo('Support')} activeOpacity={0.75}>
-                    <View style={[styles.gridIconBox, { backgroundColor: '#E8EAF6' }]}>
-                      <Ionicons name="headset" size={20} color="#303F9F" />
+                    <View style={[styles.gridIconBox, { backgroundColor: `${accent}14` }]}>
+                      <Ionicons name="headset" size={20} color={accent} />
                     </View>
                     <View style={styles.gridTextWrap}>
                       <Text style={styles.gridTitle}>Help 24x7</Text>
@@ -398,7 +413,7 @@ const styles = StyleSheet.create({
   }) as any,
 
   handle: {
-    alignSelf: 'center', marginTop: 10,
+    alignSelf: 'center', marginTop: 30,
     width: 36, height: 4,
     borderRadius: 2, backgroundColor: Colors.border,
     marginBottom: 8,
@@ -413,8 +428,8 @@ const styles = StyleSheet.create({
   /* Header Card */
   headerCard: {
     backgroundColor: '#0A0A0A',
-    borderRadius: BorderRadius.lg,
-    padding: 14,
+    borderRadius: BorderRadius.md,
+    padding: 15,
     marginBottom: 10,
   },
   headerTop: {

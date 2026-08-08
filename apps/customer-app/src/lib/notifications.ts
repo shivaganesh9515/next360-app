@@ -37,7 +37,6 @@ export async function registerForPushNotifications() {
     Notifications.setBadgeCountAsync(0).catch(() => {});
 
     const token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Expo push token:', token);
 
     // Register with backend
     await customerApi.registerPushToken(token);

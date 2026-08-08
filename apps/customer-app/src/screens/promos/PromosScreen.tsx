@@ -38,7 +38,7 @@ export default function PromosScreen() {
       if (expoClipboard?.setStringAsync) {
         await expoClipboard.setStringAsync(code);
       }
-    } catch {}
+    } catch { /* Clipboard not available */ }
     setCopiedCode(code);
     Alert.alert('Coupon Copied!', `Use code "${code}" at checkout to claim your discount.`);
     setTimeout(() => setCopiedCode(null), 2500);

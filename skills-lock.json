@@ -1,11 +1,65 @@
 {
   "version": 1,
   "skills": {
+    "api-security-best-practices": {
+      "source": "C:/Users/gunny/.claude/skills/api-security-best-practices",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/api-security-best-practices/SKILL.md",
+      "computedHash": "2a007ac2aa52a42effe809dea721d244ab260dc1e7af5e2b50a8f60b5b3bae41"
+    },
+    "expo-deployment": {
+      "source": "C:/Users/gunny/.claude/skills/expo-deployment",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/expo-deployment/SKILL.md",
+      "computedHash": "bfc1cffb23c14955bdfd57370552af624e8d3db298d517bca7e08646a36911bb"
+    },
     "gluestack-ui-v5": {
       "source": "gluestack/agent-skills",
       "sourceType": "github",
       "skillPath": ".agents/skills/gluestack-ui-v5/SKILL.md",
       "computedHash": "b19717e992153a421da7423f0609a39c4864f947c7f50fca67cf5e5b7d4878e4"
+    },
+    "monorepo-management": {
+      "source": "C:/Users/gunny/.claude/skills/monorepo-management",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/monorepo-management/SKILL.md",
+      "computedHash": "f19b2e07de807687f5bdadb4a59753b70bb458a0dbd34991c25c2ba627a5abe3"
+    },
+    "nestjs-best-practices": {
+      "source": "C:/Users/gunny/.agents/skills/nestjs-best-practices",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/nestjs-best-practices/SKILL.md",
+      "computedHash": "9f3ef62173a763bf62c2333b583687674352eaa17da971b5694d93c3ee89a127"
+    },
+    "nextjs-app-router-patterns": {
+      "source": "C:/Users/gunny/.agents/skills/nextjs-app-router-patterns",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/nextjs-app-router-patterns/SKILL.md",
+      "computedHash": "765c3658be4b573b9a4e79fada3a45227d836146737a4e06b4c9871891afe177"
+    },
+    "payment-integration": {
+      "source": "C:/Users/gunny/.claude/skills/payment-integration",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/payment-integration/SKILL.md",
+      "computedHash": "11290a8293321a9d54924ca6d3d6c6c839699601e1bee26eef22f48960646ffd"
+    },
+    "prisma-client-api": {
+      "source": "C:/Users/gunny/.agents/skills/prisma-client-api",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/prisma-client-api/SKILL.md",
+      "computedHash": "16c4d9267557708be05f258973f6c60a92f92f05a93c1cac3c343afa3afe2500"
+    },
+    "prisma-database-setup": {
+      "source": "C:/Users/gunny/.agents/skills/prisma-database-setup",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/prisma-database-setup/SKILL.md",
+      "computedHash": "b0e9ee3e9da18c272a2a8e5c34630309548a49abd06875a84e574ae441826724"
+    },
+    "radix-ui-design-system": {
+      "source": "C:/Users/gunny/.claude/skills/radix-ui-design-system",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/radix-ui-design-system/SKILL.md",
+      "computedHash": "33292552b4f04e23958153ff9dcd535666902abed438165bcd71c2070fff117a"
     },
     "supabase": {
       "source": "supabase/agent-skills",
@@ -18,6 +72,36 @@
       "sourceType": "github",
       "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
       "computedHash": "768f9a7532780a72165f79c91d71a4bf82abd9ed31045238c2acb40322fc1d0a"
+    },
+    "tailwind-patterns": {
+      "source": "C:/Users/gunny/.claude/skills/tailwind-patterns",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/tailwind-patterns/SKILL.md",
+      "computedHash": "25db5184d012c1e7d66f5bdcd4bfff52cfcd9a57ee9ca4c466c0aa47b5d7b622"
+    },
+    "typescript-expert": {
+      "source": "C:/Users/gunny/.claude/skills/typescript-expert",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/typescript-expert/SKILL.md",
+      "computedHash": "5e714365f6aa2333e95f199177bf144348c214dcb916c012e34566a3c7c04429"
+    },
+    "upgrading-expo": {
+      "source": "C:/Users/gunny/.claude/skills/upgrading-expo",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/upgrading-expo/SKILL.md",
+      "computedHash": "ab3610f36c5171361d59051939139bed3ddaac8e8977d4ac828cf60d4c0e6aad"
+    },
+    "vercel-react-native-skills": {
+      "source": "C:/Users/gunny/.agents/skills/vercel-react-native-skills",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/vercel-react-native-skills/SKILL.md",
+      "computedHash": "aff91057282facb41ddc8873a482e19cfb928056fc32b350e1b084b16cb58dc2"
+    },
+    "zustand-store-ts": {
+      "source": "C:/Users/gunny/.claude/skills/zustand-store-ts",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/zustand-store-ts/SKILL.md",
+      "computedHash": "43b7609be979b21bb4ccc8edb2d03cecf811bd8665a780750a86971f3b25ef93"
     }
   }
 }

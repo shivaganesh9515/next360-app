@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView,
-  Platform, ScrollView, Alert, ActivityIndicator,
+  Platform, ScrollView, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 import BigButton from '../../components/BigButton';
 
 const COUNTRY_CODE = '+91'; // India-only launch per CLAUDE.md zone gating
+const GOOGLE_LOGO = require('../../../assets/images/google-logo.png');
 
 // Zomato-style single-field entry point — no password, no separate signup
 // screen. One phone number, one OTP screen (VerificationCodeScreen) decides
@@ -23,7 +24,9 @@ export default function PhoneAuthScreen({ navigation }: any) {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [focused, setFocused] = useState(false);
 
   const isValid = /^[6-9]\d{9}$/.test(phone);
 
@@ -59,7 +62,6 @@ export default function PhoneAuthScreen({ navigation }: any) {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      // Real OAuth flow — Supabase opens the browser, no inline return
       if (isSupabaseConfigured()) {
         const supabase = getSupabase();
         const { error } = await supabase.auth.signInWithOAuth({
@@ -67,14 +69,9 @@ export default function PhoneAuthScreen({ navigation }: any) {
           options: { redirectTo: 'next360://auth/callback' },
         });
         if (error) throw error;
-        // OAuth handles the redirect — user returns via deep link;
-        // no demo fallback after this point.
         return;
       }
 
-      // Dev/demo: simulate Google login with a consistent demo profile
-      // Using a stable googleId per email so the same demo user is reused
-      // within a session, matching the phone OTP demo pattern.
       await googleSignIn({
         email: 'demo@googleuser.com',
         googleId: 'demo-google-user',
@@ -88,8 +85,38 @@ export default function PhoneAuthScreen({ navigation }: any) {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    try {
+      if (isSupabaseConfigured()) {
+        const supabase = getSupabase();
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'apple',
+          options: { redirectTo: 'next360://auth/callback' },
+        });
+        if (error) throw error;
+        return;
+      }
+
+      await googleSignIn({
+        email: 'demo@appleuser.com',
+        googleId: 'demo-apple-user',
+        name: 'Apple Demo User',
+        avatarUrl: undefined,
+      });
+    } catch (err: any) {
+      Alert.alert('Apple Sign-In Failed', err.message || 'Could not sign in with Apple');
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+      {/* Background Graphic Blobs */}
+      <View style={s.bgBlob1} />
+      <View style={s.bgBlob2} />
+
       {__DEV__ && (
         <TouchableOpacity style={s.skipBtn} onPress={skipAuth} hitSlop={12}>
           <Text style={s.skipTxt}>{t('auth.devSkip')}</Text>
@@ -98,21 +125,30 @@ export default function PhoneAuthScreen({ navigation }: any) {
 
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-          <View style={s.mark}>
-            <Text style={s.markGlyph}>🌿</Text>
+          <View style={s.brandSection}>
+            <View style={s.mark}>
+              <Text style={s.markGlyph}>🌿</Text>
+            </View>
+            <Text style={s.brandLabel}>NEXT360</Text>
           </View>
 
           <Text style={s.title}>{t('auth.welcome.title')}</Text>
           <Text style={s.subtitle}>{t('auth.welcome.subtitle')}</Text>
 
           <View style={s.form}>
-            <View style={[s.field, !!error && s.fieldError]}>
+            <View style={[
+              s.field, 
+              focused && [s.fieldFocused, { borderColor: Colors.organic }],
+              !!error && s.fieldError
+            ]}>
               <Text style={s.prefix}>{COUNTRY_CODE}</Text>
               <View style={s.prefixDivider} />
               <TextInput
                 style={s.input}
                 value={phone}
                 onChangeText={handleChangePhone}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
                 placeholder={t('auth.phone.placeholder')}
                 placeholderTextColor={Colors.textSecondary}
                 keyboardType="phone-pad"
@@ -127,30 +163,45 @@ export default function PhoneAuthScreen({ navigation }: any) {
               onPress={handleContinue}
               loading={loading}
               disabled={!isValid}
-              style={{ marginTop: Spacing.lg }}
+              style={{ marginTop: Spacing.md, height: 52 }}
             />
 
             {/* Divider */}
             <View style={s.divider}>
               <View style={s.dividerLine} />
-              <Text style={s.dividerText}>or</Text>
+              <Text style={s.dividerText}>or continue with</Text>
               <View style={s.dividerLine} />
             </View>
 
-            {/* Google Sign-In */}
-            <TouchableOpacity
-              style={s.googleBtn}
-              onPress={handleGoogleSignIn}
-              disabled={googleLoading}
-              activeOpacity={0.85}
-            >
-              {googleLoading ? (
-                <ActivityIndicator size="small" color={Colors.text} />
-              ) : (
-                <Ionicons name="logo-google" size={20} color={Colors.text} />
-              )}
-              <Text style={s.googleBtnText}>Continue with Google</Text>
-            </TouchableOpacity>
+            <View style={s.socialRow}>
+              {/* Google Sign-In */}
+              <TouchableOpacity
+                style={s.socialBtn}
+                onPress={handleGoogleSignIn}
+                disabled={googleLoading}
+                activeOpacity={0.85}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.text} />
+                ) : (
+                  <Image source={GOOGLE_LOGO} style={s.socialIcon} />
+                )}
+              </TouchableOpacity>
+
+              {/* Apple Sign-In */}
+              <TouchableOpacity
+                style={s.socialBtn}
+                onPress={handleAppleSignIn}
+                disabled={appleLoading}
+                activeOpacity={0.85}
+              >
+                {appleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.text} />
+                ) : (
+                  <Ionicons name="logo-apple" size={26} color="#000000" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <Text style={s.terms}>
@@ -164,35 +215,71 @@ export default function PhoneAuthScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
+  root: { flex: 1, backgroundColor: '#FFFFFF', position: 'relative', overflow: 'hidden' },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 48, paddingBottom: 32 },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center', paddingVertical: 40 },
 
-  skipBtn: { position: 'absolute', top: 56, right: 20, zIndex: 10 },
-  skipTxt: { ...Typography.caption, color: Colors.textSecondary },
-
-  mark: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.organicLight,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 24,
+  // Background blobs for premium depth
+  bgBlob1: {
+    position: 'absolute', top: -80, right: -80,
+    width: 260, height: 260, borderRadius: 130,
+    backgroundColor: '#E8F5E9', opacity: 0.6,
   },
-  markGlyph: { fontSize: 28 },
+  bgBlob2: {
+    position: 'absolute', bottom: -100, left: -100,
+    width: 320, height: 320, borderRadius: 160,
+    backgroundColor: '#E0F7FA', opacity: 0.5,
+  },
 
-  title: { ...Typography.display, color: Colors.text, marginBottom: 8 },
-  subtitle: { ...Typography.body, color: Colors.textSecondary, marginBottom: 32 },
+  skipBtn: {
+    position: 'absolute', top: 56, right: 20, zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)', paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: BorderRadius.pill,
+  },
+  skipTxt: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.textSecondary,
+  },
+
+  brandSection: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 32,
+  },
+  mark: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(46, 125, 50, 0.1)',
+  },
+  markGlyph: { fontSize: 22 },
+  brandLabel: {
+    fontFamily: 'Inter_700Bold', fontSize: 13, color: Colors.organic, letterSpacing: 1.5,
+  },
+
+  title: {
+    fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.text,
+    lineHeight: 32, letterSpacing: -0.5, marginBottom: 8,
+  },
+  subtitle: {
+    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    lineHeight: 20, marginBottom: 32,
+  },
 
   form: {},
   field: {
     flexDirection: 'row', alignItems: 'center',
-    height: 56, borderRadius: BorderRadius.pill,
-    borderWidth: 1.5, borderColor: Colors.border,
+    height: 54, borderRadius: BorderRadius.md,
+    borderWidth: 1.5, borderColor: '#E2E8F0',
     backgroundColor: Colors.white,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+  },
+  fieldFocused: {
+    shadowColor: Colors.organic,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 8,
+    elevation: 2,
   },
   fieldError: { borderColor: Colors.error },
   prefix: { ...Typography.body, color: Colors.text, fontFamily: 'Inter_600SemiBold' },
-  prefixDivider: { width: 1, height: 24, backgroundColor: Colors.border, marginHorizontal: 12 },
+  prefixDivider: { width: 1, height: 20, backgroundColor: '#E2E8F0', marginHorizontal: 12 },
   input: { flex: 1, ...Typography.body, color: Colors.text, padding: 0 },
   error: { ...Typography.caption, color: Colors.error, marginTop: 8, marginLeft: 4 },
 
@@ -200,7 +287,7 @@ const s = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginTop: 32,
+    marginTop: 40,
     lineHeight: 18,
   },
   termsLink: { color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
@@ -208,33 +295,44 @@ const s = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 28,
     marginBottom: 20,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: '#E2E8F0',
   },
   dividerText: {
-    ...Typography.caption,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
     color: Colors.textSecondary,
     marginHorizontal: 12,
   },
-  googleBtn: {
+  socialRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    marginTop: 8,
+  },
+  socialBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.white,
-    gap: 10,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 4,
+    elevation: 2,
   },
-  googleBtnText: {
-    ...Typography.body,
-    color: Colors.text,
-    fontFamily: 'Inter_600SemiBold',
+  socialIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
 });

@@ -3,6 +3,14 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Image,
   RefreshControl, ScrollView, Dimensions, Animated, Platform,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  interpolate,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +20,7 @@ import { customerApi } from '../../lib/api';
 import { Product, Category } from '../../types';
 import {
   Colors, Typography, Spacing, BorderRadius, Shadows,
-  getStoreAccent, getStoreAccentLight, getStoreLabel,
+  getStoreAccent, getStoreAccentLight, getStoreAccentDark, getStoreLabel,
 } from '../../constants/theme';
 import StoreToggle from '../../components/StoreToggle';
 import CategoryBadge from '../../components/CategoryBadge';
@@ -73,9 +81,6 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [heroHeight, setHeroHeight] = useState(HERO_FALLBACK_HEIGHT);
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerOpacity = useRef(new Animated.Value(1)).current;
 
   // ── Entrance animations ────────────────────────────────────────────────────
   const contentAnim = useRef(new Animated.Value(0)).current;
@@ -83,8 +88,40 @@ export default function HomeScreen({ navigation }: any) {
     Animated.spring(contentAnim, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }).start();
   }, []);
 
+  // ── Reanimated float & wobble loops (SLICK-DESIGN-PATTERN-V1) ───────────────
+  const floatAnim = useSharedValue(0);
+  const wobbleAnim = useSharedValue(0);
+
+  useEffect(() => {
+    floatAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200 }),
+        withTiming(0, { duration: 2200 })
+      ),
+      -1,
+      true
+    );
+    wobbleAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2800 }),
+        withTiming(-1, { duration: 2800 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const floatStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(floatAnim.value, [0, 1], [-5, 5]);
+    const rotate = interpolate(wobbleAnim.value, [-1, 1], [-2.5, 2.5]);
+    return {
+      transform: [{ translateY }, { rotate: `${rotate}deg` }],
+    };
+  });
+
   const accent = getStoreAccent(storeType);
   const accentTint = getStoreAccentLight(storeType);
+  const accentDark = getStoreAccentDark(storeType);
   const storeLabel = getStoreLabel(storeType);
 
   const load = useCallback(async () => {
@@ -135,40 +172,6 @@ export default function HomeScreen({ navigation }: any) {
     navigation.navigate('VendorStorefront', { vendorId, vendorName });
   };
 
-  // ── Parallax Hero Animation ──
-  const HERO_SCROLL_RANGE = heroHeight;
-  const HERO_OVERSCROLL_RANGE = heroHeight;
-
-  const heroScale = scrollY.interpolate({
-    inputRange: [-HERO_OVERSCROLL_RANGE, 0, HERO_SCROLL_RANGE * 0.6],
-    outputRange: [2.4, 1, 0.88],
-    extrapolate: 'clamp',
-  });
-  const heroTranslateY = scrollY.interpolate({
-    inputRange: [-HERO_OVERSCROLL_RANGE, 0, HERO_SCROLL_RANGE * 0.6],
-    outputRange: [-HERO_OVERSCROLL_RANGE * 0.45, 0, -HERO_SCROLL_RANGE * 0.12],
-    extrapolate: 'clamp',
-  });
-
-  const imageParallax = scrollY.interpolate({
-    inputRange: [-HERO_OVERSCROLL_RANGE, 0],
-    outputRange: [-HERO_OVERSCROLL_RANGE * 0.1, 0],
-    extrapolate: 'clamp',
-  });
-
-  const overscrollOverlay = scrollY.interpolate({
-    inputRange: [-HERO_OVERSCROLL_RANGE * 0.4, 0],
-    outputRange: [0.35, 0],
-    extrapolate: 'clamp',
-  });
-
-  useEffect(() => {
-    const listenerId = scrollY.addListener((val) => {
-      headerOpacity.setValue(Math.max(0, 1 - val.value / (heroHeight * 0.35)));
-    });
-    return () => scrollY.removeListener(listenerId);
-  }, [heroHeight]);
-
   const animatedContentStyle = {
     opacity: contentAnim,
     transform: [{ translateY: contentAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
@@ -176,99 +179,95 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <View style={s.root}>
-      <Animated.ScrollView
+      {/* Sticky Zomato-Style Header */}
+      <SafeAreaView edges={['top']} style={s.topHeader}>
+        <View style={s.topBar}>
+          <LocationPopover accent={accent} isLight />
+          <View style={[s.topBarSide, s.topIcons]}>
+            <NotificationsPopover iconColor={Colors.text} />
+          </View>
+        </View>
+
+        <View style={s.greetingRow}>
+          <Text style={s.greeting}>Good {getGreetingWord()}! 👋</Text>
+          <View style={[s.trustChip, { backgroundColor: `${accent}14` }]}>
+            <Ionicons name="shield-checkmark" size={12} color={accent} />
+            <Text style={[s.trustChipText, { color: accent }]}>Verified {storeLabel}</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
-        )}
+        contentContainerStyle={s.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={accent} />
         }
       >
-        {/* ── Premium Hero — editorial dark card ── */}
-        <Animated.View
-          onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}
-          style={{ transform: [{ translateY: heroTranslateY }, { scale: heroScale }] }}
-        >
-          <LinearGradient
-            colors={['#2A2820', Colors.text, '#100F0B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={s.hero}
+        {/* Banner carousel */}
+        <View style={s.carouselContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              setActiveSlide(idx);
+            }}
+            style={{ marginTop: Spacing.xs }}
           >
-            <Animated.View
-              style={[s.overscrollOverlay, { opacity: overscrollOverlay }]}
-              pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
-            />
-
-            <SafeAreaView edges={['top']}>
-              {/* Top bar — fades out on scroll */}
-              <Animated.View style={{ opacity: headerOpacity }}>
-                <View style={s.topBar}>
-                  <LocationPopover accent={accent} />
-                  <View style={[s.topBarSide, s.topIcons]}>
-                    <NotificationsPopover />
-                  </View>
-                </View>
-
-                <View style={{ paddingHorizontal: Spacing.xl, marginTop: Spacing.sm }}>
-                  <View style={s.greetingRow}>
-                    <Text style={s.greeting}>Good {getGreetingWord()}! 👋</Text>
-                    <View style={[s.trustChip, { backgroundColor: accent + '22' }]}>
-                      <Ionicons name="shield-checkmark" size={12} color={accent} />
-                      <Text style={[s.trustChipText, { color: accent }]}>Verified {storeLabel}</Text>
-                    </View>
-                  </View>
-                </View>
-              </Animated.View>
-
-              {/* Banner carousel */}
-              <View style={s.heroBody}>
-                <ScrollView
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onMomentumScrollEnd={(e) => {
-                    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                    setActiveSlide(idx);
-                  }}
-                  style={{ marginTop: Spacing.md }}
-                >
-                  {banners.map((slide) => (
-                    <View key={slide.id} style={[s.heroSlide, { width: SCREEN_WIDTH }]}>
+            {banners.map((slide) => {
+              const hasImage = !!slide.imageUrl;
+              return (
+                <View key={slide.id} style={[s.heroSlide, { width: SCREEN_WIDTH }]}>
+                  <TouchableOpacity activeOpacity={0.95} onPress={() => navigation.navigate('Promos')}>
+                    <LinearGradient
+                      colors={hasImage ? ['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.45)'] : [accent, accentDark]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={s.bannerCard}
+                    >
+                      {hasImage && (
+                        <Image
+                          source={{ uri: slide.imageUrl }}
+                          style={[StyleSheet.absoluteFill, { opacity: 0.3 }]}
+                          resizeMode="cover"
+                        />
+                      )}
+                      
                       <View style={s.heroCopy}>
-                        <Ionicons name="leaf-outline" size={20} color="rgba(150,185,140,0.5)" style={s.heroLeaf} />
+                        <View style={[s.bannerTag, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                          <Text style={s.bannerTagText}>LIMITED OFFER</Text>
+                        </View>
                         <View style={s.offerRow}>
-                          <Text style={[s.offerValue, { color: accent }]}>{slide.offerValue}</Text>
+                          <Text style={s.offerValue}>{slide.offerValue}</Text>
                           <Text style={s.offerLabel}>{slide.offerLabel}</Text>
                         </View>
                         <Text style={s.heroDesc}>{slide.desc}</Text>
                       </View>
 
-                      <Animated.View style={[s.heroPhoto, { transform: [{ translateY: imageParallax }] }]}>
+                      <Reanimated.View style={[s.glassBubble, floatStyle]}>
                         <Image
                           source={slide.imageUrl ? { uri: slide.imageUrl } : HERO_PLACEHOLDER_IMAGE}
-                          style={s.heroPhotoImg}
+                          style={s.glassBubbleImg}
                         />
-                      </Animated.View>
-                    </View>
-                  ))}
-                </ScrollView>
-
-                <View style={s.heroDots}>
-                  {banners.map((slide, i) => (
-                    <View
-                      key={slide.id}
-                      style={[s.heroDot, i === activeSlide && [s.heroDotActive, { backgroundColor: accent }]]}
-                    />
-                  ))}
+                      </Reanimated.View>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-              </View>
-            </SafeAreaView>
-          </LinearGradient>
-        </Animated.View>
+              );
+            })}
+          </ScrollView>
+
+          <View style={s.heroDots}>
+            {banners.map((slide, i) => (
+              <View
+                key={slide.id}
+                style={[s.heroDot, i === activeSlide && [s.heroDotActive, { backgroundColor: accent }]]}
+              />
+            ))}
+          </View>
+        </View>
 
         <SafeAreaView edges={[]} style={s.safe}>
           {/* Store Swatch Selector */}
@@ -386,7 +385,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={{ height: 100 }} />
         </SafeAreaView>
-      </Animated.ScrollView>
+      </ScrollView>
     </View>
   );
 }
@@ -411,23 +410,30 @@ const s = StyleSheet.create({
     ...Platform.select({ web: { pointerEvents: 'none' as any } }),
   },
 
+  topHeader: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(28, 27, 23, 0.08)',
+    paddingBottom: Spacing.md,
+  },
   topBar: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.sm,
   },
   topBarSide: { flex: 1 },
   topIcons: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'flex-end' },
 
   greeting: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 15,
-    color: Colors.white,
-    opacity: 0.85,
+    fontSize: 14,
+    color: '#1C1B17',
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xs,
   },
   trustChip: {
     flexDirection: 'row',
@@ -443,35 +449,99 @@ const s = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  heroBody: { marginTop: Spacing.xs },
-  heroSlide: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.sm,
+    backgroundColor: '#F3F4F6', // Zomato soft grey input
+    borderRadius: BorderRadius.md,
+    height: 44,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    ...Shadows.card,
   },
+  searchPlaceholder: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#888888',
+  },
+
+  scrollContent: {
+    paddingBottom: Spacing.xxl + 20,
+  },
+
+  carouselContainer: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  heroSlide: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: SCREEN_WIDTH - Spacing.xl * 2,
+    marginHorizontal: Spacing.xl,
+    borderRadius: 30,
+    padding: Spacing.xl,
+    overflow: 'hidden',
+    position: 'relative',
+    height: 200,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  bannerTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.pill,
+    marginBottom: 8,
+  },
+  bannerTagText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 8,
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  heroBody: { marginTop: Spacing.xs },
   heroDots: {
     flexDirection: 'row', justifyContent: 'center', gap: 6,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
   },
   heroDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(28, 27, 23, 0.15)',
   },
   heroDotActive: { width: 18 },
-  heroCopy: { flex: 1, paddingRight: Spacing.md },
-  heroLeaf: { marginBottom: Spacing.xs },
-  offerRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  offerValue: { fontFamily: 'Inter_600SemiBold', fontSize: 44, lineHeight: 44, letterSpacing: -1.5 },
+  heroCopy: { flex: 1, paddingRight: Spacing.md, justifyContent: 'center' },
+  offerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  offerValue: { fontFamily: 'Inter_800ExtraBold', fontSize: 40, color: '#FFFFFF', letterSpacing: -1 },
   offerLabel: {
-    ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold', color: Colors.white,
-    fontSize: 14, lineHeight: 18, letterSpacing: 0.3,
+    fontFamily: 'Inter_700Bold', color: '#FFFFFF',
+    fontSize: 13, lineHeight: 16, letterSpacing: 0.2,
   },
   heroDesc: {
-    ...Typography.bodySmall, color: 'rgba(255,255,255,0.65)', marginTop: 12, maxWidth: 190,
+    fontFamily: 'Inter_400Regular', color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, lineHeight: 18, marginTop: 4,
   },
-  heroPhoto: {
-    width: 118, height: 118, borderRadius: 999, overflow: 'hidden',
-    borderWidth: 4, borderColor: 'rgba(255,255,255,0.08)',
+  glassBubble: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  heroPhotoImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  glassBubbleImg: {
+    width: '75%',
+    height: '75%',
+    resizeMode: 'contain',
+  },
 
   // ══ Section Headers (matching ProfileScreen style) ═══════════════════════════
   sectionHeader: {

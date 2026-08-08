@@ -6,6 +6,11 @@ import { CartItem, Address, Order } from '../types';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+// Validate API URL in production — prevent app from running with localhost
+if (!__DEV__ && !process.env.EXPO_PUBLIC_API_URL) {
+  console.error('[SECURITY] EXPO_PUBLIC_API_URL is not set. App will not function correctly.');
+}
+
 const TOKEN_KEY = 'auth_token';
 
 // Every demo-data fallback below (products/categories/cart/addresses/orders/

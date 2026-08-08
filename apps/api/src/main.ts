@@ -35,7 +35,11 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  const port = process.env.API_PORT || 4000;
+  // API_PORT is the explicit override; PORT is the standard env var that
+  // Railway / Render / Fly.io inject (they forward traffic to it). Without
+  // the PORT fallback the app would listen on 4000 and the platform's
+  // health checks would never reach it.
+  const port = process.env.API_PORT || process.env.PORT || 4000;
   await app.listen(port);
   console.log(`🚀 Next360 API running on http://localhost:${port}`);
   console.log(`📋 Health check at http://localhost:${port}/api/health`);

@@ -24,7 +24,7 @@ export default function ReferralScreen({ navigation }: any) {
         message: `🌱 Join me on Next360 — the organic marketplace! Use code ${DEMO_REFERRAL_CODE} to get ₹100 off your first order.\n\nDownload: https://next360.app/download`,
         title: 'Join Next360',
       });
-    } catch {}
+    } catch { /* Share cancelled or failed */ }
   };
 
   const handleCopyCode = async () => {
@@ -33,7 +33,7 @@ export default function ReferralScreen({ navigation }: any) {
       if (expoClipboard?.setStringAsync) {
         await expoClipboard.setStringAsync(DEMO_REFERRAL_CODE);
       }
-    } catch {}
+    } catch { /* Share cancelled or failed */ }
 
     Animated.sequence([
       Animated.spring(copyScale, { toValue: 0.92, useNativeDriver: true }),

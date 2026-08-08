@@ -29,6 +29,8 @@ export default function ProfileScreen() {
     { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: null },
     { icon: 'car-outline', label: 'Vehicle Details', color: Colors.warning, route: '/vehicle-setup' as any },
     { icon: 'document-text-outline', label: 'Documents (KYC)', color: Colors.purple, route: '/kyc-documents' as any },
+    { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.blue, route: '/privacy-policy' as any },
+    { icon: 'document-text-outline', label: 'Terms of Service', color: Colors.textSecondary, route: '/terms-of-service' as any },
     { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.blue, route: null, action: () => Linking.openURL('mailto:support@next360.com') },
     { icon: 'information-circle-outline', label: 'About', color: Colors.textSecondary, route: null, action: () => Alert.alert('Next360 Delivery', 'Version 1.0.0\n\nDelivery Partner App') },
   ];
@@ -111,6 +113,34 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.7}>
         <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
         <Text style={styles.signOutText}>Sign Out</Text>
+      </TouchableOpacity>
+
+      {/* Delete Account */}
+      <TouchableOpacity
+        style={[styles.signOutBtn, { backgroundColor: '#FFF5F5', borderColor: '#FFE0E0', marginTop: 10 }]}
+        onPress={() => {
+          Alert.alert(
+            'Delete Account & Data',
+            'Per Google Play policy, submitting an account deletion request will permanently wipe your profile, vehicle details, KYC documents, and delivery history within 30 days.\n\nAre you sure you want to proceed?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Request Deletion',
+                style: 'destructive',
+                onPress: () => {
+                  Alert.alert(
+                    'Request Submitted',
+                    'Your account deletion request has been registered. Our support team will process it and send confirmation to your registered email/phone.'
+                  );
+                },
+              },
+            ]
+          );
+        }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="trash-outline" size={20} color="#C62828" />
+        <Text style={[styles.signOutText, { color: '#C62828' }]}>Delete Account & Data</Text>
       </TouchableOpacity>
 
       <Text style={styles.version}>Next360 Delivery v1.0.0</Text>

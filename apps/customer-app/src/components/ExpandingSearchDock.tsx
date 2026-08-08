@@ -129,7 +129,6 @@ export default function ExpandingSearchDock({
     Keyboard.dismiss();
     triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y, width, height) => {
-      console.log('[DEBUG] ExpandingSearchDock measured:', { x, y, width, height, OS: Platform.OS });
       originX.value = x;
       const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
       originY.value = y + statusBarOffset;

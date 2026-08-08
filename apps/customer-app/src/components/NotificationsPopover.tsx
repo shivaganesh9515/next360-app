@@ -127,7 +127,6 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
   const open = useCallback(() => {
     triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y, width, height) => {
-      console.log('[DEBUG] NotificationsPopover measured:', { x, y, width, height, OS: Platform.OS });
       originX.value = x;
       const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
       originY.value = y + statusBarOffset;

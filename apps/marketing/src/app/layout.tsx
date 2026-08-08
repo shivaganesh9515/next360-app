@@ -1,57 +1,77 @@
 import type { Metadata } from 'next';
-import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google';
+import { Fraunces, Playfair_Display, Manrope } from 'next/font/google';
+import LenisProvider from '@/components/lenis-provider';
 import './globals.css';
 
 const fraunces = Fraunces({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['400', '500', '600', '700'],
 });
 
-const inter = Inter({
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-display-alt',
+  display: 'swap',
+  weight: ['400', '600'],
+});
+
+const manrope = Manrope({
   subsets: ['latin'],
   variable: '--font-body',
   display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  display: 'swap',
-  weight: ['400', '500'],
+  weight: ['300', '400', '500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
-  title: 'Next360 — Organic, Natural & Eco-Friendly Grocery Delivery',
+  title: 'Next360 | Organic Marketplace for Fresh, Verified, Sustainable Living',
   description:
-    'Multi-vendor marketplace for organic, natural, and eco-friendly groceries. Live in Hyderabad and Vijayawada. Order from verified local vendors with live delivery tracking.',
-  keywords: [
-    'organic grocery delivery',
-    'natural products',
-    'eco-friendly marketplace',
-    'Hyderabad grocery',
-    'Vijayawada grocery',
-    'multi-vendor organic',
-  ],
+    "Next360 connects you with verified organic stores, fresh produce, and trusted delivery partners across Hyderabad, Karimnagar & Vijayawada. Fresh. Organic. Delivered.",
   openGraph: {
-    title: 'Next360 — Organic, Natural & Eco-Friendly Grocery Delivery',
+    title: 'Next360 — Fresh. Organic. Delivered.',
     description:
-      'Multi-vendor marketplace for organic, natural, and eco-friendly groceries. Live in Hyderabad and Vijayawada.',
+      "India's trusted organic commerce ecosystem — verified sellers, fresh produce, flexible delivery earnings.",
     type: 'website',
     locale: 'en_IN',
+    siteName: 'Next360',
+    url: 'https://next360.in/',
+    images: [{ url: '/og/next360-cover.jpg', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Next360 — Fresh. Organic. Delivered.',
+    description:
+      "India's trusted organic commerce ecosystem — verified sellers, fresh produce, flexible delivery earnings.",
+  },
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://next360.in/' },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-body antialiased bg-background text-foreground">
-        {children}
+    <html lang="en" className={`${fraunces.variable} ${playfair.variable} ${manrope.variable}`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'Next360',
+              url: 'https://next360.in',
+              logo: 'https://next360.in/logo.png',
+              sameAs: [
+                'https://instagram.com/next360',
+                'https://linkedin.com/company/next360',
+              ],
+              areaServed: ['Hyderabad', 'Karimnagar', 'Vijayawada'],
+            }),
+          }}
+        />
+      </head>
+      <body className="font-body antialiased bg-neutral-bg text-text-primary">
+        <LenisProvider>{children}</LenisProvider>
       </body>
     </html>
   );
