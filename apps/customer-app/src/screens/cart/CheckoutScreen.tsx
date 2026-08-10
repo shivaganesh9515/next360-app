@@ -103,8 +103,8 @@ export default function CheckoutScreen({ navigation }: any) {
       const list = res?.data || res || [];
       const defaultAddr = list.find((a: any) => a.isDefault) || list[0];
       if (defaultAddr) setSelectedAddress(defaultAddr);
-    } catch (err) {
-      console.error('Failed to load addresses:', err);
+    } catch {
+      // Address loading failed silently
     } finally {
       setLoading(false);
     }

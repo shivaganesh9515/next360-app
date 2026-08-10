@@ -166,7 +166,7 @@ export default function AddressListScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
 
   header: {
@@ -190,7 +190,7 @@ const s = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 17,
-    color: '#1A1A1A',
+    color: Colors.text,
   },
   addHeaderBtn: {
     flexDirection: 'row',
@@ -216,7 +216,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#1A1A1A' },
+  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.text },
   emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#757575', textAlign: 'center', marginTop: 6 },
   addAddressBtn: {
     flexDirection: 'row',
@@ -250,7 +250,7 @@ const s = StyleSheet.create({
   },
   cardInfo: { flex: 1 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  cardLabel: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#1A1A1A' },
+  cardLabel: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.text },
   defaultBadge: {
     backgroundColor: '#E8F5E9',
     borderRadius: BorderRadius.pill,

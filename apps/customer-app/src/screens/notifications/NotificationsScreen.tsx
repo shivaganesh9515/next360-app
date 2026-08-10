@@ -212,7 +212,7 @@ export default function NotificationsScreen() {
         <View style={s.headerLeft}>
           {navigation.canGoBack() && (
             <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
-              <Ionicons name="arrow-back" size={22} color="#1A1A1A" />
+              <Ionicons name="arrow-back" size={22} color={Colors.text} />
             </TouchableOpacity>
           )}
           <Text style={s.headerTitle}>{t('notifications.title')}</Text>

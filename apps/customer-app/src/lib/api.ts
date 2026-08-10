@@ -725,4 +725,16 @@ export const customerApi = {
   getHealthInsights: () => api.get<any>('/ai/health-insights'),
   getChatHistory: (page?: number, limit?: number) =>
     api.get<any>('/ai/chat-history', { page: page || 1, limit: limit || 20 }),
+
+  // Loyalty
+  getLoyaltyMe: () => api.get<any>('/loyalty/me'),
+  getLoyaltyTiers: () => api.get<any>('/loyalty/tiers'),
+  getLoyaltyBalance: () => api.get<any>('/loyalty/balance'),
+  getLoyaltyLedger: (page?: number, limit?: number) =>
+    api.get<any>('/loyalty/ledger', { page: page || 1, limit: limit || 20 }),
+  redeemLoyaltyPoints: (points: number) =>
+    api.post<any>('/loyalty/redeem', { points }),
+  getReferrals: () => api.get<any>('/loyalty/referrals'),
+  validateReferralCode: (referralCode: string) =>
+    api.post<any>('/loyalty/referrals/validate', { referralCode }),
 };

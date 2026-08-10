@@ -391,7 +391,7 @@ export default function ProfileScreen({ navigation }: any) {
               </Text>
               <Text style={styles.gridSub}>Total orders</Text>
             </View>
-            <Ionicons name="chevron-forward" size={14} color="#9A958A" />
+            <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -409,7 +409,7 @@ export default function ProfileScreen({ navigation }: any) {
               </Text>
               <Text style={styles.gridSub}>Saved locations</Text>
             </View>
-            <Ionicons name="chevron-forward" size={14} color="#9A958A" />
+            <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -427,7 +427,7 @@ export default function ProfileScreen({ navigation }: any) {
               </Text>
               <Text style={styles.gridSub}>Active coupons</Text>
             </View>
-            <Ionicons name="chevron-forward" size={14} color="#9A958A" />
+            <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -443,7 +443,7 @@ export default function ProfileScreen({ navigation }: any) {
               <Text style={[styles.gridMetric, { color: accent }]}>24x7</Text>
               <Text style={styles.gridSub}>Instant help</Text>
             </View>
-            <Ionicons name="chevron-forward" size={14} color="#9A958A" />
+            <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -475,7 +475,7 @@ export default function ProfileScreen({ navigation }: any) {
                         <Text style={[styles.badgeText, { color: accent }]}>{item.badge}</Text>
                       </View>
                     )}
-                    <Ionicons name="chevron-forward" size={16} color="#9A958A" />
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
                   </View>
                 </TouchableOpacity>
               ))}
@@ -536,7 +536,7 @@ export default function ProfileScreen({ navigation }: any) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Language / భాష</Text>
               <TouchableOpacity onPress={() => setShowLangModal(false)} hitSlop={12}>
-                <Ionicons name="close" size={22} color="#9A958A" />
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -584,7 +584,7 @@ export default function ProfileScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F3EA',
+    backgroundColor: Colors.background,
     position: 'relative',
   },
 
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F7F3EA',
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   slickLabel: {
     fontFamily: 'JetBrainsMono_400Regular',
     fontSize: 9,
-    color: '#888888',
+    color: Colors.textSecondary,
     letterSpacing: 0.5,
   },
   slickValue: {
@@ -923,13 +923,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Inter_500Medium',
     fontSize: 12,
-    color: '#9A958A',
+    color: Colors.textSecondary,
   },
   footerSub: {
     textAlign: 'center',
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
-    color: '#9A958A',
+    color: Colors.textSecondary,
     marginTop: 2,
   },
 

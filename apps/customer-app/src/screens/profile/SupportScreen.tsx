@@ -117,7 +117,7 @@ export default function SupportScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
     flexDirection: 'row',
@@ -137,7 +137,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#1A1A1A' },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.text },
 
   content: { padding: Spacing.lg },
 
@@ -196,7 +196,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  contactTitle: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#1A1A1A' },
+  contactTitle: { fontFamily: 'Inter_700Bold', fontSize: 13, color: Colors.text },
   contactSub: { fontFamily: 'Inter_400Regular', fontSize: 10, color: '#757575', marginTop: 2 },
 
   faqList: {
@@ -220,7 +220,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  faqQ: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#1A1A1A' },
+  faqQ: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.text },
   faqA: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#616161', marginTop: 8, lineHeight: 19 },
 
   assuranceCard: {

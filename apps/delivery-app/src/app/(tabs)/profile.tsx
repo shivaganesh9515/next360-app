@@ -117,7 +117,7 @@ export default function ProfileScreen() {
 
       {/* Delete Account */}
       <TouchableOpacity
-        style={[styles.signOutBtn, { backgroundColor: '#FFF5F5', borderColor: '#FFE0E0', marginTop: 10 }]}
+        style={[styles.signOutBtn, { backgroundColor: Colors.dangerLight, borderColor: 'rgba(239, 68, 68, 0.3)', marginTop: 10 }]}
         onPress={() => {
           Alert.alert(
             'Delete Account & Data',
@@ -139,7 +139,7 @@ export default function ProfileScreen() {
         }}
         activeOpacity={0.7}
       >
-        <Ionicons name="trash-outline" size={20} color="#C62828" />
+        <Ionicons name="trash-outline" size={20} color={Colors.danger} />
         <Text style={[styles.signOutText, { color: '#C62828' }]}>Delete Account & Data</Text>
       </TouchableOpacity>
 

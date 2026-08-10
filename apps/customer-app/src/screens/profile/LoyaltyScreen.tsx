@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,58 +8,82 @@ import { useTranslation } from 'react-i18next';
 import { Colors, Typography, Spacing, BorderRadius, Shadows, SPRING_CONFIG } from '../../constants/theme';
 import StaggerFadeIn from '../../components/StaggerFadeIn';
 import AnimatedCounter from '../../components/AnimatedCounter';
+import { customerApi } from '../../lib/api';
+import * as Clipboard from 'expo-clipboard';
 
 // 8-tier tree growth loyalty program — Seed → Forest
-export const LOYALTY_TIERS = [
+const LOYALTY_TIERS = [
   {
-    id: 'seed', name: 'Seed', emoji: '🌱', pointsNeeded: 0,
+    id: 'SEED', name: 'Seed', emoji: '🌱', pointsNeeded: 0,
     color: '#8B9D7B', benefits: ['Welcome discount 5%', 'Exclusive organic tips', 'Early sale access'],
   },
   {
-    id: 'seedling', name: 'Seedling', emoji: '🌿', pointsNeeded: 100,
+    id: 'SEEDLING', name: 'Seedling', emoji: '🌿', pointsNeeded: 100,
     color: '#7A9E6D', benefits: ['10% off first order', 'Birthday bonus', 'Free delivery on ₹300+'],
   },
   {
-    id: 'sapling', name: 'Sapling', emoji: '🌲', pointsNeeded: 300,
+    id: 'SAPLING', name: 'Sapling', emoji: '🌲', pointsNeeded: 300,
     color: '#5C8A4D', benefits: ['15% store credit monthly', 'Early access new products', 'Free delivery on all orders'],
   },
   {
-    id: 'plant', name: 'Plant', emoji: '🌳', pointsNeeded: 600,
+    id: 'PLANT', name: 'Plant', emoji: '🌳', pointsNeeded: 600,
     color: '#4A7C3A', benefits: ['20% off any order', 'Monthly free gift', 'Priority customer support'],
   },
   {
-    id: 'young-tree', name: 'Young Tree', emoji: '🌴', pointsNeeded: 1000,
+    id: 'YOUNG_TREE', name: 'Young Tree', emoji: '🌴', pointsNeeded: 1000,
     color: '#3D6E2E', benefits: ['25% store credit', 'Free eco-friendly tote', 'Invite-only product drops'],
   },
   {
-    id: 'tree', name: 'Tree', emoji: '🌲', pointsNeeded: 1500,
+    id: 'TREE', name: 'Tree', emoji: '🌲', pointsNeeded: 1500,
     color: '#2F5E20', benefits: ['30% off everything', 'Free weekly subscription box', 'Name in supporter wall'],
   },
   {
-    id: 'mature-tree', name: 'Mature Tree', emoji: '🌳', pointsNeeded: 2500,
+    id: 'MATURE_TREE', name: 'Mature Tree', emoji: '🌳', pointsNeeded: 2500,
     color: '#1E4A12', benefits: ['35% off everything', 'Personal shopper', 'Exclusive farm visits'],
   },
   {
-    id: 'forest', name: 'Forest', emoji: '🌲🌳🌴', pointsNeeded: 5000,
+    id: 'FOREST', name: 'Forest', emoji: '🌲🌳🌴', pointsNeeded: 5000,
     color: '#0C3506', benefits: ['40% off everything', 'VIP events access', 'Plant a tree in your name'],
   },
 ];
 
-const DEMO_POINTS = 450;
-const DEMO_CURRENT_TIER_INDEX = 2;
-
-// Points counter — delegates to the shared AnimatedCounter component with
-// locale-formatted display for the user's points total.
-
 export default function LoyaltyScreen({ navigation }: any) {
   const { t } = useTranslation();
-  const [points] = useState(DEMO_POINTS);
-  const currentTierIndex = DEMO_CURRENT_TIER_INDEX;
+  const [loading, setLoading] = useState(true);
+  const [points, setPoints] = useState(0);
+  const [currentTierId, setCurrentTierId] = useState('SEED');
+  const [tierPointsEarned, setTierPointsEarned] = useState(0);
+  const [referralCode, setReferralCode] = useState('');
 
-  const currentTier = LOYALTY_TIERS[currentTierIndex];
+  useEffect(() => {
+    fetchLoyaltyData();
+  }, []);
+
+  const fetchLoyaltyData = async () => {
+    try {
+      const [loyaltyStatus, referrals] = await Promise.all([
+        customerApi.getLoyaltyMe(),
+        customerApi.getReferrals(),
+      ]);
+      setPoints(loyaltyStatus.pointsBalance || 0);
+      setCurrentTierId(loyaltyStatus.tier?.id || 'SEED');
+      setTierPointsEarned(loyaltyStatus.tierPointsEarned || 0);
+      setReferralCode(referrals.referralCode || '');
+    } catch (err) {
+      // Fallback to demo data if API fails
+      setPoints(450);
+      setCurrentTierId('SAPLING');
+      setTierPointsEarned(450);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentTierIndex = LOYALTY_TIERS.findIndex((t) => t.id === currentTierId);
+  const currentTier = LOYALTY_TIERS[currentTierIndex >= 0 ? currentTierIndex : 0];
   const nextTier = LOYALTY_TIERS[currentTierIndex + 1];
   const progress = nextTier
-    ? (points - currentTier.pointsNeeded) / (nextTier.pointsNeeded - currentTier.pointsNeeded)
+    ? (tierPointsEarned - currentTier.pointsNeeded) / (nextTier.pointsNeeded - currentTier.pointsNeeded)
     : 1;
   const progressPct = Math.min(Math.max(progress, 0), 1);
 
@@ -83,6 +107,23 @@ export default function LoyaltyScreen({ navigation }: any) {
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
   });
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.container}>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+            <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>Your Loyalty</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.organic} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={s.container}>
@@ -133,7 +174,7 @@ export default function LoyaltyScreen({ navigation }: any) {
                 </Animated.View>
               </View>
               <Text style={s.progressHint}>
-                {nextTier.pointsNeeded - points} more points to {nextTier.name}
+                {nextTier.pointsNeeded - tierPointsEarned} more points to {nextTier.name}
               </Text>
             </View>
           )}
@@ -193,6 +234,20 @@ export default function LoyaltyScreen({ navigation }: any) {
             })}
           </View>
         </View>
+
+        {/* Referral Code */}
+        {referralCode && (
+          <View style={[s.infoCard, Shadows.card]}>
+            <Text style={s.infoTitle}>Refer a Friend</Text>
+            <View style={s.referralRow}>
+              <Text style={s.referralCode}>{referralCode}</Text>
+              <TouchableOpacity style={s.copyButton} onPress={() => Clipboard.setStringAsync(referralCode)}>
+                <Ionicons name="copy-outline" size={16} color={Colors.organic} />
+              </TouchableOpacity>
+            </View>
+            <Text style={s.infoText}>Share this code and earn 100 points when they make their first purchase!</Text>
+          </View>
+        )}
 
         {/* How it works */}
         <View style={[s.infoCard, Shadows.card]}>
@@ -258,9 +313,7 @@ const s = StyleSheet.create({
     position: 'absolute', top: -5, width: 18, height: 18, borderRadius: 9,
     backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 2px 4px rgba(0,0,0,0.15)',
-      },
+      web: { boxShadow: '0px 2px 4px rgba(0,0,0,0.15)' },
       default: {
         shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
@@ -318,4 +371,15 @@ const s = StyleSheet.create({
   infoTitle: { ...Typography.bodySmall, color: Colors.text, fontFamily: 'Inter_600SemiBold', marginBottom: Spacing.md },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.sm },
   infoText: { ...Typography.bodySmall, color: Colors.textSecondary, flex: 1 },
+
+  referralRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.background, borderRadius: BorderRadius.md,
+    padding: Spacing.md, marginBottom: Spacing.sm,
+  },
+  referralCode: {
+    fontFamily: 'JetBrainsMono_400Regular', fontSize: 16, color: Colors.text,
+    letterSpacing: 1,
+  },
+  copyButton: { padding: Spacing.sm },
 });

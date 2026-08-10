@@ -1,8 +1,8 @@
 # Current Status
 
-> **Last updated:** 2026-08-08
+> **Last updated:** 2026-08-10
 > **Current branch:** main
-> **Latest changes:** Store compliance fixes + deployment strategy
+> **Latest changes:** Loyalty Engine integrated + store compliance fixes
 > **Git remote:** https://github.com/shivaganesh9515/next360-app.git
 
 ## Current Phase
@@ -25,7 +25,7 @@ Previous 12 build phases complete. Now focused on fixing Google Play rejection i
 
 ## What's Done ✅
 
-### Backend (apps/api) — 28 Feature Modules
+### Backend (apps/api) — 29 Feature Modules
 
 **Core (19):** Auth, Users, Categories, Vendors, Products, Cart, Wishlist, Reviews, Addresses, Orders, Payments, Commission, Coupons, Offers, Returns, Notifications, AI, Upload, Seed
 
@@ -39,9 +39,20 @@ Previous 12 build phases complete. Now focused on fixing Google Play rejection i
 - ✅ Payouts Admin Oversight — payouts/ module with 5 endpoints
 - ✅ Remaining Admin Endpoints — GET /payments, GET /reviews/ratings, GET /admin/analytics
 
-### Frontend — Customer App (20+ screens)
+**Loyalty Engine (NEW):**
+- ✅ Prisma models — Purchase, PointsLedger, UserMetrics, Referral, LoyaltyConfig (5 new models)
+- ✅ Backend module — loyalty/ with service + controller (7+ API endpoints)
+- ✅ Referrals module — referral code generation, validation, reward processing
+- ✅ Order integration — Auto-award points on purchase, process referral rewards
+- ✅ Tier system — 8 tree-growth tiers (Seed→Forest) with multipliers
+- ✅ RFM Segmentation — purchaseCount, totalSpend, lastPurchaseAt, rfmSegment
+- ✅ Customer App — LoyaltyScreen with tree-growth tiers, points balance, referral code, progress bar
+- ⬜ Admin Panel — loyalty view on customer detail page (API exists, frontend TBD)
+
+### Frontend — Customer App (21+ screens)
 - All screens built: onboarding, auth, home, search, product list, cart, checkout
 - Orders, profile, wishlist, AI (chat, scanner, recommendations, health)
+- ✅ Loyalty screen — Tree-growth tiers, points balance, referral code, progress bar
 
 ### Frontend — Delivery App (10 screens)
 - Splash, login, setup, home, incoming assignment, active delivery, etc.

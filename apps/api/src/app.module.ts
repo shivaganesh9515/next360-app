@@ -37,6 +37,7 @@ import { AuditModule } from './audit/audit.module';
 import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
 import { SupportModule } from './support/support.module';
 import { ReportsModule } from './reports/reports.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
 import { SmsModule } from './providers/sms/sms.module';
@@ -100,6 +101,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     DeliveryModule,
     SupportModule,
     ReportsModule,
+    LoyaltyModule,
     QueueModule,
     SmsModule,
     EmailModule,

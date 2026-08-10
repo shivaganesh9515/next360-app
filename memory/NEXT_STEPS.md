@@ -1,11 +1,21 @@
 # Next Steps
 
-> **Last updated:** 2026-08-08
-> **Priority:** Deploy API to Railway → Rebuild App → Submit to Play Store
+> **Last updated:** 2026-08-10
+> **Priority:** Run Prisma migration → Deploy API to Railway → Rebuild App → Submit to Play Store
 
 ---
 
-## IMMEDIATE: Deploy to Railway (This Week)
+## IMMEDIATE: Complete Loyalty Setup + Deploy
+
+### Loyalty Setup (5 min)
+
+| Step | Command | Time |
+|------|---------|------|
+| 1 | `npx prisma migrate dev --name add-loyalty` | 2 min |
+| 2 | Restart API server | 1 min |
+| 3 | Test loyalty endpoints | 2 min |
+
+### Deploy to Railway
 
 ### Phase 1: Push Code to GitHub
 

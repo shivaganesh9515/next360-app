@@ -119,7 +119,7 @@ export default function PromosScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
 
   header: {
@@ -140,7 +140,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#1A1A1A' },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.text },
 
   emptyIconBox: {
     width: 80,
@@ -151,7 +151,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#1A1A1A' },
+  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.text },
   emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#757575', textAlign: 'center', marginTop: 6 },
 
   list: { padding: Spacing.lg },
@@ -188,7 +188,7 @@ const s = StyleSheet.create({
   },
   copyBtnText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: '#22FF88' },
 
-  cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#1A1A1A' },
+  cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.text },
   cardDesc: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#616161', marginTop: 4, lineHeight: 18 },
 
   cardFooterRow: {

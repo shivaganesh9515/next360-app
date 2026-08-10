@@ -465,7 +465,7 @@ const s = StyleSheet.create({
   searchPlaceholder: {
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
-    color: '#888888',
+    color: Colors.textSecondary,
   },
 
   scrollContent: {

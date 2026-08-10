@@ -133,7 +133,7 @@ export default function SubscriptionScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
     flexDirection: 'row',
@@ -153,7 +153,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#1A1A1A' },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.text },
 
   content: { padding: Spacing.lg },
 
@@ -203,9 +203,9 @@ const s = StyleSheet.create({
     marginTop: 2,
   },
   planRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#0A0A0A' },
-  planName: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#1A1A1A' },
+  planName: { fontFamily: 'Inter_700Bold', fontSize: 15, color: Colors.text },
   planSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#757575', marginTop: 1 },
-  planPrice: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#1A1A1A' },
+  planPrice: { fontFamily: 'Inter_700Bold', fontSize: 18, color: Colors.text },
   badgePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.pill, marginTop: 2 },
   badgeText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: '#0A0A0A' },
 
@@ -221,7 +221,7 @@ const s = StyleSheet.create({
   },
   perksTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#FFD700', marginBottom: 10 },
   perkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  perkText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: '#E0E0E0', flex: 1 },
+  perkText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, flex: 1 },
 
   footer: {
     padding: Spacing.lg,

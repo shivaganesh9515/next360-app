@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,6 +75,7 @@ export default function AddAddressScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
@@ -193,12 +194,13 @@ export default function AddAddressScreen({ navigation }: any) {
         onClose={() => setMapVisible(false)}
         onConfirm={handleMapConfirm}
       />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
     flexDirection: 'row',
@@ -218,7 +220,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#1A1A1A' },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.text },
 
   content: { padding: Spacing.lg },
 
@@ -290,24 +292,24 @@ const s = StyleSheet.create({
   cardTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 11,
-    color: '#9E9E9E',
+    color: Colors.textSecondary,
     letterSpacing: 0.8,
     marginBottom: Spacing.lg,
   },
 
   fieldGroup: { marginBottom: Spacing.lg },
   rowFields: { flexDirection: 'row', gap: 10 },
-  label: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#1A1A1A', marginBottom: 6 },
+  label: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.text, marginBottom: 6 },
   input: {
     backgroundColor: '#FAFAFA',
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: Colors.border,
     paddingHorizontal: 12,
     height: 48,
     fontFamily: 'Inter_500Medium',
     fontSize: 14,
-    color: '#1A1A1A',
+    color: Colors.text,
   },
   inputMultiline: { minHeight: 76, paddingVertical: 10, textAlignVertical: 'top' },
 

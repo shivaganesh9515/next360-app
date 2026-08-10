@@ -74,6 +74,34 @@ enum CouponType {
   FIXED
 }
 
+enum LoyaltyTier {
+  SEED
+  SEEDLING
+  SAPLING
+  PLANT
+  YOUNG_TREE
+  TREE
+  MATURE_TREE
+  FOREST
+}
+
+enum PointsTransactionType {
+  PURCHASE_REWARD
+  REFERRAL_REWARD
+  REVIEW_REWARD
+  BIRTHDAY_BONUS
+  REDEMPTION
+  REFUND
+  ADMIN_ADJUSTMENT
+}
+
+enum ReferralStatus {
+  PENDING
+  REWARDED
+  EXPIRED
+  REJECTED
+}
+
 // ─── Models ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -92,6 +120,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Loyalty fields
+  referralCode  String?  @unique
+  referredBy    String?
+  dateOfBirth   DateTime?
+
   addresses         Address[]
   cartItems         CartItem[]
   orders            Order[]
@@ -109,6 +142,11 @@ model User {
   supportTickets    SupportTicket[]
   assignedTickets   SupportTicket[] @relation("AssignedTickets")
   ticketReplies     TicketReply[]
+  purchases         Purchase[]
+  pointsLedger      PointsLedger[]
+  metrics           UserMetrics?
+  referralsSent     Referral[]      @relation("SentReferrals")
+  referralReceived  Referral?       @relation("ReceivedReferral")
 }
 
 // Zone — city-based zone gating (MVP: Hyderabad + Vijayawada)
@@ -696,4 +734,124 @@ model AuditLog {
   @@index([adminId, createdAt])
   @@index([resource, resourceId])
   @@index([action])
+}
+
+// ─── Loyalty Models ─────────────────────────────────────────────────────────
+
+model Purchase {
+  id        String   @id @default(uuid())
+  userId    String
+  amount    Float
+  createdAt DateTime @default(now())
+
+  user        User           @relation(fields: [userId], references: [id])
+  pointsLedger PointsLedger[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PointsLedger {
+  id              String   @id @default(uuid())
+  userId          String
+  points          Int      // Positive = earned, Negative = redeemed/refunded
+  transactionType PointsTransactionType
+  sourceId        String?  // Purchase ID or Referral ID
+  description     String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  user     User      @relation(fields: [userId], references: [id])
+  purchase Purchase? @relation(fields: [sourceId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model UserMetrics {
+  userId            String      @id
+  // Points & Tier
+  pointsBalance     Int         @default(0)
+  tier              LoyaltyTier @default(SEED)
+  tierPointsEarned  Int         @default(0)
+  tierEvaluatedAt   DateTime?
+
+  // RFM Segmentation
+  purchaseCount     Int         @default(0)
+  totalSpend        Float       @default(0)
+  lastPurchaseAt    DateTime?
+  rfmRecency        Int         @default(0)
+  rfmFrequency      Int         @default(0)
+  rfmMonetary       Int         @default(0)
+  rfmSegment        String      @default("New")
+
+  updatedAt         DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Referral {
+  id              String        @id @default(uuid())
+  referrerId      String
+  referredUserId  String        @unique
+  status          ReferralStatus @default(PENDING)
+  rewardPoints    Int           @default(100)
+  createdAt       DateTime      @default(now())
+  rewardedAt      DateTime?
+
+  referrer     User @relation("SentReferrals", fields: [referrerId], references: [id])
+  referredUser User @relation("ReceivedReferral", fields: [referredUserId], references: [id])
+
+  @@index([referrerId])
+  @@index([status])
+}
+
+model LoyaltyConfig {
+  id  String @id @default("default")
+
+  // Tier thresholds
+  seedThreshold       Int      @default(0)
+  seedlingThreshold   Int      @default(100)
+  saplingThreshold    Int      @default(300)
+  plantThreshold      Int      @default(600)
+  youngTreeThreshold  Int      @default(1000)
+  treeThreshold       Int      @default(1500)
+  matureTreeThreshold Int      @default(2500)
+  forestThreshold     Int      @default(5000)
+
+  // Points earning rules
+  pointsPerRupee      Float    @default(1.0)
+  reviewPoints        Int      @default(25)
+  referralPoints      Int      @default(100)
+  birthdayPoints      Int      @default(50)
+
+  // Redemption rules
+  minRedemption       Int      @default(100)
+  redemptionValue     Float    @default(0.1)
+
+  // Referral rules
+  referralExpiryDays  Int      @default(30)
+
+  // Tier multipliers
+  seedMultiplier      Float    @default(1.0)
+  seedlingMultiplier  Float    @default(1.1)
+  saplingMultiplier   Float    @default(1.2)
+  plantMultiplier     Float    @default(1.3)
+  youngTreeMultiplier Float    @default(1.5)
+  treeMultiplier      Float    @default(1.8)
+  matureTreeMultiplier Float   @default(2.0)
+  forestMultiplier    Float    @default(2.5)
+
+  // Benefits per tier
+  seedBenefits        Json     @default("[\"Welcome discount 5%\", \"Exclusive organic tips\", \"Early sale access\"]")
+  seedlingBenefits    Json     @default("[\"10% off first order\", \"Birthday bonus\", \"Free delivery on ₹300+\"]")
+  saplingBenefits     Json     @default("[\"15% store credit monthly\", \"Early access new products\", \"Free delivery on all orders\"]")
+  plantBenefits       Json     @default("[\"20% off any order\", \"Monthly free gift\", \"Priority customer support\"]")
+  youngTreeBenefits   Json     @default("[\"25% store credit\", \"Free eco-friendly tote\", \"Invite-only product drops\"]")
+  treeBenefits        Json     @default("[\"30% off everything\", \"Free weekly subscription box\", \"Name in supporter wall\"]")
+  matureTreeBenefits  Json     @default("[\"35% off everything\", \"Personal shopper\", \"Exclusive farm visits\"]")
+  forestBenefits      Json     @default("[\"40% off everything\", \"VIP events access\", \"Plant a tree in your name\"]")
+
+  updatedAt DateTime @updatedAt
 }

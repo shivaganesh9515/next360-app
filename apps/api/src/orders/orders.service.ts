@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from '../commission/commission.service';
 import { OffersService } from '../offers/offers.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
@@ -54,6 +55,7 @@ export class OrdersService {
     private readonly commissionService: CommissionService,
     private readonly offersService: OffersService,
     private readonly notificationsService: NotificationsService,
+    private readonly loyaltyService: LoyaltyService,
   ) {}
 
   /**
@@ -266,6 +268,28 @@ export class OrdersService {
           `Commission calculation failed for COD order ${order.id}: ${error.message}`,
         );
       }
+    }
+
+    // Award loyalty points for this purchase
+    try {
+      await this.loyaltyService.awardPurchasePoints(
+        userId,
+        order.id,
+        Number(order.totalAmount),
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to award loyalty points for order ${order.id}: ${error.message}`,
+      );
+    }
+
+    // Process referral reward if this is the user's first purchase
+    try {
+      await this.loyaltyService.processReferralReward(userId, order.id);
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to process referral for order ${order.id}: ${error.message}`,
+      );
     }
 
     // Send push notification to the customer about the new order

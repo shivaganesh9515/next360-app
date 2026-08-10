@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +36,7 @@ export default function EditProfileScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Top Navigation Bar */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
@@ -118,12 +119,13 @@ export default function EditProfileScreen({ navigation }: any) {
           <Text style={s.saveBtnText}>{loading ? 'Saving...' : 'Save Profile Changes'}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
     flexDirection: 'row',
@@ -146,7 +148,7 @@ const s = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 17,
-    color: '#1A1A1A',
+    color: Colors.text,
   },
 
   content: {
@@ -207,7 +209,7 @@ const s = StyleSheet.create({
   cardTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 11,
-    color: '#9E9E9E',
+    color: Colors.textSecondary,
     letterSpacing: 0.8,
     marginBottom: Spacing.lg,
   },
@@ -217,7 +219,7 @@ const s = StyleSheet.create({
   label: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
-    color: '#1A1A1A',
+    color: Colors.text,
     marginBottom: 6,
   },
   inputWrap: {
@@ -226,7 +228,7 @@ const s = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: Colors.border,
     paddingHorizontal: 12,
     height: 48,
   },
@@ -237,7 +239,7 @@ const s = StyleSheet.create({
     flex: 1,
     fontFamily: 'Inter_500Medium',
     fontSize: 14,
-    color: '#1A1A1A',
+    color: Colors.text,
   },
   disabledInput: {
     backgroundColor: '#F5F5F5',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing, Shadows, getStoreAccent, getStoreAccentLight, getStoreAccentDark } from '../../constants/theme';
@@ -95,6 +95,7 @@ export default function WalletScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: Colors.background }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
@@ -213,12 +214,13 @@ export default function WalletScreen({ navigation }: any) {
           ))}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F3EA' },
+  container: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,7 +250,7 @@ const s = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   balanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  balanceLabel: { fontFamily: 'JetBrainsMono_400Regular', fontSize: 10, color: '#9A958A', letterSpacing: 1.5 },
+  balanceLabel: { fontFamily: 'JetBrainsMono_400Regular', fontSize: 10, color: Colors.textSecondary, letterSpacing: 1.5 },
   balanceValue: { fontFamily: 'Fraunces_700Bold', fontSize: 32, color: '#FFFFFF', marginVertical: 4 },
   safeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   safeBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#22FF88' },
@@ -337,7 +339,7 @@ const s = StyleSheet.create({
   txnLeft: { flexDirection: 'row', gap: 12, flex: 1 },
   txnIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   txnDesc: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#1C1B17' },
-  txnDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#9A958A', marginTop: 2 },
+  txnDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
   txnId: { fontFamily: 'JetBrainsMono_400Regular', fontSize: 9, color: '#C9A66B', marginTop: 2 },
   txnAmount: { fontFamily: 'JetBrainsMono_400Regular', fontSize: 14, fontWeight: '700' },
 });

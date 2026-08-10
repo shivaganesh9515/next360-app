@@ -154,7 +154,7 @@ export default function ReferralScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
     flexDirection: 'row',
@@ -174,7 +174,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#1A1A1A' },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.text },
 
   content: { padding: Spacing.lg },
 
@@ -247,7 +247,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
-  statValue: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#1A1A1A' },
+  statValue: { fontFamily: 'Inter_700Bold', fontSize: 18, color: Colors.text },
   statLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, color: '#757575', marginTop: 3, letterSpacing: 0.5 },
 
   sectionHeader: {
@@ -280,7 +280,7 @@ const s = StyleSheet.create({
   },
   stepNumText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#2E7D32' },
   stepContent: { flex: 1 },
-  stepTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#1A1A1A' },
+  stepTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.text },
   stepSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#757575', marginTop: 1 },
   stepDivider: { height: 1, backgroundColor: '#F5F5F5', marginVertical: 4 },
 
@@ -295,7 +295,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   refAvatarText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#2E7D32' },
-  refName: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#1A1A1A' },
+  refName: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.text },
   refDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#757575', marginTop: 1 },
   refBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: BorderRadius.pill },
   refBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
