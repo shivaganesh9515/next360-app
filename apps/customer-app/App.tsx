@@ -9,6 +9,7 @@ import * as SplashScreenNative from 'expo-splash-screen';
 import { useFonts, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
+import * as Sentry from '@sentry/react-native';
 import i18n, { loadSavedLanguage } from './src/i18n';
 import { AuthProvider } from './src/lib/auth';
 import { StoreProvider } from './src/lib/store';
@@ -22,6 +23,24 @@ import { handleSupabaseCallback, getInitialOAuthUrl } from './src/lib/supabaseAu
 import AppNavigator from './src/navigation/AppNavigator';
 import { Colors } from './src/constants/theme';
 
+// Initialize Sentry for crash reporting
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  environment: __DEV__ ? 'development' : 'production',
+  tracesSampleRate: 1.0,
+  enableAutoSessionTracking: true,
+  sessionTrackingIntervalMillis: 30000,
+  attachStacktrace: true,
+  // Don't send PII
+  beforeSend: (event) => {
+    // Remove any sensitive data from events
+    if (event.request?.headers) {
+      delete event.request.headers['Authorization'];
+    }
+    return event;
+  },
+});
+
 // React Navigation's DefaultTheme background is '#f6f6f6' — swap in the app's
 // own white token so it never peeks through at screen edges/transitions.
 const NavTheme = {
@@ -31,7 +50,8 @@ const NavTheme = {
 
 SplashScreenNative.preventAutoHideAsync().catch(() => {});
 
-export default function App() {
+// Wrap the entire app with Sentry's error boundary
+function App() {
   const [fontsLoaded] = useFonts({
     Fraunces_700Bold,
     Inter_400Regular,
@@ -119,3 +139,6 @@ export default function App() {
     </I18nextProvider>
   );
 }
+
+// Wrap the app with Sentry's error boundary for automatic error catching
+export default Sentry.wrap(App);

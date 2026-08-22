@@ -48,6 +48,7 @@ import AiRecommendationsScreen from '../screens/ai/AiRecommendationsScreen';
 import AiHealthInsightsScreen from '../screens/ai/AiHealthInsightsScreen';
 import AiChatHistoryScreen from '../screens/ai/AiChatHistoryScreen';
 import { PrivacyPolicyScreen, TermsOfServiceScreen } from '../screens/profile/LegalScreens';
+import DeleteAccountScreen from '../screens/profile/DeleteAccountScreen';
 import ExpandingSearchDock from '../components/ExpandingSearchDock';
 import ProfileAvatarPopover from '../components/ProfileAvatarPopover';
 
@@ -361,6 +362,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ headerShown: false }} />
     </ProfileStack.Navigator>
   );
 }

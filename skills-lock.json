@@ -1,107 +1,2207 @@
-{
-  "version": 1,
-  "skills": {
-    "api-security-best-practices": {
-      "source": "C:/Users/gunny/.claude/skills/api-security-best-practices",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/api-security-best-practices/SKILL.md",
-      "computedHash": "2a007ac2aa52a42effe809dea721d244ab260dc1e7af5e2b50a8f60b5b3bae41"
-    },
-    "expo-deployment": {
-      "source": "C:/Users/gunny/.claude/skills/expo-deployment",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/expo-deployment/SKILL.md",
-      "computedHash": "bfc1cffb23c14955bdfd57370552af624e8d3db298d517bca7e08646a36911bb"
-    },
-    "gluestack-ui-v5": {
-      "source": "gluestack/agent-skills",
-      "sourceType": "github",
-      "skillPath": ".agents/skills/gluestack-ui-v5/SKILL.md",
-      "computedHash": "b19717e992153a421da7423f0609a39c4864f947c7f50fca67cf5e5b7d4878e4"
-    },
-    "monorepo-management": {
-      "source": "C:/Users/gunny/.claude/skills/monorepo-management",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/monorepo-management/SKILL.md",
-      "computedHash": "f19b2e07de807687f5bdadb4a59753b70bb458a0dbd34991c25c2ba627a5abe3"
-    },
-    "nestjs-best-practices": {
-      "source": "C:/Users/gunny/.agents/skills/nestjs-best-practices",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/nestjs-best-practices/SKILL.md",
-      "computedHash": "9f3ef62173a763bf62c2333b583687674352eaa17da971b5694d93c3ee89a127"
-    },
-    "nextjs-app-router-patterns": {
-      "source": "C:/Users/gunny/.agents/skills/nextjs-app-router-patterns",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/nextjs-app-router-patterns/SKILL.md",
-      "computedHash": "765c3658be4b573b9a4e79fada3a45227d836146737a4e06b4c9871891afe177"
-    },
-    "payment-integration": {
-      "source": "C:/Users/gunny/.claude/skills/payment-integration",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/payment-integration/SKILL.md",
-      "computedHash": "11290a8293321a9d54924ca6d3d6c6c839699601e1bee26eef22f48960646ffd"
-    },
-    "prisma-client-api": {
-      "source": "C:/Users/gunny/.agents/skills/prisma-client-api",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/prisma-client-api/SKILL.md",
-      "computedHash": "16c4d9267557708be05f258973f6c60a92f92f05a93c1cac3c343afa3afe2500"
-    },
-    "prisma-database-setup": {
-      "source": "C:/Users/gunny/.agents/skills/prisma-database-setup",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/prisma-database-setup/SKILL.md",
-      "computedHash": "b0e9ee3e9da18c272a2a8e5c34630309548a49abd06875a84e574ae441826724"
-    },
-    "radix-ui-design-system": {
-      "source": "C:/Users/gunny/.claude/skills/radix-ui-design-system",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/radix-ui-design-system/SKILL.md",
-      "computedHash": "33292552b4f04e23958153ff9dcd535666902abed438165bcd71c2070fff117a"
-    },
-    "supabase": {
-      "source": "supabase/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/supabase/SKILL.md",
-      "computedHash": "19fca56d93a6d212c6373ad921dcaeddf2ff13e3558e6bfd6e63acb063255f86"
-    },
-    "supabase-postgres-best-practices": {
-      "source": "supabase/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
-      "computedHash": "768f9a7532780a72165f79c91d71a4bf82abd9ed31045238c2acb40322fc1d0a"
-    },
-    "tailwind-patterns": {
-      "source": "C:/Users/gunny/.claude/skills/tailwind-patterns",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/tailwind-patterns/SKILL.md",
-      "computedHash": "25db5184d012c1e7d66f5bdcd4bfff52cfcd9a57ee9ca4c466c0aa47b5d7b622"
-    },
-    "typescript-expert": {
-      "source": "C:/Users/gunny/.claude/skills/typescript-expert",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/typescript-expert/SKILL.md",
-      "computedHash": "5e714365f6aa2333e95f199177bf144348c214dcb916c012e34566a3c7c04429"
-    },
-    "upgrading-expo": {
-      "source": "C:/Users/gunny/.claude/skills/upgrading-expo",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/upgrading-expo/SKILL.md",
-      "computedHash": "ab3610f36c5171361d59051939139bed3ddaac8e8977d4ac828cf60d4c0e6aad"
-    },
-    "vercel-react-native-skills": {
-      "source": "C:/Users/gunny/.agents/skills/vercel-react-native-skills",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/vercel-react-native-skills/SKILL.md",
-      "computedHash": "aff91057282facb41ddc8873a482e19cfb928056fc32b350e1b084b16cb58dc2"
-    },
-    "zustand-store-ts": {
-      "source": "C:/Users/gunny/.claude/skills/zustand-store-ts",
-      "sourceType": "local",
-      "skillPath": ".agents/skills/zustand-store-ts/SKILL.md",
-      "computedHash": "43b7609be979b21bb4ccc8edb2d03cecf811bd8665a780750a86971f3b25ef93"
-    }
-  }
+﻿{
+    "version":  1,
+    "skills":  {
+                   "api-security-best-practices":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/api-security-best-practices",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/api-security-best-practices/SKILL.md",
+                                                       "computedHash":  "2a007ac2aa52a42effe809dea721d244ab260dc1e7af5e2b50a8f60b5b3bae41"
+                                                   },
+                   "expo-deployment":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/expo-deployment",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/expo-deployment/SKILL.md",
+                                           "computedHash":  "bfc1cffb23c14955bdfd57370552af624e8d3db298d517bca7e08646a36911bb"
+                                       },
+                   "gluestack-ui-v5":  {
+                                           "source":  "gluestack/agent-skills",
+                                           "sourceType":  "github",
+                                           "skillPath":  ".agents/skills/gluestack-ui-v5/SKILL.md",
+                                           "computedHash":  "b19717e992153a421da7423f0609a39c4864f947c7f50fca67cf5e5b7d4878e4"
+                                       },
+                   "monorepo-management":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/monorepo-management",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/monorepo-management/SKILL.md",
+                                               "computedHash":  "f19b2e07de807687f5bdadb4a59753b70bb458a0dbd34991c25c2ba627a5abe3"
+                                           },
+                   "nestjs-best-practices":  {
+                                                 "source":  "C:/Users/gunny/.agents/skills/nestjs-best-practices",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/nestjs-best-practices/SKILL.md",
+                                                 "computedHash":  "9f3ef62173a763bf62c2333b583687674352eaa17da971b5694d93c3ee89a127"
+                                             },
+                   "nextjs-app-router-patterns":  {
+                                                      "source":  "C:/Users/gunny/.agents/skills/nextjs-app-router-patterns",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/nextjs-app-router-patterns/SKILL.md",
+                                                      "computedHash":  "765c3658be4b573b9a4e79fada3a45227d836146737a4e06b4c9871891afe177"
+                                                  },
+                   "payment-integration":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/payment-integration",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/payment-integration/SKILL.md",
+                                               "computedHash":  "11290a8293321a9d54924ca6d3d6c6c839699601e1bee26eef22f48960646ffd"
+                                           },
+                   "prisma-client-api":  {
+                                             "source":  "C:/Users/gunny/.agents/skills/prisma-client-api",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/prisma-client-api/SKILL.md",
+                                             "computedHash":  "16c4d9267557708be05f258973f6c60a92f92f05a93c1cac3c343afa3afe2500"
+                                         },
+                   "prisma-database-setup":  {
+                                                 "source":  "C:/Users/gunny/.agents/skills/prisma-database-setup",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/prisma-database-setup/SKILL.md",
+                                                 "computedHash":  "b0e9ee3e9da18c272a2a8e5c34630309548a49abd06875a84e574ae441826724"
+                                             },
+                   "radix-ui-design-system":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/radix-ui-design-system",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/radix-ui-design-system/SKILL.md",
+                                                  "computedHash":  "33292552b4f04e23958153ff9dcd535666902abed438165bcd71c2070fff117a"
+                                              },
+                   "supabase":  {
+                                    "source":  "supabase/agent-skills",
+                                    "sourceType":  "github",
+                                    "skillPath":  "skills/supabase/SKILL.md",
+                                    "computedHash":  "19fca56d93a6d212c6373ad921dcaeddf2ff13e3558e6bfd6e63acb063255f86"
+                                },
+                   "supabase-postgres-best-practices":  {
+                                                            "source":  "supabase/agent-skills",
+                                                            "sourceType":  "github",
+                                                            "skillPath":  "skills/supabase-postgres-best-practices/SKILL.md",
+                                                            "computedHash":  "768f9a7532780a72165f79c91d71a4bf82abd9ed31045238c2acb40322fc1d0a"
+                                                        },
+                   "tailwind-patterns":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/tailwind-patterns",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/tailwind-patterns/SKILL.md",
+                                             "computedHash":  "25db5184d012c1e7d66f5bdcd4bfff52cfcd9a57ee9ca4c466c0aa47b5d7b622"
+                                         },
+                   "typescript-expert":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/typescript-expert",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/typescript-expert/SKILL.md",
+                                             "computedHash":  "5e714365f6aa2333e95f199177bf144348c214dcb916c012e34566a3c7c04429"
+                                         },
+                   "upgrading-expo":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/upgrading-expo",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/upgrading-expo/SKILL.md",
+                                          "computedHash":  "ab3610f36c5171361d59051939139bed3ddaac8e8977d4ac828cf60d4c0e6aad"
+                                      },
+                   "vercel-react-native-skills":  {
+                                                      "source":  "C:/Users/gunny/.agents/skills/vercel-react-native-skills",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/vercel-react-native-skills/SKILL.md",
+                                                      "computedHash":  "aff91057282facb41ddc8873a482e19cfb928056fc32b350e1b084b16cb58dc2"
+                                                  },
+                   "zustand-store-ts":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/zustand-store-ts",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/zustand-store-ts/SKILL.md",
+                                            "computedHash":  "43b7609be979b21bb4ccc8edb2d03cecf811bd8665a780750a86971f3b25ef93"
+                                        },
+                   "accessibility-compliance-accessibility-audit":  {
+                                                                        "source":  "C:/Users/gunny/.claude/skills/accessibility-compliance-accessibility-audit",
+                                                                        "sourceType":  "local",
+                                                                        "skillPath":  ".agents/skills/accessibility-compliance-accessibility-audit/SKILL.md",
+                                                                        "computedHash":  ""
+                                                                    },
+                   "address-github-comments":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/address-github-comments",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/address-github-comments/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "agent-memory-systems":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/agent-memory-systems",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/agent-memory-systems/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "ai-engineer":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/ai-engineer",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/ai-engineer/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "ai-ml":  {
+                                 "source":  "C:/Users/gunny/.claude/skills/ai-ml",
+                                 "sourceType":  "local",
+                                 "skillPath":  ".agents/skills/ai-ml/SKILL.md",
+                                 "computedHash":  ""
+                             },
+                   "ai-product":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/ai-product",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/ai-product/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "amplitude-automation":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/amplitude-automation",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/amplitude-automation/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "analytics-tracking":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/analytics-tracking",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/analytics-tracking/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "android-jetpack-compose-expert":  {
+                                                          "source":  "C:/Users/gunny/.claude/skills/android-jetpack-compose-expert",
+                                                          "sourceType":  "local",
+                                                          "skillPath":  ".agents/skills/android-jetpack-compose-expert/SKILL.md",
+                                                          "computedHash":  ""
+                                                      },
+                   "android_ui_verification":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/android_ui_verification",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/android_ui_verification/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "api-design-principles":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/api-design-principles",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/api-design-principles/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "api-documentation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/api-documentation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/api-documentation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "api-documentation-generator":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/api-documentation-generator",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/api-documentation-generator/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "api-documenter":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/api-documenter",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/api-documenter/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "api-patterns":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/api-patterns",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/api-patterns/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "api-security-testing":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/api-security-testing",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/api-security-testing/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "apify-ecommerce":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/apify-ecommerce",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/apify-ecommerce/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "app-store-optimization":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/app-store-optimization",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/app-store-optimization/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "application-performance-performance-optimization":  {
+                                                                            "source":  "C:/Users/gunny/.claude/skills/application-performance-performance-optimization",
+                                                                            "sourceType":  "local",
+                                                                            "skillPath":  ".agents/skills/application-performance-performance-optimization/SKILL.md",
+                                                                            "computedHash":  ""
+                                                                        },
+                   "architecture":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/architecture",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/architecture/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "architecture-decision-records":  {
+                                                         "source":  "C:/Users/gunny/.claude/skills/architecture-decision-records",
+                                                         "sourceType":  "local",
+                                                         "skillPath":  ".agents/skills/architecture-decision-records/SKILL.md",
+                                                         "computedHash":  ""
+                                                     },
+                   "architecture-patterns":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/architecture-patterns",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/architecture-patterns/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "asana-automation":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/asana-automation",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/asana-automation/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "auth-implementation-patterns":  {
+                                                        "source":  "C:/Users/gunny/.claude/skills/auth-implementation-patterns",
+                                                        "sourceType":  "local",
+                                                        "skillPath":  ".agents/skills/auth-implementation-patterns/SKILL.md",
+                                                        "computedHash":  ""
+                                                    },
+                   "aws-cost-optimizer":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/aws-cost-optimizer",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/aws-cost-optimizer/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "aws-serverless":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/aws-serverless",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/aws-serverless/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "aws-skills":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/aws-skills",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/aws-skills/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "backend-architect":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/backend-architect",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/backend-architect/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "backend-dev-guidelines":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/backend-dev-guidelines",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/backend-dev-guidelines/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "backend-development-feature-development":  {
+                                                                   "source":  "C:/Users/gunny/.claude/skills/backend-development-feature-development",
+                                                                   "sourceType":  "local",
+                                                                   "skillPath":  ".agents/skills/backend-development-feature-development/SKILL.md",
+                                                                   "computedHash":  ""
+                                                               },
+                   "backend-security-coder":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/backend-security-coder",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/backend-security-coder/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "basecamp-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/basecamp-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/basecamp-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "bash-defensive-patterns":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/bash-defensive-patterns",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/bash-defensive-patterns/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "bash-pro":  {
+                                    "source":  "C:/Users/gunny/.claude/skills/bash-pro",
+                                    "sourceType":  "local",
+                                    "skillPath":  ".agents/skills/bash-pro/SKILL.md",
+                                    "computedHash":  ""
+                                },
+                   "bash-scripting":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/bash-scripting",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/bash-scripting/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "behavioral-modes":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/behavioral-modes",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/behavioral-modes/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "billing-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/billing-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/billing-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "business-analyst":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/business-analyst",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/business-analyst/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "canvas-design":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/canvas-design",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/canvas-design/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "cc-skill-backend-patterns":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/cc-skill-backend-patterns",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/cc-skill-backend-patterns/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "cc-skill-coding-standards":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/cc-skill-coding-standards",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/cc-skill-coding-standards/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "cc-skill-frontend-patterns":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/cc-skill-frontend-patterns",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/cc-skill-frontend-patterns/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "cc-skill-security-review":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/cc-skill-security-review",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/cc-skill-security-review/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "changelog-automation":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/changelog-automation",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/changelog-automation/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "changelog-generator":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/changelog-generator",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/changelog-generator/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "cicd-automation-workflow-automate":  {
+                                                             "source":  "C:/Users/gunny/.claude/skills/cicd-automation-workflow-automate",
+                                                             "sourceType":  "local",
+                                                             "skillPath":  ".agents/skills/cicd-automation-workflow-automate/SKILL.md",
+                                                             "computedHash":  ""
+                                                         },
+                   "claude-code-guide":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/claude-code-guide",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/claude-code-guide/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "clean-code":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/clean-code",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/clean-code/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "clickup-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/clickup-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/clickup-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "cloud-architect":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/cloud-architect",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/cloud-architect/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "cloud-devops":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/cloud-devops",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/cloud-devops/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "code-refactoring-refactor-clean":  {
+                                                           "source":  "C:/Users/gunny/.claude/skills/code-refactoring-refactor-clean",
+                                                           "sourceType":  "local",
+                                                           "skillPath":  ".agents/skills/code-refactoring-refactor-clean/SKILL.md",
+                                                           "computedHash":  ""
+                                                       },
+                   "code-refactoring-tech-debt":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/code-refactoring-tech-debt",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/code-refactoring-tech-debt/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "code-review-checklist":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/code-review-checklist",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/code-review-checklist/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "code-review-excellence":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/code-review-excellence",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/code-review-excellence/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "code-reviewer":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/code-reviewer",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/code-reviewer/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "codebase-cleanup-deps-audit":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/codebase-cleanup-deps-audit",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/codebase-cleanup-deps-audit/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "codebase-cleanup-refactor-clean":  {
+                                                           "source":  "C:/Users/gunny/.claude/skills/codebase-cleanup-refactor-clean",
+                                                           "sourceType":  "local",
+                                                           "skillPath":  ".agents/skills/codebase-cleanup-refactor-clean/SKILL.md",
+                                                           "computedHash":  ""
+                                                       },
+                   "codebase-cleanup-tech-debt":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/codebase-cleanup-tech-debt",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/codebase-cleanup-tech-debt/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "competitive-landscape":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/competitive-landscape",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/competitive-landscape/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "concise-planning":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/concise-planning",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/concise-planning/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "content-creator":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/content-creator",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/content-creator/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "content-marketer":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/content-marketer",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/content-marketer/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "content-research-writer":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/content-research-writer",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/content-research-writer/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "context-compression":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/context-compression",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/context-compression/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "context-manager":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/context-manager",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/context-manager/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "context-window-management":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/context-window-management",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/context-window-management/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "conversation-memory":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/conversation-memory",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/conversation-memory/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "copy-editing":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/copy-editing",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/copy-editing/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "copywriting":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/copywriting",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/copywriting/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "cost-optimization":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/cost-optimization",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/cost-optimization/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "cqrs-implementation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/cqrs-implementation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/cqrs-implementation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "create-pr":  {
+                                     "source":  "C:/Users/gunny/.claude/skills/create-pr",
+                                     "sourceType":  "local",
+                                     "skillPath":  ".agents/skills/create-pr/SKILL.md",
+                                     "computedHash":  ""
+                                 },
+                   "crewai":  {
+                                  "source":  "C:/Users/gunny/.claude/skills/crewai",
+                                  "sourceType":  "local",
+                                  "skillPath":  ".agents/skills/crewai/SKILL.md",
+                                  "computedHash":  ""
+                              },
+                   "culture-index":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/culture-index",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/culture-index/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "customs-trade-compliance":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/customs-trade-compliance",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/customs-trade-compliance/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "data-engineer":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/data-engineer",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/data-engineer/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "data-scientist":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/data-scientist",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/data-scientist/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "data-storytelling":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/data-storytelling",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/data-storytelling/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "database-admin":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/database-admin",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/database-admin/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "database-architect":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/database-architect",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/database-architect/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "database-cloud-optimization-cost-optimize":  {
+                                                                     "source":  "C:/Users/gunny/.claude/skills/database-cloud-optimization-cost-optimize",
+                                                                     "sourceType":  "local",
+                                                                     "skillPath":  ".agents/skills/database-cloud-optimization-cost-optimize/SKILL.md",
+                                                                     "computedHash":  ""
+                                                                 },
+                   "database-design":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/database-design",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/database-design/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "database-migration":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/database-migration",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/database-migration/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "database-optimizer":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/database-optimizer",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/database-optimizer/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "datadog-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/datadog-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/datadog-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "ddd-strategic-design":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/ddd-strategic-design",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/ddd-strategic-design/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "ddd-tactical-patterns":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/ddd-tactical-patterns",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/ddd-tactical-patterns/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "debugger":  {
+                                    "source":  "C:/Users/gunny/.claude/skills/debugger",
+                                    "sourceType":  "local",
+                                    "skillPath":  ".agents/skills/debugger/SKILL.md",
+                                    "computedHash":  ""
+                                },
+                   "debugging-strategies":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/debugging-strategies",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/debugging-strategies/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "dependency-management-deps-audit":  {
+                                                            "source":  "C:/Users/gunny/.claude/skills/dependency-management-deps-audit",
+                                                            "sourceType":  "local",
+                                                            "skillPath":  ".agents/skills/dependency-management-deps-audit/SKILL.md",
+                                                            "computedHash":  ""
+                                                        },
+                   "dependency-upgrade":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/dependency-upgrade",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/dependency-upgrade/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "deployment-engineer":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/deployment-engineer",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/deployment-engineer/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "deployment-pipeline-design":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/deployment-pipeline-design",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/deployment-pipeline-design/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "deployment-procedures":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/deployment-procedures",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/deployment-procedures/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "design-orchestration":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/design-orchestration",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/design-orchestration/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "devops-troubleshooter":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/devops-troubleshooter",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/devops-troubleshooter/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "discord-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/discord-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/discord-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "discord-bot-architect":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/discord-bot-architect",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/discord-bot-architect/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "dispatching-parallel-agents":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/dispatching-parallel-agents",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/dispatching-parallel-agents/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "distributed-tracing":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/distributed-tracing",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/distributed-tracing/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "docker-expert":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/docker-expert",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/docker-expert/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "docs-architect":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/docs-architect",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/docs-architect/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "documentation":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/documentation",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/documentation/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "documentation-generation-doc-generate":  {
+                                                                 "source":  "C:/Users/gunny/.claude/skills/documentation-generation-doc-generate",
+                                                                 "sourceType":  "local",
+                                                                 "skillPath":  ".agents/skills/documentation-generation-doc-generate/SKILL.md",
+                                                                 "computedHash":  ""
+                                                             },
+                   "documentation-templates":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/documentation-templates",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/documentation-templates/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "domain-driven-design":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/domain-driven-design",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/domain-driven-design/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "e2e-testing":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/e2e-testing",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/e2e-testing/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "e2e-testing-patterns":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/e2e-testing-patterns",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/e2e-testing-patterns/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "email-sequence":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/email-sequence",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/email-sequence/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "email-systems":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/email-systems",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/email-systems/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "employment-contract-templates":  {
+                                                         "source":  "C:/Users/gunny/.claude/skills/employment-contract-templates",
+                                                         "sourceType":  "local",
+                                                         "skillPath":  ".agents/skills/employment-contract-templates/SKILL.md",
+                                                         "computedHash":  ""
+                                                     },
+                   "error-detective":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/error-detective",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/error-detective/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "error-diagnostics-error-analysis":  {
+                                                            "source":  "C:/Users/gunny/.claude/skills/error-diagnostics-error-analysis",
+                                                            "sourceType":  "local",
+                                                            "skillPath":  ".agents/skills/error-diagnostics-error-analysis/SKILL.md",
+                                                            "computedHash":  ""
+                                                        },
+                   "error-diagnostics-error-trace":  {
+                                                         "source":  "C:/Users/gunny/.claude/skills/error-diagnostics-error-trace",
+                                                         "sourceType":  "local",
+                                                         "skillPath":  ".agents/skills/error-diagnostics-error-trace/SKILL.md",
+                                                         "computedHash":  ""
+                                                     },
+                   "error-handling-patterns":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/error-handling-patterns",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/error-handling-patterns/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "event-sourcing-architect":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/event-sourcing-architect",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/event-sourcing-architect/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "executing-plans":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/executing-plans",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/executing-plans/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "extract-design":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/extract-design",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/extract-design/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "form-cro":  {
+                                    "source":  "C:/Users/gunny/.claude/skills/form-cro",
+                                    "sourceType":  "local",
+                                    "skillPath":  ".agents/skills/form-cro/SKILL.md",
+                                    "computedHash":  ""
+                                },
+                   "free-tool-strategy":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/free-tool-strategy",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/free-tool-strategy/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "freshdesk-automation":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/freshdesk-automation",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/freshdesk-automation/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "frontend-design":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/frontend-design",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/frontend-design/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "frontend-dev-guidelines":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/frontend-dev-guidelines",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/frontend-dev-guidelines/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "frontend-developer":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/frontend-developer",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/frontend-developer/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "frontend-security-coder":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/frontend-security-coder",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/frontend-security-coder/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "gdpr-data-handling":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/gdpr-data-handling",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/gdpr-data-handling/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "gh-fix-ci":  {
+                                     "source":  "C:/Users/gunny/.claude/skills/gh-fix-ci",
+                                     "sourceType":  "local",
+                                     "skillPath":  ".agents/skills/gh-fix-ci/SKILL.md",
+                                     "computedHash":  ""
+                                 },
+                   "git-advanced-workflows":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/git-advanced-workflows",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/git-advanced-workflows/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "git-pr-workflows-git-workflow":  {
+                                                         "source":  "C:/Users/gunny/.claude/skills/git-pr-workflows-git-workflow",
+                                                         "sourceType":  "local",
+                                                         "skillPath":  ".agents/skills/git-pr-workflows-git-workflow/SKILL.md",
+                                                         "computedHash":  ""
+                                                     },
+                   "git-pr-workflows-onboard":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/git-pr-workflows-onboard",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/git-pr-workflows-onboard/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "git-pr-workflows-pr-enhance":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/git-pr-workflows-pr-enhance",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/git-pr-workflows-pr-enhance/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "git-pushing":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/git-pushing",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/git-pushing/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "github-actions-templates":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/github-actions-templates",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/github-actions-templates/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "github-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/github-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/github-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "github-issue-creator":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/github-issue-creator",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/github-issue-creator/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "github-workflow-automation":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/github-workflow-automation",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/github-workflow-automation/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "google-analytics-automation":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/google-analytics-automation",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/google-analytics-automation/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "grafana-dashboards":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/grafana-dashboards",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/grafana-dashboards/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "helm-chart-scaffolding":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/helm-chart-scaffolding",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/helm-chart-scaffolding/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "hierarchical-agent-memory":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/hierarchical-agent-memory",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/hierarchical-agent-memory/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "hig-components-content":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/hig-components-content",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/hig-components-content/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "hig-components-controls":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/hig-components-controls",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/hig-components-controls/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "hig-components-dialogs":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/hig-components-dialogs",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/hig-components-dialogs/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "hig-components-layout":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/hig-components-layout",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/hig-components-layout/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "hig-components-menus":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/hig-components-menus",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/hig-components-menus/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "hig-components-search":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/hig-components-search",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/hig-components-search/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "hig-components-status":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/hig-components-status",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/hig-components-status/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "hig-components-system":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/hig-components-system",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/hig-components-system/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "hig-foundations":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/hig-foundations",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/hig-foundations/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "hig-inputs":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/hig-inputs",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/hig-inputs/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "hig-patterns":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/hig-patterns",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/hig-patterns/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "hig-platforms":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/hig-platforms",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/hig-platforms/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "hig-project-context":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/hig-project-context",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/hig-project-context/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "hig-technologies":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/hig-technologies",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/hig-technologies/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "hr-pro":  {
+                                  "source":  "C:/Users/gunny/.claude/skills/hr-pro",
+                                  "sourceType":  "local",
+                                  "skillPath":  ".agents/skills/hr-pro/SKILL.md",
+                                  "computedHash":  ""
+                              },
+                   "hubspot-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/hubspot-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/hubspot-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "hubspot-integration":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/hubspot-integration",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/hubspot-integration/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "incident-responder":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/incident-responder",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/incident-responder/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "incident-response-incident-response":  {
+                                                               "source":  "C:/Users/gunny/.claude/skills/incident-response-incident-response",
+                                                               "sourceType":  "local",
+                                                               "skillPath":  ".agents/skills/incident-response-incident-response/SKILL.md",
+                                                               "computedHash":  ""
+                                                           },
+                   "incident-runbook-templates":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/incident-runbook-templates",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/incident-runbook-templates/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "intercom-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/intercom-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/intercom-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "internal-comms":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/internal-comms",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/internal-comms/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "internal-comms-anthropic":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/internal-comms-anthropic",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/internal-comms-anthropic/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "ios-developer":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/ios-developer",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/ios-developer/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "iterate-pr":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/iterate-pr",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/iterate-pr/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "javascript-mastery":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/javascript-mastery",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/javascript-mastery/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "javascript-pro":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/javascript-pro",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/javascript-pro/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "javascript-testing-patterns":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/javascript-testing-patterns",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/javascript-testing-patterns/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "jira-automation":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/jira-automation",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/jira-automation/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "k8s-manifest-generator":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/k8s-manifest-generator",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/k8s-manifest-generator/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "k8s-security-policies":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/k8s-security-policies",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/k8s-security-policies/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "kaizen":  {
+                                  "source":  "C:/Users/gunny/.claude/skills/kaizen",
+                                  "sourceType":  "local",
+                                  "skillPath":  ".agents/skills/kaizen/SKILL.md",
+                                  "computedHash":  ""
+                              },
+                   "klaviyo-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/klaviyo-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/klaviyo-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "kpi-dashboard-design":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/kpi-dashboard-design",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/kpi-dashboard-design/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "kubernetes-deployment":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/kubernetes-deployment",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/kubernetes-deployment/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "launch-strategy":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/launch-strategy",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/launch-strategy/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "legal-advisor":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/legal-advisor",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/legal-advisor/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "linear-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/linear-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/linear-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "linear-claude-skill":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/linear-claude-skill",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/linear-claude-skill/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "lint-and-validate":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/lint-and-validate",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/lint-and-validate/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "linux-shell-scripting":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/linux-shell-scripting",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/linux-shell-scripting/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "llm-app-patterns":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/llm-app-patterns",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/llm-app-patterns/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "mailchimp-automation":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/mailchimp-automation",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/mailchimp-automation/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "market-sizing-analysis":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/market-sizing-analysis",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/market-sizing-analysis/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "marketing-ideas":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/marketing-ideas",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/marketing-ideas/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "marketing-psychology":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/marketing-psychology",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/marketing-psychology/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "mcp-builder":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/mcp-builder",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/mcp-builder/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "meeting-insights-analyzer":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/meeting-insights-analyzer",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/meeting-insights-analyzer/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "memory-systems":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/memory-systems",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/memory-systems/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "mermaid-expert":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/mermaid-expert",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/mermaid-expert/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "microservices-patterns":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/microservices-patterns",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/microservices-patterns/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "mixpanel-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/mixpanel-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/mixpanel-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "mobile-design":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/mobile-design",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/mobile-design/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "mobile-developer":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/mobile-developer",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/mobile-developer/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "mobile-security-coder":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/mobile-security-coder",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/mobile-security-coder/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "modern-javascript-patterns":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/modern-javascript-patterns",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/modern-javascript-patterns/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "monday-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/monday-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/monday-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "monorepo-architect":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/monorepo-architect",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/monorepo-architect/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "multi-agent-brainstorming":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/multi-agent-brainstorming",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/multi-agent-brainstorming/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "multi-agent-patterns":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/multi-agent-patterns",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/multi-agent-patterns/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "nestjs-expert":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/nestjs-expert",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/nestjs-expert/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "nextjs-best-practices":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/nextjs-best-practices",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/nextjs-best-practices/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "nextjs-supabase-auth":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/nextjs-supabase-auth",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/nextjs-supabase-auth/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "nodejs-backend-patterns":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/nodejs-backend-patterns",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/nodejs-backend-patterns/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "nodejs-best-practices":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/nodejs-best-practices",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/nodejs-best-practices/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "notion-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/notion-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/notion-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "observability-engineer":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/observability-engineer",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/observability-engineer/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "on-call-handoff-patterns":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/on-call-handoff-patterns",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/on-call-handoff-patterns/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "onboarding-cro":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/onboarding-cro",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/onboarding-cro/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "page-cro":  {
+                                    "source":  "C:/Users/gunny/.claude/skills/page-cro",
+                                    "sourceType":  "local",
+                                    "skillPath":  ".agents/skills/page-cro/SKILL.md",
+                                    "computedHash":  ""
+                                },
+                   "pagerduty-automation":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/pagerduty-automation",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/pagerduty-automation/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "parallel-agents":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/parallel-agents",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/parallel-agents/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "paypal-integration":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/paypal-integration",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/paypal-integration/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "paywall-upgrade-cro":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/paywall-upgrade-cro",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/paywall-upgrade-cro/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "pci-compliance":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/pci-compliance",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/pci-compliance/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "performance-engineer":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/performance-engineer",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/performance-engineer/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "performance-profiling":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/performance-profiling",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/performance-profiling/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "personal-tool-builder":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/personal-tool-builder",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/personal-tool-builder/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "plaid-fintech":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/plaid-fintech",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/plaid-fintech/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "plan-writing":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/plan-writing",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/plan-writing/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "planning-with-files":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/planning-with-files",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/planning-with-files/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "playwright-skill":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/playwright-skill",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/playwright-skill/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "popup-cro":  {
+                                     "source":  "C:/Users/gunny/.claude/skills/popup-cro",
+                                     "sourceType":  "local",
+                                     "skillPath":  ".agents/skills/popup-cro/SKILL.md",
+                                     "computedHash":  ""
+                                 },
+                   "postgres-best-practices":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/postgres-best-practices",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/postgres-best-practices/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "postgresql":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/postgresql",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/postgresql/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "postgresql-optimization":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/postgresql-optimization",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/postgresql-optimization/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "posthog-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/posthog-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/posthog-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "postmark-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/postmark-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/postmark-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "postmortem-writing":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/postmortem-writing",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/postmortem-writing/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "powershell-windows":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/powershell-windows",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/powershell-windows/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "pricing-strategy":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/pricing-strategy",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/pricing-strategy/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "prisma-expert":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/prisma-expert",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/prisma-expert/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "product-manager-toolkit":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/product-manager-toolkit",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/product-manager-toolkit/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "production-code-audit":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/production-code-audit",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/production-code-audit/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "programmatic-seo":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/programmatic-seo",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/programmatic-seo/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "prometheus-configuration":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/prometheus-configuration",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/prometheus-configuration/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "prompt-engineer":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/prompt-engineer",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/prompt-engineer/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "prompt-engineering":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/prompt-engineering",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/prompt-engineering/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "prompt-engineering-patterns":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/prompt-engineering-patterns",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/prompt-engineering-patterns/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "python-testing-patterns":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/python-testing-patterns",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/python-testing-patterns/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "quality-nonconformance":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/quality-nonconformance",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/quality-nonconformance/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "quant-analyst":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/quant-analyst",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/quant-analyst/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "rag-engineer":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/rag-engineer",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/rag-engineer/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "rag-implementation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/rag-implementation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/rag-implementation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "react-best-practices":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/react-best-practices",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/react-best-practices/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "react-flow-architect":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/react-flow-architect",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/react-flow-architect/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "react-flow-node-ts":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/react-flow-node-ts",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/react-flow-node-ts/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "react-modernization":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/react-modernization",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/react-modernization/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "react-native-architecture":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/react-native-architecture",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/react-native-architecture/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "react-nextjs-development":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/react-nextjs-development",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/react-nextjs-development/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "react-patterns":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/react-patterns",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/react-patterns/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "react-state-management":  {
+                                                  "source":  "C:/Users/gunny/.claude/skills/react-state-management",
+                                                  "sourceType":  "local",
+                                                  "skillPath":  ".agents/skills/react-state-management/SKILL.md",
+                                                  "computedHash":  ""
+                                              },
+                   "react-ui-patterns":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/react-ui-patterns",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/react-ui-patterns/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "readme":  {
+                                  "source":  "C:/Users/gunny/.claude/skills/readme",
+                                  "sourceType":  "local",
+                                  "skillPath":  ".agents/skills/readme/SKILL.md",
+                                  "computedHash":  ""
+                              },
+                   "referral-program":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/referral-program",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/referral-program/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "risk-manager":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/risk-manager",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/risk-manager/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "risk-metrics-calculation":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/risk-metrics-calculation",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/risk-metrics-calculation/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "saga-orchestration":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/saga-orchestration",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/saga-orchestration/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "sales-automator":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/sales-automator",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/sales-automator/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "salesforce-automation":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/salesforce-automation",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/salesforce-automation/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "schema-markup":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/schema-markup",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/schema-markup/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "security-audit":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/security-audit",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/security-audit/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "security-auditor":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/security-auditor",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/security-auditor/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "security-best-practices":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/security-best-practices",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/security-best-practices/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "security-compliance-compliance-check":  {
+                                                                "source":  "C:/Users/gunny/.claude/skills/security-compliance-compliance-check",
+                                                                "sourceType":  "local",
+                                                                "skillPath":  ".agents/skills/security-compliance-compliance-check/SKILL.md",
+                                                                "computedHash":  ""
+                                                            },
+                   "security-scanning-security-dependencies":  {
+                                                                   "source":  "C:/Users/gunny/.claude/skills/security-scanning-security-dependencies",
+                                                                   "sourceType":  "local",
+                                                                   "skillPath":  ".agents/skills/security-scanning-security-dependencies/SKILL.md",
+                                                                   "computedHash":  ""
+                                                               },
+                   "security-scanning-security-hardening":  {
+                                                                "source":  "C:/Users/gunny/.claude/skills/security-scanning-security-hardening",
+                                                                "sourceType":  "local",
+                                                                "skillPath":  ".agents/skills/security-scanning-security-hardening/SKILL.md",
+                                                                "computedHash":  ""
+                                                            },
+                   "security-scanning-security-sast":  {
+                                                           "source":  "C:/Users/gunny/.claude/skills/security-scanning-security-sast",
+                                                           "sourceType":  "local",
+                                                           "skillPath":  ".agents/skills/security-scanning-security-sast/SKILL.md",
+                                                           "computedHash":  ""
+                                                       },
+                   "segment-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/segment-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/segment-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "segment-cdp":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/segment-cdp",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/segment-cdp/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "sendgrid-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/sendgrid-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/sendgrid-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "senior-architect":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/senior-architect",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/senior-architect/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "senior-fullstack":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/senior-fullstack",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/senior-fullstack/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "sentry":  {
+                                  "source":  "C:/Users/gunny/.claude/skills/sentry",
+                                  "sourceType":  "local",
+                                  "skillPath":  ".agents/skills/sentry/SKILL.md",
+                                  "computedHash":  ""
+                              },
+                   "sentry-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/sentry-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/sentry-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "seo-audit":  {
+                                     "source":  "C:/Users/gunny/.claude/skills/seo-audit",
+                                     "sourceType":  "local",
+                                     "skillPath":  ".agents/skills/seo-audit/SKILL.md",
+                                     "computedHash":  ""
+                                 },
+                   "seo-content-planner":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/seo-content-planner",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/seo-content-planner/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "seo-content-writer":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/seo-content-writer",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/seo-content-writer/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "seo-fundamentals":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/seo-fundamentals",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/seo-fundamentals/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "server-management":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/server-management",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/server-management/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "sharp-edges":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/sharp-edges",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/sharp-edges/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "shopify-apps":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/shopify-apps",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/shopify-apps/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "shopify-development":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/shopify-development",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/shopify-development/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "signup-flow-cro":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/signup-flow-cro",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/signup-flow-cro/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "skill-creator":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/skill-creator",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/skill-creator/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "skill-developer":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/skill-developer",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/skill-developer/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "slack-automation":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/slack-automation",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/slack-automation/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "slack-bot-builder":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/slack-bot-builder",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/slack-bot-builder/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "social-content":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/social-content",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/social-content/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "software-architecture":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/software-architecture",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/software-architecture/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "sql-optimization-patterns":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/sql-optimization-patterns",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/sql-optimization-patterns/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "sql-pro":  {
+                                   "source":  "C:/Users/gunny/.claude/skills/sql-pro",
+                                   "sourceType":  "local",
+                                   "skillPath":  ".agents/skills/sql-pro/SKILL.md",
+                                   "computedHash":  ""
+                               },
+                   "startup-analyst":  {
+                                           "source":  "C:/Users/gunny/.claude/skills/startup-analyst",
+                                           "sourceType":  "local",
+                                           "skillPath":  ".agents/skills/startup-analyst/SKILL.md",
+                                           "computedHash":  ""
+                                       },
+                   "startup-business-analyst-business-case":  {
+                                                                  "source":  "C:/Users/gunny/.claude/skills/startup-business-analyst-business-case",
+                                                                  "sourceType":  "local",
+                                                                  "skillPath":  ".agents/skills/startup-business-analyst-business-case/SKILL.md",
+                                                                  "computedHash":  ""
+                                                              },
+                   "startup-business-analyst-financial-projections":  {
+                                                                          "source":  "C:/Users/gunny/.claude/skills/startup-business-analyst-financial-projections",
+                                                                          "sourceType":  "local",
+                                                                          "skillPath":  ".agents/skills/startup-business-analyst-financial-projections/SKILL.md",
+                                                                          "computedHash":  ""
+                                                                      },
+                   "startup-business-analyst-market-opportunity":  {
+                                                                       "source":  "C:/Users/gunny/.claude/skills/startup-business-analyst-market-opportunity",
+                                                                       "sourceType":  "local",
+                                                                       "skillPath":  ".agents/skills/startup-business-analyst-market-opportunity/SKILL.md",
+                                                                       "computedHash":  ""
+                                                                   },
+                   "startup-financial-modeling":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/startup-financial-modeling",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/startup-financial-modeling/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "startup-metrics-framework":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/startup-metrics-framework",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/startup-metrics-framework/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "stripe-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/stripe-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/stripe-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "stripe-integration":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/stripe-integration",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/stripe-integration/SKILL.md",
+                                              "computedHash":  ""
+                                          },
+                   "subagent-driven-development":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/subagent-driven-development",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/subagent-driven-development/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "supabase-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/supabase-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/supabase-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "systematic-debugging":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/systematic-debugging",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/systematic-debugging/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "tdd-orchestrator":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/tdd-orchestrator",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/tdd-orchestrator/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "tdd-workflow":  {
+                                        "source":  "C:/Users/gunny/.claude/skills/tdd-workflow",
+                                        "sourceType":  "local",
+                                        "skillPath":  ".agents/skills/tdd-workflow/SKILL.md",
+                                        "computedHash":  ""
+                                    },
+                   "team-collaboration-issue":  {
+                                                    "source":  "C:/Users/gunny/.claude/skills/team-collaboration-issue",
+                                                    "sourceType":  "local",
+                                                    "skillPath":  ".agents/skills/team-collaboration-issue/SKILL.md",
+                                                    "computedHash":  ""
+                                                },
+                   "team-collaboration-standup-notes":  {
+                                                            "source":  "C:/Users/gunny/.claude/skills/team-collaboration-standup-notes",
+                                                            "sourceType":  "local",
+                                                            "skillPath":  ".agents/skills/team-collaboration-standup-notes/SKILL.md",
+                                                            "computedHash":  ""
+                                                        },
+                   "team-composition-analysis":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/team-composition-analysis",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/team-composition-analysis/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "telegram-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/telegram-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/telegram-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "telegram-bot-builder":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/telegram-bot-builder",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/telegram-bot-builder/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "terraform-aws-modules":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/terraform-aws-modules",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/terraform-aws-modules/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "terraform-specialist":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/terraform-specialist",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/terraform-specialist/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "test-automator":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/test-automator",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/test-automator/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "test-fixing":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/test-fixing",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/test-fixing/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "testing-patterns":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/testing-patterns",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/testing-patterns/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "testing-qa":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/testing-qa",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/testing-qa/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "theme-factory":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/theme-factory",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/theme-factory/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "tool-design":  {
+                                       "source":  "C:/Users/gunny/.claude/skills/tool-design",
+                                       "sourceType":  "local",
+                                       "skillPath":  ".agents/skills/tool-design/SKILL.md",
+                                       "computedHash":  ""
+                                   },
+                   "top-web-vulnerabilities":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/top-web-vulnerabilities",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/top-web-vulnerabilities/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "trello-automation":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/trello-automation",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/trello-automation/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "turborepo-caching":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/turborepo-caching",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/turborepo-caching/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "twilio-communications":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/twilio-communications",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/twilio-communications/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "typescript-advanced-types":  {
+                                                     "source":  "C:/Users/gunny/.claude/skills/typescript-advanced-types",
+                                                     "sourceType":  "local",
+                                                     "skillPath":  ".agents/skills/typescript-advanced-types/SKILL.md",
+                                                     "computedHash":  ""
+                                                 },
+                   "typescript-pro":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/typescript-pro",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/typescript-pro/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "ui-skills":  {
+                                     "source":  "C:/Users/gunny/.claude/skills/ui-skills",
+                                     "sourceType":  "local",
+                                     "skillPath":  ".agents/skills/ui-skills/SKILL.md",
+                                     "computedHash":  ""
+                                 },
+                   "ui-ux-designer":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/ui-ux-designer",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/ui-ux-designer/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "ui-ux-pro-max":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/ui-ux-pro-max",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/ui-ux-pro-max/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "ui-visual-validator":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/ui-visual-validator",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/ui-visual-validator/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "unit-testing-test-generate":  {
+                                                      "source":  "C:/Users/gunny/.claude/skills/unit-testing-test-generate",
+                                                      "sourceType":  "local",
+                                                      "skillPath":  ".agents/skills/unit-testing-test-generate/SKILL.md",
+                                                      "computedHash":  ""
+                                                  },
+                   "using-neon":  {
+                                      "source":  "C:/Users/gunny/.claude/skills/using-neon",
+                                      "sourceType":  "local",
+                                      "skillPath":  ".agents/skills/using-neon/SKILL.md",
+                                      "computedHash":  ""
+                                  },
+                   "using-superpowers":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/using-superpowers",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/using-superpowers/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "vercel-composition-patterns":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/vercel-composition-patterns",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/vercel-composition-patterns/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "vercel-deployment":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/vercel-deployment",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/vercel-deployment/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "vercel-react-best-practices":  {
+                                                       "source":  "C:/Users/gunny/.claude/skills/vercel-react-best-practices",
+                                                       "sourceType":  "local",
+                                                       "skillPath":  ".agents/skills/vercel-react-best-practices/SKILL.md",
+                                                       "computedHash":  ""
+                                                   },
+                   "verification-before-completion":  {
+                                                          "source":  "C:/Users/gunny/.claude/skills/verification-before-completion",
+                                                          "sourceType":  "local",
+                                                          "skillPath":  ".agents/skills/verification-before-completion/SKILL.md",
+                                                          "computedHash":  ""
+                                                      },
+                   "vibe-code-auditor":  {
+                                             "source":  "C:/Users/gunny/.claude/skills/vibe-code-auditor",
+                                             "sourceType":  "local",
+                                             "skillPath":  ".agents/skills/vibe-code-auditor/SKILL.md",
+                                             "computedHash":  ""
+                                         },
+                   "viral-generator-builder":  {
+                                                   "source":  "C:/Users/gunny/.claude/skills/viral-generator-builder",
+                                                   "sourceType":  "local",
+                                                   "skillPath":  ".agents/skills/viral-generator-builder/SKILL.md",
+                                                   "computedHash":  ""
+                                               },
+                   "vulnerability-scanner":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/vulnerability-scanner",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/vulnerability-scanner/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "wcag-audit-patterns":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/wcag-audit-patterns",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/wcag-audit-patterns/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "web-design-guidelines":  {
+                                                 "source":  "C:/Users/gunny/.claude/skills/web-design-guidelines",
+                                                 "sourceType":  "local",
+                                                 "skillPath":  ".agents/skills/web-design-guidelines/SKILL.md",
+                                                 "computedHash":  ""
+                                             },
+                   "web-performance-optimization":  {
+                                                        "source":  "C:/Users/gunny/.claude/skills/web-performance-optimization",
+                                                        "sourceType":  "local",
+                                                        "skillPath":  ".agents/skills/web-performance-optimization/SKILL.md",
+                                                        "computedHash":  ""
+                                                    },
+                   "web-security-testing":  {
+                                                "source":  "C:/Users/gunny/.claude/skills/web-security-testing",
+                                                "sourceType":  "local",
+                                                "skillPath":  ".agents/skills/web-security-testing/SKILL.md",
+                                                "computedHash":  ""
+                                            },
+                   "webapp-testing":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/webapp-testing",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/webapp-testing/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "whatsapp-automation":  {
+                                               "source":  "C:/Users/gunny/.claude/skills/whatsapp-automation",
+                                               "sourceType":  "local",
+                                               "skillPath":  ".agents/skills/whatsapp-automation/SKILL.md",
+                                               "computedHash":  ""
+                                           },
+                   "wiki-architect":  {
+                                          "source":  "C:/Users/gunny/.claude/skills/wiki-architect",
+                                          "sourceType":  "local",
+                                          "skillPath":  ".agents/skills/wiki-architect/SKILL.md",
+                                          "computedHash":  ""
+                                      },
+                   "wiki-page-writer":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/wiki-page-writer",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/wiki-page-writer/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "wrike-automation":  {
+                                            "source":  "C:/Users/gunny/.claude/skills/wrike-automation",
+                                            "sourceType":  "local",
+                                            "skillPath":  ".agents/skills/wrike-automation/SKILL.md",
+                                            "computedHash":  ""
+                                        },
+                   "writing-plans":  {
+                                         "source":  "C:/Users/gunny/.claude/skills/writing-plans",
+                                         "sourceType":  "local",
+                                         "skillPath":  ".agents/skills/writing-plans/SKILL.md",
+                                         "computedHash":  ""
+                                     },
+                   "zendesk-automation":  {
+                                              "source":  "C:/Users/gunny/.claude/skills/zendesk-automation",
+                                              "sourceType":  "local",
+                                              "skillPath":  ".agents/skills/zendesk-automation/SKILL.md",
+                                              "computedHash":  ""
+                                          }
+               }
 }

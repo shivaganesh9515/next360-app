@@ -190,6 +190,19 @@ export default function ProfileScreen({ navigation }: any) {
         },
       ],
     },
+    {
+      title: 'ACCOUNT',
+      items: [
+        {
+          icon: 'person-remove-outline',
+          iconBg: '#FF3B3014',
+          iconColor: '#FF3B30',
+          label: 'Delete Account',
+          sublabel: 'Permanently delete your account and data',
+          onPress: () => navigation.navigate('DeleteAccount'),
+        },
+      ],
+    },
   ];
 
   // ── Entrance & Premium Wobble/Pulse/Float Animations ───────────────────

@@ -737,4 +737,15 @@ export const customerApi = {
   getReferrals: () => api.get<any>('/loyalty/referrals'),
   validateReferralCode: (referralCode: string) =>
     api.post<any>('/loyalty/referrals/validate', { referralCode }),
+
+  // Account Deletion — requests account deletion with a 30-day grace period
+  requestAccountDeletion: async (data: { reason?: string }): Promise<{ success: boolean; message: string }> => {
+    try {
+      return await api.post<{ success: boolean; message: string }>('/users/me/delete-request', data);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      // Demo mode: simulate successful deletion request
+      return { success: true, message: 'Account deletion request submitted (demo mode)' };
+    }
+  },
 };
