@@ -6,9 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing, Shadows } from '../../constants/theme';
 import AnimatedCounter from '../../components/AnimatedCounter';
+import { customerApi } from '../../lib/api';
 
-const DEMO_REFERRAL_CODE = 'NEXT360-GROW';
-const DEMO_REFERRALS = [
+const DEMO_FALLBACK_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK === 'true';
+const DEMO_REFERRAL_CODE_FALLBACK = 'NEXT360-GROW';
+const DEMO_REFERRALS_FALLBACK = [
   { name: 'Priya S.', date: '12 Jul', reward: 100, status: 'completed' },
   { name: 'Rahul K.', date: '8 Jul', reward: 100, status: 'completed' },
   { name: 'Ananya M.', date: '3 Jul', reward: 100, status: 'pending' },
@@ -17,23 +19,62 @@ const DEMO_REFERRALS = [
 export default function ReferralScreen({ navigation }: any) {
   const [copied, setCopied] = useState(false);
   const copyScale = useRef(new Animated.Value(1)).current;
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<{ name: string; date: string; reward: number; status: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res: any = await customerApi.getReferrals();
+        if (!mounted) return;
+        // backend returns { referralCode, referrals: [...] } or similar — handle both shapes
+        const code = res?.referralCode || res?.code || null;
+        const list = Array.isArray(res?.referrals) ? res.referrals : Array.isArray(res) ? res : null;
+        if (code || (list && list.length)) {
+          setReferralCode(code);
+          if (list) setReferrals(list.map((r: any) => ({ name: r.name || r.referredName || 'Friend', date: r.date || r.createdAt?.slice(5,10) || '', reward: r.reward || r.points || 100, status: r.status || 'completed' })));
+        } else if (DEMO_FALLBACK_ENABLED) {
+          setReferralCode(DEMO_REFERRAL_CODE_FALLBACK);
+          setReferrals(DEMO_REFERRALS_FALLBACK);
+        } else {
+          setReferralCode(null);
+          setReferrals([]);
+        }
+      } catch {
+        if (DEMO_FALLBACK_ENABLED) {
+          setReferralCode(DEMO_REFERRAL_CODE_FALLBACK);
+          setReferrals(DEMO_REFERRALS_FALLBACK);
+        } else {
+          setReferralCode(null);
+          setReferrals([]);
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleShare = async () => {
+    const code = referralCode || DEMO_REFERRAL_CODE_FALLBACK;
     try {
       await Share.share({
-        message: `🌱 Join me on Next360 — the organic marketplace! Use code ${DEMO_REFERRAL_CODE} to get ₹100 off your first order.\n\nDownload: https://next360.app/download`,
+        message: `🌱 Join me on Next360 — the organic marketplace! Use code ${code} to get ₹100 off your first order.\n\nDownload: https://next360.app/download`,
         title: 'Join Next360',
       });
     } catch { /* Share cancelled or failed */ }
   };
 
   const handleCopyCode = async () => {
+    const code = referralCode || DEMO_REFERRAL_CODE_FALLBACK;
     try {
       if (Platform.OS === 'web' && (navigator as any)?.clipboard) {
-        await (navigator as any).clipboard.writeText(DEMO_REFERRAL_CODE);
+        await (navigator as any).clipboard.writeText(code);
       } else {
         const expoClipboard = require('expo-clipboard');
-        if (expoClipboard?.setStringAsync) await expoClipboard.setStringAsync(DEMO_REFERRAL_CODE);
+        if (expoClipboard?.setStringAsync) await expoClipboard.setStringAsync(code);
       }
     } catch { /* Clipboard not available */ }
 
@@ -70,7 +111,7 @@ export default function ReferralScreen({ navigation }: any) {
 
           {/* Referral Code Box */}
           <View style={s.codeBox}>
-            <Text style={s.codeText}>{DEMO_REFERRAL_CODE}</Text>
+            <Text style={s.codeText}>{referralCode || (loading ? '...' : DEMO_FALLBACK_ENABLED ? DEMO_REFERRAL_CODE_FALLBACK : '—')}</Text>
             <Animated.View style={{ transform: [{ scale: copyScale }] }}>
               <TouchableOpacity style={[s.copyBtn, copied && s.copyBtnDone]} onPress={handleCopyCode} activeOpacity={0.8}>
                 <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={copied ? '#FFFFFF' : '#0A0A0A'} />
@@ -133,8 +174,10 @@ export default function ReferralScreen({ navigation }: any) {
         {/* Recent Referrals List */}
         <Text style={s.sectionHeader}>REFERRAL HISTORY</Text>
         <View style={s.card}>
-          {DEMO_REFERRALS.map((ref, idx) => (
-            <View key={ref.name} style={[s.refRow, idx < DEMO_REFERRALS.length - 1 && s.refDivider]}>
+          {referrals.length === 0 ? (
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#757575', textAlign: 'center', paddingVertical: 16 }}>{loading ? 'Loading…' : DEMO_FALLBACK_ENABLED ? 'No referrals yet — share your code!' : 'No referrals yet'}</Text>
+          ) : referrals.map((ref, idx) => (
+            <View key={ref.name} style={[s.refRow, idx < referrals.length - 1 && s.refDivider]}>
               <View style={s.refAvatar}>
                 <Text style={s.refAvatarText}>{ref.name[0]}</Text>
               </View>

@@ -99,6 +99,10 @@ export function AuthProvider({ children, googleSignInRef }: AuthProviderProps) {
   }, []);
 
   const skipAuth = useCallback(() => {
+    if (!__DEV__) {
+      console.warn('[auth] skipAuth is dev-only and is disabled in production');
+      return;
+    }
     setUser({ id: 'dev-user-id', phone: '9999999999', name: 'Dev User', role: 'CUSTOMER' });
   }, []);
 

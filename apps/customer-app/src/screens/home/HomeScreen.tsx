@@ -52,11 +52,12 @@ interface HeroBanner {
   desc: string;
 }
 
-const FALLBACK_HERO_SLIDES: HeroBanner[] = [
+const DEMO_FALLBACK_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK === 'true';
+const FALLBACK_HERO_SLIDES: HeroBanner[] = DEMO_FALLBACK_ENABLED ? [
   { id: 'placeholder-1', offerValue: '27%', offerLabel: 'EXTRA\nDISCOUNT', desc: 'Enjoy your first order with a\nspecial discount!' },
   { id: 'placeholder-2', offerValue: '15%', offerLabel: 'FRESH\nARRIVALS', desc: 'New organic harvest,\njust landed this week!' },
   { id: 'placeholder-3', offerValue: 'FREE', offerLabel: 'DELIVERY\nOVER ₹499', desc: 'Fast, reliable delivery\nright to your doorstep.' },
-];
+] : [];
 
 export default function HomeScreen({ navigation }: any) {
   const { t } = useTranslation();
@@ -67,6 +68,7 @@ export default function HomeScreen({ navigation }: any) {
   const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<HeroBanner[]>(FALLBACK_HERO_SLIDES);
+  // Production must not fabricate discount banners — empty means “no active campaign”, not a fake 27% off
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -134,6 +136,11 @@ export default function HomeScreen({ navigation }: any) {
           desc: b.description || '',
         }));
         setBanners(mapped);
+      } else if (!DEMO_FALLBACK_ENABLED) {
+        // Production: backend returned no banners → show nothing, not a fabricated discount
+        setBanners([]);
+      } else if (FALLBACK_HERO_SLIDES.length > 0) {
+        setBanners(FALLBACK_HERO_SLIDES);
       }
       setError(false);
     } catch {

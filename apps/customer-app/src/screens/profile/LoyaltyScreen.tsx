@@ -59,6 +59,9 @@ export default function LoyaltyScreen({ navigation }: any) {
     fetchLoyaltyData();
   }, []);
 
+  const [error, setError] = useState(false);
+  const DEMO_FALLBACK_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK === 'true';
+
   const fetchLoyaltyData = async () => {
     try {
       const [loyaltyStatus, referrals] = await Promise.all([
@@ -69,11 +72,21 @@ export default function LoyaltyScreen({ navigation }: any) {
       setCurrentTierId(loyaltyStatus.tier?.id || 'SEED');
       setTierPointsEarned(loyaltyStatus.tierPointsEarned || 0);
       setReferralCode(referrals.referralCode || '');
+      setError(false);
     } catch (err) {
-      // Fallback to demo data if API fails
-      setPoints(450);
-      setCurrentTierId('SAPLING');
-      setTierPointsEarned(450);
+      if (DEMO_FALLBACK_ENABLED) {
+        // Demo/preview only: show plausible tier so UI is verifiable without backend
+        setPoints(450);
+        setCurrentTierId('SAPLING');
+        setTierPointsEarned(450);
+        setError(false);
+      } else {
+        // Production: never fabricate points — show error/empty so Play review sees real backend
+        setPoints(0);
+        setCurrentTierId('SEED');
+        setTierPointsEarned(0);
+        setError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -120,6 +133,28 @@ export default function LoyaltyScreen({ navigation }: any) {
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={Colors.organic} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={s.container}>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+            <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>Your Loyalty</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.textSecondary} />
+          <Text style={{ ...Typography.h3, color: Colors.text, marginTop: 12, textAlign: 'center' }}>Unable to load loyalty</Text>
+          <Text style={{ ...Typography.bodySmall, color: Colors.textSecondary, marginTop: 6, textAlign: 'center' }}>Check your connection and try again.</Text>
+          <TouchableOpacity onPress={() => { setLoading(true); setError(false); fetchLoyaltyData(); }} style={{ marginTop: 16, backgroundColor: Colors.organic, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+            <Text style={{ color: '#FFF', fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
