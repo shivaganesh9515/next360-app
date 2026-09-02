@@ -165,7 +165,18 @@ export default function ProductCard({
         <View style={styles.deliveryRow}>
           <Ionicons name="time-outline" size={10} color="#76767A" />
           <Text style={styles.deliveryText}>
-            {product.storeType === 'ORGANIC' ? '10-15 mins • Farm Direct' : product.storeType === 'NATURAL' ? '15-20 mins • Handcrafted' : '20-25 mins • Eco-Safe'}
+            {(() => {
+              const min = product.vendor?.deliveryTimeMin;
+              const max = product.vendor?.deliveryTimeMax;
+              const label = product.vendor?.deliveryLabel;
+              if (min != null && max != null) {
+                return `${min}-${max} mins` + (label ? ` • ${label}` : '');
+              }
+              // Fallback for products without vendor delivery data
+              return product.storeType === 'ORGANIC' ? '10-15 mins • Farm Direct'
+                : product.storeType === 'NATURAL' ? '15-20 mins • Handcrafted'
+                : '20-25 mins • Eco-Safe';
+            })()}
           </Text>
         </View>
 

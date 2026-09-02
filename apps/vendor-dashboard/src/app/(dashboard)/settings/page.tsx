@@ -1,15 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Bell, Shield, Store } from 'lucide-react';
-import { api } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { Save, Bell, Shield, Store, Truck } from 'lucide-react';
+import { api, vendorApi } from '@/lib/api';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('notifications');
   const [notifications, setNotifications] = useState({ orderUpdates: true, lowStock: true, earnings: true, promotions: false });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [deliveryForm, setDeliveryForm] = useState({ deliveryTimeMin: 10, deliveryTimeMax: 20, deliveryLabel: '' });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Load current delivery settings on mount
+  useEffect(() => {
+    vendorApi.getMyProfile().then((profile: any) => {
+      if (profile) {
+        setDeliveryForm({
+          deliveryTimeMin: profile.deliveryTimeMin ?? 10,
+          deliveryTimeMax: profile.deliveryTimeMax ?? 20,
+          deliveryLabel: profile.deliveryLabel ?? '',
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,8 +51,26 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDeliverySave = async () => {
+    setMessage({ type: '', text: '' });
+    if (deliveryForm.deliveryTimeMin >= deliveryForm.deliveryTimeMax) {
+      setMessage({ type: 'error', text: 'Minimum time must be less than maximum time' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await vendorApi.updateMyProfile(deliveryForm);
+      setMessage({ type: 'success', text: 'Delivery settings updated' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const tabs = [
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'delivery', label: 'Delivery', icon: Truck },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'store', label: 'Store Info', icon: Store },
   ];
@@ -78,6 +110,72 @@ export default function SettingsPage() {
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'delivery' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+          <h3 className="font-semibold text-slate-800">Delivery Time Estimates</h3>
+          <p className="text-sm text-slate-500">Set the estimated delivery window customers see on your product cards.</p>
+
+          {message.text && activeTab === 'delivery' && (
+            <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+              {message.text}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Min Time (mins)</label>
+              <input
+                type="number"
+                min={5}
+                max={120}
+                value={deliveryForm.deliveryTimeMin}
+                onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryTimeMin: Number(e.target.value) })}
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Max Time (mins)</label>
+              <input
+                type="number"
+                min={10}
+                max={180}
+                value={deliveryForm.deliveryTimeMax}
+                onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryTimeMax: Number(e.target.value) })}
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Label</label>
+            <input
+              type="text"
+              value={deliveryForm.deliveryLabel}
+              onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryLabel: e.target.value })}
+              placeholder="e.g. Farm Direct, Handcrafted, Eco-Safe"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+            <p className="text-xs text-slate-400 mt-1">Shown next to the delivery time on product cards (optional)</p>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-lg">
+            <p className="text-sm text-slate-600">
+              <span className="font-medium">Preview:</span>{' '}
+              {deliveryForm.deliveryTimeMin}-{deliveryForm.deliveryTimeMax} mins
+              {deliveryForm.deliveryLabel ? ` • ${deliveryForm.deliveryLabel}` : ''}
+            </p>
+          </div>
+
+          <button
+            onClick={handleDeliverySave}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Delivery Settings'}
+          </button>
         </div>
       )}
 

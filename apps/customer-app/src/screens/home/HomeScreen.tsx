@@ -3,14 +3,6 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Image,
   RefreshControl, ScrollView, Dimensions, Animated, Platform,
 } from 'react-native';
-import Reanimated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  interpolate,
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -50,8 +42,6 @@ function getGreetingWord() {
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const HERO_FALLBACK_HEIGHT = 300;
-
 const HERO_PLACEHOLDER_IMAGE = require('../../../assets/images/hero-plate.png');
 
 interface HeroBanner {
@@ -81,43 +71,43 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [deliveryFilter, setDeliveryFilter] = useState<number | null>(null);
+  const [sortByDelivery, setSortByDelivery] = useState(false);
+  const bannerScrollRef = useRef<ScrollView>(null);
+  const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isUserDragging = useRef(false);
+
+  // ── Auto-scroll banner carousel ───────────────────────────────────────────
+  const startAutoScroll = useCallback(() => {
+    if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
+    autoScrollTimer.current = setInterval(() => {
+      if (isUserDragging.current) return;
+      setActiveSlide((prev) => {
+        const next = (prev + 1) % banners.length;
+        bannerScrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+        return next;
+      });
+    }, 4000);
+  }, [banners.length]);
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollTimer.current) {
+      clearInterval(autoScrollTimer.current);
+      autoScrollTimer.current = null;
+    }
+  }, []);
+
+  // Start / restart auto-scroll when banners change
+  useEffect(() => {
+    startAutoScroll();
+    return stopAutoScroll;
+  }, [startAutoScroll, stopAutoScroll]);
 
   // ── Entrance animations ────────────────────────────────────────────────────
   const contentAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.spring(contentAnim, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }).start();
   }, []);
-
-  // ── Reanimated float & wobble loops (SLICK-DESIGN-PATTERN-V1) ───────────────
-  const floatAnim = useSharedValue(0);
-  const wobbleAnim = useSharedValue(0);
-
-  useEffect(() => {
-    floatAnim.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200 }),
-        withTiming(0, { duration: 2200 })
-      ),
-      -1,
-      true
-    );
-    wobbleAnim.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2800 }),
-        withTiming(-1, { duration: 2800 })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const floatStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(floatAnim.value, [0, 1], [-5, 5]);
-    const rotate = interpolate(wobbleAnim.value, [-1, 1], [-2.5, 2.5]);
-    return {
-      transform: [{ translateY }, { rotate: `${rotate}deg` }],
-    };
-  });
 
   const accent = getStoreAccent(storeType);
   const accentTint = getStoreAccentLight(storeType);
@@ -138,10 +128,10 @@ export default function HomeScreen({ navigation }: any) {
       if (bannerList && bannerList.length > 0) {
         const mapped: HeroBanner[] = bannerList.map((b: any) => ({
           id: b.id,
-          imageUrl: b.imageUrl || b.image,
-          offerValue: b.title || b.offerValue || '',
-          offerLabel: b.subtitle || b.offerLabel || '',
-          desc: b.description || b.desc || '',
+          imageUrl: b.imageUrl,
+          offerValue: b.title || '',
+          offerLabel: b.subtitle || '',
+          desc: b.description || '',
         }));
         setBanners(mapped);
       }
@@ -207,14 +197,17 @@ export default function HomeScreen({ navigation }: any) {
         {/* Banner carousel */}
         <View style={s.carouselContainer}>
           <ScrollView
+            ref={bannerScrollRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
+            onScrollBeginDrag={() => { isUserDragging.current = true; }}
+            onScrollEndDrag={() => { isUserDragging.current = false; }}
             onMomentumScrollEnd={(e) => {
               const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
               setActiveSlide(idx);
             }}
-            style={{ marginTop: Spacing.xs }}
+            style={{ marginTop: Spacing.sm }}
           >
             {banners.map((slide) => {
               const hasImage = !!slide.imageUrl;
@@ -222,7 +215,7 @@ export default function HomeScreen({ navigation }: any) {
                 <View key={slide.id} style={[s.heroSlide, { width: SCREEN_WIDTH }]}>
                   <TouchableOpacity activeOpacity={0.95} onPress={() => navigation.navigate('Promos')}>
                     <LinearGradient
-                      colors={hasImage ? ['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.45)'] : [accent, accentDark]}
+                      colors={hasImage ? ['rgba(0,0,0,0.72)', 'rgba(0,0,0,0.52)'] : [accent, accentDark]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={s.bannerCard}
@@ -230,13 +223,13 @@ export default function HomeScreen({ navigation }: any) {
                       {hasImage && (
                         <Image
                           source={{ uri: slide.imageUrl }}
-                          style={[StyleSheet.absoluteFill, { opacity: 0.3 }]}
+                          style={[StyleSheet.absoluteFill, { opacity: 0.25 }]}
                           resizeMode="cover"
                         />
                       )}
-                      
+
                       <View style={s.heroCopy}>
-                        <View style={[s.bannerTag, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                        <View style={[s.bannerTag, { backgroundColor: accent }]}>
                           <Text style={s.bannerTagText}>LIMITED OFFER</Text>
                         </View>
                         <View style={s.offerRow}>
@@ -246,12 +239,10 @@ export default function HomeScreen({ navigation }: any) {
                         <Text style={s.heroDesc}>{slide.desc}</Text>
                       </View>
 
-                      <Reanimated.View style={[s.glassBubble, floatStyle]}>
-                        <Image
-                          source={slide.imageUrl ? { uri: slide.imageUrl } : HERO_PLACEHOLDER_IMAGE}
-                          style={s.glassBubbleImg}
-                        />
-                      </Reanimated.View>
+                      <View style={s.bannerCTARow}>
+                        <Text style={[s.bannerCTAText, { color: '#FFFFFF' }]}>Shop now</Text>
+                        <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                      </View>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -339,12 +330,61 @@ export default function HomeScreen({ navigation }: any) {
             </Animated.View>
           )}
 
+          {/* Delivery Speed Filter + Sort */}
+          <View style={s.deliveryFilterWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.deliveryFilterScroll}>
+              {[
+                { label: 'All', value: null, icon: 'grid-outline' as const },
+                { label: 'Under 15 min', value: 15, icon: 'flash-outline' as const },
+                { label: 'Under 20 min', value: 20, icon: 'flash-outline' as const },
+                { label: 'Under 30 min', value: 30, icon: 'flash-outline' as const },
+              ].map((opt) => {
+                const active = deliveryFilter === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.label}
+                    style={[s.deliveryFilterChip, active && { backgroundColor: accent, borderColor: accent }]}
+                    onPress={() => setDeliveryFilter(opt.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={opt.icon} size={12} color={active ? '#FFFFFF' : accent} />
+                    <Text style={[s.deliveryFilterText, active && { color: '#FFFFFF' }]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={[s.deliveryFilterChip, sortByDelivery && { backgroundColor: accent, borderColor: accent }]}
+                onPress={() => setSortByDelivery((prev) => !prev)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={sortByDelivery ? 'arrow-down' : 'swap-vertical'} size={12} color={sortByDelivery ? '#FFFFFF' : accent} />
+                <Text style={[s.deliveryFilterText, sortByDelivery && { color: '#FFFFFF' }]}>Fastest first</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
           {/* Product Grid */}
+          {(() => {
+            let filtered = deliveryFilter != null
+              ? products.filter((p) => p.vendor?.deliveryTimeMax != null && p.vendor.deliveryTimeMax <= deliveryFilter)
+              : [...products];
+            if (sortByDelivery) {
+              filtered.sort((a, b) => {
+                const aTime = a.vendor?.deliveryTimeMax ?? 999;
+                const bTime = b.vendor?.deliveryTimeMax ?? 999;
+                return aTime - bTime;
+              });
+            }
+
+            return (
           <Animated.View style={animatedContentStyle}>
             <View style={s.sectionHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={s.sectionLabel}>{t('home.section.popularIn', { storeLabel }).toUpperCase()}</Text>
                 <Text style={s.sectionTitle}>{t('home.section.popularIn', { storeLabel })}</Text>
+                {deliveryFilter != null && (
+                  <Text style={s.deliveryFilterHint}>Showing items with delivery under {deliveryFilter} min</Text>
+                )}
               </View>
               <TouchableOpacity
                 style={s.seeAllBtn}
@@ -363,13 +403,16 @@ export default function HomeScreen({ navigation }: any) {
                 <View style={{ width: '100%' }}>
                   <ErrorState message={t('home.error.loadProducts')} onRetry={load} />
                 </View>
-              ) : products.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <View style={s.emptyState}>
-                  <Ionicons name="leaf-outline" size={36} color={Colors.textSecondary} />
-                  <Text style={s.emptyText}>{t('home.empty.noProducts', { storeLabel })}</Text>
+                  <Ionicons name="time-outline" size={36} color={Colors.textSecondary} />
+                  <Text style={s.emptyText}>No products with delivery under {deliveryFilter} min</Text>
+                  <TouchableOpacity onPress={() => setDeliveryFilter(null)}>
+                    <Text style={[s.emptyText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>Clear filter</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
-                products.map((product, index) => (
+                filtered.map((product, index) => (
                   <StaggerFadeIn key={product.id} index={index}>
                     <ProductCard
                       product={product}
@@ -382,6 +425,8 @@ export default function HomeScreen({ navigation }: any) {
               )}
             </View>
           </Animated.View>
+          );
+          })()}
 
           <View style={{ height: 100 }} />
         </SafeAreaView>
@@ -473,39 +518,38 @@ const s = StyleSheet.create({
   },
 
   carouselContainer: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   heroSlide: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   bannerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     width: SCREEN_WIDTH - Spacing.xl * 2,
     marginHorizontal: Spacing.xl,
-    borderRadius: 30,
+    borderRadius: 22,
     padding: Spacing.xl,
+    paddingVertical: Spacing.xl + 4,
     overflow: 'hidden',
     position: 'relative',
-    height: 200,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    height: 220,
   },
   bannerTag: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: BorderRadius.pill,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   bannerTagText: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 8,
+    fontSize: 9,
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   heroBody: { marginTop: Spacing.xs },
   heroDots: {
@@ -513,10 +557,10 @@ const s = StyleSheet.create({
     marginTop: Spacing.md,
   },
   heroDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(28, 27, 23, 0.15)',
+    width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(28, 27, 23, 0.12)',
   },
-  heroDotActive: { width: 18 },
-  heroCopy: { flex: 1, paddingRight: Spacing.md, justifyContent: 'center' },
+  heroDotActive: { width: 20, borderRadius: 4 },
+  heroCopy: { flex: 1, justifyContent: 'center' },
   offerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   offerValue: { fontFamily: 'Inter_800ExtraBold', fontSize: 40, color: '#FFFFFF', letterSpacing: -1 },
   offerLabel: {
@@ -524,24 +568,20 @@ const s = StyleSheet.create({
     fontSize: 13, lineHeight: 16, letterSpacing: 0.2,
   },
   heroDesc: {
-    fontFamily: 'Inter_400Regular', color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, lineHeight: 18, marginTop: 4,
+    fontFamily: 'Inter_400Regular', color: 'rgba(255, 255, 255, 0.75)', fontSize: 13, lineHeight: 18, marginTop: 6,
   },
-  glassBubble: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+  bannerCTARow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    gap: 4,
+    marginTop: Spacing.md,
   },
-  glassBubbleImg: {
-    width: '75%',
-    height: '75%',
-    resizeMode: 'contain',
+  bannerCTAText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    letterSpacing: 0.2,
   },
+  // Removed glassBubble — clean banner layout
 
   // ══ Section Headers (matching ProfileScreen style) ═══════════════════════════
   sectionHeader: {
@@ -634,7 +674,37 @@ const s = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
 
-  catScroll: { paddingHorizontal: Spacing.xl, gap: Spacing.md, marginBottom: Spacing.sm },
+  catScroll: { paddingHorizontal: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing.xs },
+
+  deliveryFilterWrap: {
+    marginBottom: Spacing.md,
+  },
+  deliveryFilterScroll: {
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  deliveryFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  deliveryFilterText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: Colors.text,
+  },
+  deliveryFilterHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: Spacing.xl },
 

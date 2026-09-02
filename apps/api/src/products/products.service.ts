@@ -40,7 +40,7 @@ export class ProductsService {
       },
       include: {
         category: { select: { name: true } },
-        vendor: { select: { storeName: true } },
+        vendor: { select: { storeName: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
       },
     });
   }
@@ -107,7 +107,7 @@ export class ProductsService {
         orderBy,
         include: {
           category: { select: { id: true, name: true, slug: true } },
-          vendor: { select: { id: true, storeName: true, storeSlug: true } },
+          vendor: { select: { id: true, storeName: true, storeSlug: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
           _count: { select: { reviews: true } },
         },
       }),
@@ -173,7 +173,7 @@ export class ProductsService {
       data: safeDto,
       include: {
         category: { select: { name: true } },
-        vendor: { select: { storeName: true } },
+        vendor: { select: { storeName: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
       },
     });
   }
@@ -207,7 +207,7 @@ export class ProductsService {
       data: { isApproved: true, isActive: true },
       include: {
         category: { select: { name: true } },
-        vendor: { select: { storeName: true } },
+        vendor: { select: { storeName: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
       },
     });
   }

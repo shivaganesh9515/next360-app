@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Animated,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Animated, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,11 +29,13 @@ export default function ReferralScreen({ navigation }: any) {
 
   const handleCopyCode = async () => {
     try {
-      const expoClipboard = require('expo-clipboard');
-      if (expoClipboard?.setStringAsync) {
-        await expoClipboard.setStringAsync(DEMO_REFERRAL_CODE);
+      if (Platform.OS === 'web' && (navigator as any)?.clipboard) {
+        await (navigator as any).clipboard.writeText(DEMO_REFERRAL_CODE);
+      } else {
+        const expoClipboard = require('expo-clipboard');
+        if (expoClipboard?.setStringAsync) await expoClipboard.setStringAsync(DEMO_REFERRAL_CODE);
       }
-    } catch { /* Share cancelled or failed */ }
+    } catch { /* Clipboard not available */ }
 
     Animated.sequence([
       Animated.spring(copyScale, { toValue: 0.92, useNativeDriver: true }),

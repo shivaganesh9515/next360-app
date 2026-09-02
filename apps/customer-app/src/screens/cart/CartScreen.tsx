@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, Animated,
+  View, Text, SectionList, TouchableOpacity, StyleSheet, Animated,
   ActivityIndicator, Alert, Image, LayoutAnimation, RefreshControl,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -155,18 +155,23 @@ export default function CartScreen({ navigation }: any) {
   const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN')}`;
   const total = subtotal + DELIVERY_FEE;
 
-  // Group items by vendor for section headers
+  // Group items by vendor for section headers with delivery info
   const sections = useMemo(() => {
-    const groups: Record<string, CartItemType[]> = {};
+    const groups: Record<string, { data: CartItemType[]; vendor?: any }> = {};
     cartItems.forEach((item: any) => {
-      const name = item?.vendorName || item?.product?.vendor?.storeName || item?.product?.vendorName || 'Other';
-      if (!groups[name]) groups[name] = [];
-      groups[name].push(item);
+      const vendor = item?.product?.vendor;
+      const name = item?.vendorName || vendor?.storeName || item?.product?.vendorName || 'Other';
+      if (!groups[name]) groups[name] = { data: [], vendor };
+      groups[name].data.push(item);
     });
-    return Object.entries(groups).map(([vendor, data]) => ({
+    return Object.entries(groups).map(([vendorName, { data, vendor }]) => ({
+      title: vendorName,
       vendor,
+      subtotal: data.reduce((sum: number, item: any) => {
+        const price = Number(item.product?.price || 0);
+        return sum + price * item.quantity;
+      }, 0),
       data,
-      itemCount: data.length,
     }));
   }, [cartItems]);
 
@@ -214,10 +219,47 @@ export default function CartScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* Cart Items */}
-      <FlatList
-        data={cartItems}
+      {/* Cart Items grouped by vendor */}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
+        renderSectionHeader={({ section }) => {
+          const min = section.vendor?.deliveryTimeMin;
+          const max = section.vendor?.deliveryTimeMax;
+          const label = section.vendor?.deliveryLabel;
+          const vendorId = section.vendor?.id;
+          return (
+            <TouchableOpacity
+              style={styles.vendorSectionHeader}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (vendorId) {
+                  navigation.navigate('VendorStorefront', { vendorId, vendorName: section.title });
+                }
+              }}
+            >
+              <View style={styles.vendorSectionLeft}>
+                <View style={[styles.vendorSectionDot, { backgroundColor: Colors.organic }]} />
+                <Text style={styles.vendorSectionName}>{section.title}</Text>
+                <Text style={styles.vendorSectionCount}>{section.data.length} item{section.data.length > 1 ? 's' : ''}</Text>
+              </View>
+              <View style={styles.vendorSectionRight}>
+                <Text style={styles.vendorSectionSubtotal}>₹{section.subtotal.toLocaleString('en-IN')}</Text>
+                {min != null && max != null && (
+                  <View style={styles.vendorSectionDelivery}>
+                    <Ionicons name="time-outline" size={11} color={Colors.organic} />
+                    <Text style={styles.vendorSectionDeliveryText}>
+                      {min}-{max} min{label ? ` • ${label}` : ''}
+                    </Text>
+                  </View>
+                )}
+                {vendorId && (
+                  <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} style={{ marginLeft: 2 }} />
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        }}
         renderItem={({ item, index }) => (
           <CartItemRow
             item={item}
@@ -227,6 +269,7 @@ export default function CartScreen({ navigation }: any) {
           />
         )}
         contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.organic]} />
         }
@@ -304,6 +347,59 @@ const styles = StyleSheet.create({
   listContent: {
     padding: Spacing.lg,
     paddingBottom: 220,
+  },
+  vendorSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingHorizontal: 4,
+  },
+  vendorSectionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  vendorSectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  vendorSectionName: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: Colors.text,
+  },
+  vendorSectionCount: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textSecondary,
+  },
+  vendorSectionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  vendorSectionSubtotal: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: Colors.brass,
+  },
+  vendorSectionDelivery: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.organicLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.pill,
+  },
+  vendorSectionDeliveryText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
+    color: Colors.organic,
   },
   cartItem: {
     flexDirection: 'row',

@@ -20,6 +20,10 @@ export default function VendorsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirmAction, setBulkConfirmAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkDeliveryOpen, setBulkDeliveryOpen] = useState(false);
+  const [bulkDeliveryMin, setBulkDeliveryMin] = useState('10');
+  const [bulkDeliveryMax, setBulkDeliveryMax] = useState('20');
+  const [bulkDeliveryLabel, setBulkDeliveryLabel] = useState('');
 
   const statusLabels: Record<string, string> = {
     ALL: 'All',
@@ -84,6 +88,38 @@ export default function VendorsPage() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  const handleBulkDeliverySave = async () => {
+    const min = parseInt(bulkDeliveryMin, 10);
+    const max = parseInt(bulkDeliveryMax, 10);
+    if (!min || !max || min >= max || min < 1 || max > 180) {
+      alert('Please enter valid delivery times (min < max, 1-180 mins).');
+      return;
+    }
+    setBulkProcessing(true);
+    const ids = Array.from(selectedIds);
+    let successCount = 0;
+    let failCount = 0;
+    for (const id of ids) {
+      try {
+        await adminApi.updateVendor(id, {
+          deliveryTimeMin: min,
+          deliveryTimeMax: max,
+          deliveryLabel: bulkDeliveryLabel || null,
+        });
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    setBulkDeliveryOpen(false);
+    setSelectedIds(new Set());
+    await loadVendors();
+    setBulkProcessing(false);
+    if (failCount > 0) {
+      alert(`Delivery times updated for ${successCount} vendor(s), ${failCount} failed.`);
+    }
+  };
+
   const handleBulkAction = async (action: 'APPROVED' | 'REJECTED') => {
     setBulkProcessing(true);
     const ids = Array.from(selectedIds);
@@ -136,6 +172,17 @@ export default function VendorsPage() {
     { key: 'ownerName', label: 'Owner', render: (v: any) => v.ownerName || v.user?.name || '-' },
     { key: 'email', label: 'Email', render: (v: any) => v.email || v.user?.email || '-' },
     { key: 'storeType', label: 'Store Type', render: (v: any) => <StatusBadge status={v.storeType} /> },
+    { key: 'delivery', label: 'Delivery', render: (v: any) => {
+      const min = v.deliveryTimeMin;
+      const max = v.deliveryTimeMax;
+      const label = v.deliveryLabel;
+      if (min == null || max == null) return <span className="text-gray-400 text-xs">—</span>;
+      return (
+        <span className="text-sm text-gray-700">
+          {min}-{max} min{label ? <span className="text-gray-400"> • {label}</span> : ''}
+        </span>
+      );
+    }},
     { key: 'status', label: 'Status', render: (v: any) => <StatusBadge status={v.status} /> },
     { key: 'productsCount', label: 'Products', render: (v: any) => v._count?.products || v.productsCount || 0 },
     { key: 'createdAt', label: 'Joined', render: (v: any) => new Date(v.createdAt).toLocaleDateString() },
@@ -207,6 +254,13 @@ export default function VendorsPage() {
           </span>
           <div className="flex-1" />
           <button
+            onClick={() => setBulkDeliveryOpen(true)}
+            disabled={bulkProcessing}
+            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1.5"
+          >
+            🕐 Set Delivery
+          </button>
+          <button
             onClick={() => setBulkConfirmAction('APPROVED')}
             disabled={bulkProcessing}
             className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60 flex items-center gap-1.5"
@@ -277,6 +331,79 @@ export default function VendorsPage() {
               >
                 {processing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 {processing ? `${confirmAction.label}ing...` : confirmAction.label}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkDeliveryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">
+              Set Delivery Time — {selectedIds.size} Vendor{selectedIds.size !== 1 ? 's' : ''}
+            </h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Update delivery estimates for all selected vendors.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Min (mins)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={bulkDeliveryMin}
+                  onChange={(e) => setBulkDeliveryMin(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Max (mins)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={bulkDeliveryMax}
+                  onChange={(e) => setBulkDeliveryMax(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Label (optional)</label>
+              <input
+                type="text"
+                value={bulkDeliveryLabel}
+                onChange={(e) => setBulkDeliveryLabel(e.target.value)}
+                placeholder="e.g. Farm Direct, Handcrafted"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-5">
+              <p className="text-xs text-blue-700 font-medium">
+                Preview: {bulkDeliveryMin || '?'}-{bulkDeliveryMax || '?'} min{bulkDeliveryLabel ? ` • ${bulkDeliveryLabel}` : ''}
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setBulkDeliveryOpen(false)}
+                disabled={bulkProcessing}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDeliverySave}
+                disabled={bulkProcessing}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+              >
+                {bulkProcessing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {bulkProcessing ? 'Saving...' : 'Save to All'}
               </button>
             </div>
           </div>

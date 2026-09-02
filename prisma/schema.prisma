@@ -173,6 +173,9 @@ model Vendor {
   description      String?
   logoUrl          String?
   bannerUrl        String?
+  deliveryTimeMin  Int          @default(10)   // minimum delivery estimate in minutes
+  deliveryTimeMax  Int          @default(20)   // maximum delivery estimate in minutes
+  deliveryLabel    String?      // short tagline shown with delivery time (e.g. "Farm Direct", "Handcrafted")
   status           VendorStatus @default(PENDING)
   commissionPct    Float        @default(10.0)
   razorpayAccountId String?
@@ -619,14 +622,17 @@ model CMS_Page {
 }
 
 model Banner {
-  id        String    @id @default(uuid())
-  title     String?
-  imageUrl  String
-  linkUrl   String?
-  storeType StoreType
-  position  Int       @default(0)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
+  id           String    @id @default(uuid())
+  title        String?
+  subtitle     String?   // short label next to title (e.g. "EXTRA\nDISCOUNT")
+  offerLabel   String?   // compact tagline (e.g. "FRESH ARRIVALS")
+  description  String?   // longer description shown below the offer
+  imageUrl     String
+  linkUrl      String?
+  storeType    StoreType
+  position     Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
 }
 
 model Role {

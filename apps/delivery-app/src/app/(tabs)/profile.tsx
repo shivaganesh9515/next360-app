@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, A
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import { deliveryApi } from '../../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useStaggeredEntrance, useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
@@ -127,11 +128,17 @@ export default function ProfileScreen() {
               {
                 text: 'Request Deletion',
                 style: 'destructive',
-                onPress: () => {
-                  Alert.alert(
-                    'Request Submitted',
-                    'Your account deletion request has been registered. Our support team will process it and send confirmation to your registered email/phone.'
-                  );
+                onPress: async () => {
+                  try {
+                    await deliveryApi.deleteAccount();
+                    await signOut();
+                    router.replace('/(auth)/login');
+                  } catch {
+                    Alert.alert(
+                      'Something went wrong',
+                      'We could not process your deletion request right now. Please contact support.'
+                    );
+                  }
                 },
               },
             ]

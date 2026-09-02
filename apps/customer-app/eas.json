@@ -27,11 +27,11 @@
       "distribution": "store",
       "autoIncrement": true,
       "env": {
+        "NODE_ENV": "production",
         "EXPO_PUBLIC_ENABLE_DEMO_FALLBACK": "false",
-        "EXPO_PUBLIC_API_URL": "https://YOUR-RAILWAY-URL-OR-OTHER-HOST/api",
+        "EXPO_PUBLIC_API_URL": "https://api.next360.com/api",
         "EXPO_PUBLIC_SUPABASE_URL": "https://dwjrflijewoxcopgiwmx.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3anJmbGlqZXdveGNvcGdpd214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzODkyNDYsImV4cCI6MjA4ODk2NTI0Nn0.gWMIJDBracNDVhkp5G1Qcwfh33m5eVEbERa-Jfq0xIM",
-        "EXPO_PUBLIC_SENTRY_DSN": "YOUR_SENTRY_DSN_HERE"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3anJmbGlqZXdveGNvcGdpd214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzODkyNDYsImV4cCI6MjA4ODk2NTI0Nn0.gWMIJDBracNDVhkp5G1Qcwfh33m5eVEbERa-Jfq0xIM"
       }
     }
   },

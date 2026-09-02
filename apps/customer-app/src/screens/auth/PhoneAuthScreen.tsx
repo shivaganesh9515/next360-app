@@ -11,16 +11,18 @@ import { isSupabaseConfigured, getSupabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import BigButton from '../../components/BigButton';
 
-const COUNTRY_CODE = '+91'; // India-only launch per CLAUDE.md zone gating
 const GOOGLE_LOGO = require('../../../assets/images/google-logo.png');
 
-// Zomato-style single-field entry point — no password, no separate signup
-// screen. One phone number, one OTP screen (VerificationCodeScreen) decides
-// login-vs-signup server-side (or in its demo fallback) based on whether the
-// number already has an account.
+// Cost-saving auth: phone OTP (DLT) removed for Customer App to save SMS spend.
+// Only Google + Apple remain as primary login. Phone flow code is hidden behind
+// ENABLE_PHONE_AUTH flag — Delivery App still uses phone OTP (its own screen).
+// To re-enable phone for customers later, set ENABLE_PHONE_AUTH=true and DLT envs.
+const ENABLE_PHONE_AUTH = false;
+const COUNTRY_CODE = '+91';
+
 export default function PhoneAuthScreen({ navigation }: any) {
   const { t } = useTranslation();
-  const { sendOtp, googleSignIn, skipAuth } = useAuth();
+  const { sendOtp, googleSignIn, appleSignIn, skipAuth } = useAuth() as any;
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -88,23 +90,35 @@ export default function PhoneAuthScreen({ navigation }: any) {
   const handleAppleSignIn = async () => {
     setAppleLoading(true);
     try {
+      // 1) Try native Apple Sign In on iOS device
+      try {
+        const AppleAuth: any = require('expo-apple-authentication');
+        if (AppleAuth?.isAvailableAsync) {
+          const avail = await AppleAuth.isAvailableAsync();
+          if (avail) {
+            const cred = await AppleAuth.signInAsync({
+              requestedScopes: [AppleAuth.AppleAuthenticationScope.FULL_NAME, AppleAuth.AppleAuthenticationScope.EMAIL],
+            });
+            const email = cred.email || `${cred.user}@privaterelay.appleid.com`;
+            const fullName = cred.fullName ? `${cred.fullName.givenName || ''} ${cred.fullName.familyName || ''}`.trim() : undefined;
+            await appleSignIn({ email, appleId: cred.user, identityToken: cred.identityToken || undefined, name: fullName || undefined });
+            return;
+          }
+        }
+      } catch (_) { /* fall through */ }
+
+      // 2) Supabase OAuth (web / Android)
       if (isSupabaseConfigured()) {
         const supabase = getSupabase();
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'apple',
-          options: { redirectTo: 'next360://auth/callback' },
-        });
+        const { error } = await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: 'next360://auth/callback' } });
         if (error) throw error;
         return;
       }
 
-      await googleSignIn({
-        email: 'demo@appleuser.com',
-        googleId: 'demo-apple-user',
-        name: 'Apple Demo User',
-        avatarUrl: undefined,
-      });
+      // 3) Demo fallback (no backend)
+      await appleSignIn({ email: 'demo@appleuser.com', appleId: 'demo-apple-user', name: 'Apple Demo User' });
     } catch (err: any) {
+      if (err?.code === 'ERR_REQUEST_CANCELED') return;
       Alert.alert('Apple Sign-In Failed', err.message || 'Could not sign in with Apple');
     } finally {
       setAppleLoading(false);
@@ -132,76 +146,72 @@ export default function PhoneAuthScreen({ navigation }: any) {
             <Text style={s.brandLabel}>NEXT360</Text>
           </View>
 
-          <Text style={s.title}>{t('auth.welcome.title')}</Text>
-          <Text style={s.subtitle}>{t('auth.welcome.subtitle')}</Text>
+          <Text style={s.title}>{ENABLE_PHONE_AUTH ? t('auth.welcome.title') : 'Welcome to Next360'}</Text>
+          <Text style={s.subtitle}>{ENABLE_PHONE_AUTH ? t('auth.welcome.subtitle') : 'Sign in to shop organic, natural & eco-friendly products'}</Text>
 
           <View style={s.form}>
-            <View style={[
-              s.field, 
-              focused && [s.fieldFocused, { borderColor: Colors.organic }],
-              !!error && s.fieldError
-            ]}>
-              <Text style={s.prefix}>{COUNTRY_CODE}</Text>
-              <View style={s.prefixDivider} />
-              <TextInput
-                style={s.input}
-                value={phone}
-                onChangeText={handleChangePhone}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                placeholder={t('auth.phone.placeholder')}
-                placeholderTextColor={Colors.textSecondary}
-                keyboardType="phone-pad"
-                maxLength={10}
-                autoFocus
-              />
-            </View>
-            {!!error && <Text style={s.error}>{error}</Text>}
+            {ENABLE_PHONE_AUTH && (
+              <>
+                <View style={[
+                  s.field, 
+                  focused && [s.fieldFocused, { borderColor: Colors.organic }],
+                  !!error && s.fieldError
+                ]}>
+                  <Text style={s.prefix}>{COUNTRY_CODE}</Text>
+                  <View style={s.prefixDivider} />
+                  <TextInput
+                    style={s.input}
+                    value={phone}
+                    onChangeText={handleChangePhone}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    placeholder={t('auth.phone.placeholder')}
+                    placeholderTextColor={Colors.textSecondary}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    autoFocus
+                  />
+                </View>
+                {!!error && <Text style={s.error}>{error}</Text>}
 
-            <BigButton
-              label={t('common.continue')}
-              onPress={handleContinue}
-              loading={loading}
-              disabled={!isValid}
-              style={{ marginTop: Spacing.md, height: 52 }}
-            />
+                <BigButton
+                  label={t('common.continue')}
+                  onPress={handleContinue}
+                  loading={loading}
+                  disabled={!isValid}
+                  style={{ marginTop: Spacing.md, height: 52 }}
+                />
 
-            {/* Divider */}
-            <View style={s.divider}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerText}>or continue with</Text>
-              <View style={s.dividerLine} />
-            </View>
+                <View style={s.divider}>
+                  <View style={s.dividerLine} />
+                  <Text style={s.dividerText}>or continue with</Text>
+                  <View style={s.dividerLine} />
+                </View>
 
-            <View style={s.socialRow}>
-              {/* Google Sign-In */}
-              <TouchableOpacity
-                style={s.socialBtn}
-                onPress={handleGoogleSignIn}
-                disabled={googleLoading}
-                activeOpacity={0.85}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator size="small" color={Colors.text} />
-                ) : (
-                  <Image source={GOOGLE_LOGO} style={s.socialIcon} />
-                )}
-              </TouchableOpacity>
+                <View style={s.socialRow}>
+                  <TouchableOpacity style={s.socialBtn} onPress={handleGoogleSignIn} disabled={googleLoading} activeOpacity={0.85}>
+                    {googleLoading ? <ActivityIndicator size="small" color={Colors.text} /> : <Image source={GOOGLE_LOGO} style={s.socialIcon} />}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.socialBtn} onPress={handleAppleSignIn} disabled={appleLoading} activeOpacity={0.85}>
+                    {appleLoading ? <ActivityIndicator size="small" color={Colors.text} /> : <Ionicons name="logo-apple" size={26} color="#000000" />}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
 
-              {/* Apple Sign-In */}
-              <TouchableOpacity
-                style={s.socialBtn}
-                onPress={handleAppleSignIn}
-                disabled={appleLoading}
-                activeOpacity={0.85}
-              >
-                {appleLoading ? (
-                  <ActivityIndicator size="small" color={Colors.text} />
-                ) : (
-                  <Ionicons name="logo-apple" size={26} color="#000000" />
-                )}
-              </TouchableOpacity>
-            </View>
+            {!ENABLE_PHONE_AUTH && (
+              <>
+                <TouchableOpacity style={s.socialBtnPrimary} onPress={handleGoogleSignIn} disabled={googleLoading} activeOpacity={0.85}>
+                  {googleLoading ? <ActivityIndicator size="small" color={Colors.text} /> : <Image source={GOOGLE_LOGO} style={s.socialIcon} />}
+                  <Text style={s.socialBtnPrimaryText}>Continue with Google</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[s.socialBtnPrimary, s.socialBtnPrimaryApple]} onPress={handleAppleSignIn} disabled={appleLoading} activeOpacity={0.85}>
+                  {appleLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="logo-apple" size={22} color="#FFFFFF" />}
+                  <Text style={s.socialBtnPrimaryTextApple}>Continue with Apple</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           <Text style={s.terms}>
@@ -334,5 +344,53 @@ const s = StyleSheet.create({
     width: 24,
     height: 24,
     resizeMode: 'contain',
+  },
+  socialBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 14,
+  },
+  socialBtnPrimaryText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: Colors.text,
+  },
+  socialBtnPrimaryApple: {
+    backgroundColor: '#111111',
+    borderColor: '#111111',
+  },
+  socialBtnPrimaryTextApple: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  saveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#F1F8E9',
+    borderWidth: 1,
+    borderColor: '#E8F5E9',
+  },
+  saveBadgeText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
 });

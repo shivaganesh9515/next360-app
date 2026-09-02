@@ -10,6 +10,7 @@ import { CommissionService } from '../commission/commission.service';
 import { OffersService } from '../offers/offers.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
@@ -56,6 +57,7 @@ export class OrdersService {
     private readonly offersService: OffersService,
     private readonly notificationsService: NotificationsService,
     private readonly loyaltyService: LoyaltyService,
+    private readonly referralsService: ReferralsService,
   ) {}
 
   /**
@@ -285,7 +287,7 @@ export class OrdersService {
 
     // Process referral reward if this is the user's first purchase
     try {
-      await this.loyaltyService.processReferralReward(userId, order.id);
+      await this.referralsService.processReferralReward(userId, order.id);
     } catch (error: any) {
       this.logger.error(
         `Failed to process referral for order ${order.id}: ${error.message}`,
@@ -350,7 +352,7 @@ export class OrdersService {
         include: {
           vendorGroups: {
             include: {
-              vendor: { select: { id: true, storeName: true } },
+              vendor: { select: { id: true, storeName: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
               items: {
                 include: { product: { select: { id: true, name: true, images: true } } },
               },
@@ -436,7 +438,7 @@ export class OrdersService {
       include: {
         vendorGroups: {
           include: {
-            vendor: { select: { id: true, storeName: true, storeSlug: true } },
+            vendor: { select: { id: true, storeName: true, storeSlug: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
             items: {
               include: { product: { select: { id: true, name: true, images: true } } },
             },

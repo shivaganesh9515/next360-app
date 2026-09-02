@@ -532,8 +532,7 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
 
         {/* ── Footer Info ──────────────────────────────────────────────── */}
-        <Text style={styles.footerVersion}>Next360 App v2.4.0 (Organic ERP)</Text>
-        <Text style={styles.footerSub}>Made with ❤️ for fresh organic delivery</Text>
+        <Text style={styles.footerVersion}>Next360 App v2.4.0</Text>
       </ScrollView>
 
       {/* ── Language Selection Modal ─────────────────────────────────────── */}

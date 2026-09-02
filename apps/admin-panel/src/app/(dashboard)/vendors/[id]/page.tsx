@@ -33,7 +33,9 @@ export default function VendorDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [commissionRate, setCommissionRate] = useState(10);
+  const [deliveryForm, setDeliveryForm] = useState({ deliveryTimeMin: 10, deliveryTimeMax: 20, deliveryLabel: '' });
   const [saving, setSaving] = useState(false);
+  const [deliverySaving, setDeliverySaving] = useState(false);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -46,6 +48,11 @@ export default function VendorDetailPage() {
       const d = res?.data || res;
       setData(d);
       setCommissionRate(d?.vendor?.commissionPct ?? 10);
+      setDeliveryForm({
+        deliveryTimeMin: d?.vendor?.deliveryTimeMin ?? 10,
+        deliveryTimeMax: d?.vendor?.deliveryTimeMax ?? 20,
+        deliveryLabel: d?.vendor?.deliveryLabel ?? '',
+      });
     } catch {
       setData(null);
     } finally {
@@ -75,6 +82,22 @@ export default function VendorDetailPage() {
       alert(err.message || 'Failed to update commission');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeliverySave = async () => {
+    if (deliveryForm.deliveryTimeMin >= deliveryForm.deliveryTimeMax) {
+      alert('Minimum time must be less than maximum time');
+      return;
+    }
+    setDeliverySaving(true);
+    try {
+      await adminApi.updateVendor(params.id as string, deliveryForm);
+      await loadDetail();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update delivery settings');
+    } finally {
+      setDeliverySaving(false);
     }
   };
 
@@ -333,6 +356,68 @@ export default function VendorDetailPage() {
             </div>
             <p className="text-xs text-slate-400 mt-1.5">
               Platform commission on each order. Current: {vendor.commissionPct}% → {commissionRate}%
+            </p>
+          </div>
+
+          <hr className="border-slate-100 mb-4" />
+
+          {/* Delivery Time Settings */}
+          <div className="mb-5">
+            <label className="text-sm text-slate-500 font-medium flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" /> Delivery Time Estimates
+            </label>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div>
+                <label className="text-xs text-slate-400">Min (mins)</label>
+                <input
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={deliveryForm.deliveryTimeMin}
+                  onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryTimeMin: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Max (mins)</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={180}
+                  value={deliveryForm.deliveryTimeMax}
+                  onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryTimeMax: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 tabular-nums"
+                />
+              </div>
+            </div>
+            <div className="mt-2">
+              <label className="text-xs text-slate-400">Label (optional)</label>
+              <input
+                type="text"
+                value={deliveryForm.deliveryLabel}
+                onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryLabel: e.target.value })}
+                placeholder="e.g. Farm Direct, Handcrafted"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="text-xs text-slate-400">Preview:</span>
+              <span className="text-xs font-medium text-slate-600">
+                {deliveryForm.deliveryTimeMin}-{deliveryForm.deliveryTimeMax} min
+                {deliveryForm.deliveryLabel ? ` • ${deliveryForm.deliveryLabel}` : ''}
+              </span>
+              <div className="flex-1" />
+              <button
+                onClick={handleDeliverySave}
+                disabled={deliverySaving}
+                className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+              >
+                <Save className="w-3 h-3" />
+                {deliverySaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5">
+              Shown on product cards and storefront. Current: {vendor.deliveryTimeMin}-{vendor.deliveryTimeMax} min{vendor.deliveryLabel ? ` • ${vendor.deliveryLabel}` : ''}
             </p>
           </div>
 

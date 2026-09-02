@@ -7,6 +7,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesGuard } from './guards/roles.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SmsModule } from '../providers/sms/sms.module';
+import { redisProvider, REDIS_CLIENT } from '../providers/redis/redis.provider';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { SmsModule } from '../providers/sms/sms.module';
     SmsModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RolesGuard],
-  exports: [AuthService, JwtModule, PassportModule],
+  providers: [redisProvider, AuthService, JwtStrategy, RolesGuard],
+  exports: [AuthService, JwtModule, PassportModule, REDIS_CLIENT],
 })
 export class AuthModule {}

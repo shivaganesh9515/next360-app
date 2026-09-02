@@ -18,7 +18,30 @@ async function bootstrap() {
   });
 
   // Security hardening
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'https://api.next360.com', 'https://dwjrflijewoxcopgiwmx.supabase.co'],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
+
+  // Behind Railway/Render/Fly reverse proxies — without this req.ip is always
+  // the proxy IP, which would put ALL users into one rate-limit bucket.
+  const httpAdapter = app.getHttpAdapter().getInstance();
+  if (httpAdapter?.set) {
+    httpAdapter.set('trust proxy', 1);
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -17,13 +17,16 @@ import {
 } from './dto/create-razorpay-order.dto';
 import * as crypto from 'crypto';
 
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
-
+/**
+ * Lazily read Razorpay env at construction so tests and hot-reload see latest values.
+ * RAZORPAY_WEBHOOK_SECRET is validated at controller level.
+ */
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private razorpay: any;
+  private readonly razorpayKeyId: string;
+  private readonly razorpayKeySecret: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -31,12 +34,19 @@ export class PaymentsService {
     private readonly notificationsService: NotificationsService,
     private readonly queueService: QueueService,
   ) {
-    if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+    this.razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
+    this.razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
+    if (this.razorpayKeyId && this.razorpayKeySecret) {
       const Razorpay = require('razorpay');
       this.razorpay = new Razorpay({
-        key_id: RAZORPAY_KEY_ID,
-        key_secret: RAZORPAY_KEY_SECRET,
+        key_id: this.razorpayKeyId,
+        key_secret: this.razorpayKeySecret,
       });
+      this.logger.log('[Razorpay] Configured (live keys present)');
+    } else {
+      this.logger.warn(
+        '[Razorpay] RAZORPAY_KEY_ID/SECRET not set — payments will return 503. Set live keys from dashboard.razorpay.com',
+      );
     }
   }
 
@@ -74,7 +84,7 @@ export class PaymentsService {
   }
 
   isConfigured(): boolean {
-    return !!(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
+    return !!(this.razorpayKeyId && this.razorpayKeySecret);
   }
 
   /**
@@ -83,7 +93,7 @@ export class PaymentsService {
   async createRazorpayOrder(userId: string, dto: CreateRazorpayOrderDto) {
     if (!this.isConfigured()) {
       throw new HttpException(
-        'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.',
+        'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET (dashboard.razorpay.com → Settings → API Keys).',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
@@ -131,7 +141,7 @@ export class PaymentsService {
     });
 
     return {
-      key: RAZORPAY_KEY_ID,
+      key: this.razorpayKeyId,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
       order_id: razorpayOrder.id,
@@ -146,7 +156,7 @@ export class PaymentsService {
     // Verify signature
     const body = dto.razorpayOrderId + '|' + dto.razorpayPaymentId;
     const expectedSignature = crypto
-      .createHmac('sha256', RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', this.razorpayKeySecret)
       .update(body)
       .digest('hex');
 

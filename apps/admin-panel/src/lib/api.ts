@@ -134,6 +134,8 @@ export const adminApi = {
   // /commission/rate/:vendorId.
   updateVendorCommission: (vendorId: string, commissionPct: number) =>
     api.patch<any>(`/commission/rate/${vendorId}`, { commissionPct }),
+  updateVendor: (vendorId: string, data: any) =>
+    api.patch<any>(`/vendors/${vendorId}`, data),
 
   // Delivery Partners
   getDeliveryPartners: (params?: any) => api.get<any>('/delivery-partners', params),

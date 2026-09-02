@@ -56,7 +56,7 @@ export interface Product {
   categoryId: string;
   category?: Category;
   vendorId: string;
-  vendor?: { id: string; storeName: string };
+  vendor?: { id: string; storeName: string; deliveryTimeMin?: number; deliveryTimeMax?: number; deliveryLabel?: string };
   rating?: number;
   reviewCount?: number;
   certification?: string; // e.g. 'USDA Organic', 'India Organic', 'Non-GMO'
@@ -212,6 +212,20 @@ export interface Notification {
     orderId?: string;
     tab?: string;
   };
+}
+
+export interface Banner {
+  id: string;
+  title?: string;
+  subtitle?: string;
+  offerLabel?: string;
+  description?: string;
+  imageUrl: string;
+  linkUrl?: string;
+  storeType: StoreType;
+  position: number;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface PaginatedResponse<T> {

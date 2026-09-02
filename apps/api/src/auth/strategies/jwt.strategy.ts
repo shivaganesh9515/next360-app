@@ -12,7 +12,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_SECRET || supabaseUrl,
+      // Must mirror JwtModule's fallback chain in auth.module.ts — otherwise
+      // tokens get signed with one secret and verified with another.
+      secretOrKey: process.env.JWT_SECRET || supabaseUrl || 'next360-dev-secret',
       ignoreExpiration: false,
     });
 

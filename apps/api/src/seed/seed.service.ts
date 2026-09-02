@@ -240,9 +240,9 @@ export class SeedService {
         { name: 'Hemp Backpack', slug: 'hemp-backpack', price: 1200, description: 'Durable hemp fiber backpack', categoryId: ecoCategories[3].id },
       ];
 
-      const createProducts = async (products: { name: string; slug: string; price: number; description: string; categoryId: string }[], vendorId: string) => {
+      const createProducts = async (products: { name: string; slug?: string; price: number; description: string; categoryId: string }[], vendorId: string) => {
         return Promise.all(
-          products.map((p) =>
+          products.map(({ slug: _slug, ...p }) =>
             this.prisma.product.create({
               data: {
                 ...p,

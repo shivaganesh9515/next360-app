@@ -26,7 +26,7 @@ export class LoyaltyController {
   // ─── Loyalty Status ────────────────────────────────────────────────────────
 
   @Get('me')
-  async getLoyaltyStatus(@Request() req) {
+  async getLoyaltyStatus(@Request() req: any) {
     const userId = req.user.id;
     return this.loyaltyService.getLoyaltyStatus(userId);
   }
@@ -39,7 +39,7 @@ export class LoyaltyController {
   // ─── Points Operations ─────────────────────────────────────────────────────
 
   @Get('balance')
-  async getBalance(@Request() req) {
+  async getBalance(@Request() req: any) {
     const userId = req.user.id;
     const status = await this.loyaltyService.getLoyaltyStatus(userId);
     return { balance: status.pointsBalance };
@@ -47,7 +47,7 @@ export class LoyaltyController {
 
   @Get('ledger')
   async getLedger(
-    @Request() req,
+    @Request() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -59,7 +59,7 @@ export class LoyaltyController {
 
   @Post('redeem')
   async redeemPoints(
-    @Request() req,
+    @Request() req: any,
     @Body() body: { points: number },
   ) {
     const userId = req.user.id;
@@ -69,14 +69,14 @@ export class LoyaltyController {
   // ─── Referrals ─────────────────────────────────────────────────────────────
 
   @Get('referrals')
-  async getReferrals(@Request() req) {
+  async getReferrals(@Request() req: any) {
     const userId = req.user.id;
     return this.referralsService.getReferralStats(userId);
   }
 
   @Post('referrals/validate')
   async validateReferral(
-    @Request() req,
+    @Request() req: any,
     @Body() body: { referralCode: string },
   ) {
     const userId = req.user.id;

@@ -13,6 +13,9 @@ export default function BannersPage() {
   const [editBanner, setEditBanner] = useState<any>(null);
   const [form, setForm] = useState({
     title: '',
+    subtitle: '',
+    offerLabel: '',
+    description: '',
     position: 0,
     isActive: true,
     imageUrl: '',
@@ -90,14 +93,17 @@ export default function BannersPage() {
   };
 
   const resetForm = () => {
-    setForm({ title: '', position: 0, isActive: true, imageUrl: '' });
+    setForm({ title: '', subtitle: '', offerLabel: '', description: '', position: 0, isActive: true, imageUrl: '' });
     clearFile();
   };
 
   const openEditModal = (banner: any) => {
     setEditBanner(banner);
     setForm({
-      title: banner.title,
+      title: banner.title || '',
+      subtitle: banner.subtitle || '',
+      offerLabel: banner.offerLabel || '',
+      description: banner.description || '',
       position: banner.position || 0,
       isActive: banner.isActive,
       imageUrl: banner.imageUrl || '',
@@ -116,7 +122,12 @@ export default function BannersPage() {
     {
       key: 'title',
       label: 'Title',
-      render: (b: any) => <span className="font-medium text-gray-800">{b.title}</span>,
+      render: (b: any) => (
+        <div>
+          <span className="font-medium text-gray-800">{b.title}</span>
+          {b.subtitle && <span className="block text-xs text-gray-500">{b.subtitle}</span>}
+        </div>
+      ),
     },
     {
       key: 'image',
@@ -207,7 +218,43 @@ export default function BannersPage() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Summer Sale Banner"
+                  placeholder="e.g. 27%"
+                />
+              </div>
+
+              {/* Subtitle */}
+              <div>
+                <label className="text-sm text-gray-600 mb-1 block">Subtitle</label>
+                <input
+                  type="text"
+                  value={form.subtitle}
+                  onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. EXTRA\nDISCOUNT"
+                />
+              </div>
+
+              {/* Offer Label */}
+              <div>
+                <label className="text-sm text-gray-600 mb-1 block">Offer Label</label>
+                <input
+                  type="text"
+                  value={form.offerLabel}
+                  onChange={(e) => setForm({ ...form, offerLabel: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. FRESH ARRIVALS"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-sm text-gray-600 mb-1 block">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 resize-none"
+                  placeholder="Enjoy your first order with a special discount!"
                 />
               </div>
 

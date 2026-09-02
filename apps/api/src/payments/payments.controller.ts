@@ -53,7 +53,6 @@ export class PaymentsController {
 
   @Post('razorpay/order')
   @UseGuards(JwtAuthGuard)
-  @UseGuards(JwtAuthGuard)
   createRazorpayOrder(
     @CurrentUser() user: { id: string },
     @Body() dto: CreateRazorpayOrderDto,
@@ -114,7 +113,7 @@ export class PaymentsController {
     return this.paymentsService.initiateRefund(orderId, dto.reason);
   }
 
-  @Get()
+  @Get('admin/list')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   async listAll() {

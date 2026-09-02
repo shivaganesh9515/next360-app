@@ -10,6 +10,7 @@ interface AuthContextType {
   sendOtp: (phone: string) => Promise<void>;
   verifyOtpAndAuth: (phone: string, otp: string) => Promise<{ isNewUser: boolean }>;
   googleSignIn: (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => Promise<{ isNewUser: boolean }>;
+  appleSignIn: (data: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) => Promise<{ isNewUser: boolean }>;
   signOut: () => Promise<void>;
   skipAuth: () => void;
 }
@@ -73,6 +74,13 @@ export function AuthProvider({ children, googleSignInRef }: AuthProviderProps) {
     return { isNewUser: !!res.isNewUser };
   }, []);
 
+  const appleSignIn = useCallback(async (data: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) => {
+    const res = await customerApi.appleAuth(data);
+    await setToken(res.access_token);
+    setUser(res.user);
+    return { isNewUser: !!res.isNewUser };
+  }, []);
+
   // Wire the ref so App.tsx's Linking listener can call googleSignIn()
   // after a Supabase OAuth callback, without needing a context hook outside the tree.
   useEffect(() => {
@@ -97,7 +105,7 @@ export function AuthProvider({ children, googleSignInRef }: AuthProviderProps) {
   return (
     <AuthContext.Provider value={{
       user, isLoading, isAuthenticated: !!user,
-      sendOtp, verifyOtpAndAuth, googleSignIn, signOut, skipAuth,
+      sendOtp, verifyOtpAndAuth, googleSignIn, appleSignIn, signOut, skipAuth,
     }}>
       {children}
     </AuthContext.Provider>

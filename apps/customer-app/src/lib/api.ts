@@ -6,9 +6,14 @@ import { CartItem, Address, Order } from '../types';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-// Validate API URL in production — prevent app from running with localhost
-if (!__DEV__ && !process.env.EXPO_PUBLIC_API_URL) {
-  console.error('[SECURITY] EXPO_PUBLIC_API_URL is not set. App will not function correctly.');
+// Validate API URL in production — prevent app shipping with localhost/placeholder
+if (!__DEV__) {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
+  if (!apiUrl) {
+    console.error('[SECURITY] EXPO_PUBLIC_API_URL is not set. App will not function correctly.');
+  } else if (apiUrl.includes('YOUR-') || apiUrl.includes('localhost')) {
+    console.error(`[SECURITY] EXPO_PUBLIC_API_URL looks like a placeholder/localhost (${apiUrl}) — production build will fail Play review.`);
+  }
 }
 
 const TOKEN_KEY = 'auth_token';
@@ -298,11 +303,10 @@ export const customerApi = {
   getProfile: () => api.get<any>('/users/me'),
   updateProfile: (data: { name?: string; email?: string }) =>
     api.patch<any>('/users/me', data),
+  deleteAccount: () => api.delete<{ message: string }>('/users/me'),
 
   // Google Login — sends the verified Google profile to the backend,
   // which creates a new account or logs in an existing one by email.
-  // Falls back to a demo Google sign-in when the real API is unreachable,
-  // same pattern as the phone OTP demo fallback.
   googleAuth: async (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => {
     try {
       return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/google', data);
@@ -314,6 +318,24 @@ export const customerApi = {
           id: `demo-google-user-${Date.now()}`,
           email: data.email,
           name: data.name || 'Google User',
+          avatarUrl: data.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+        isNewUser: true,
+      };
+    }
+  },
+  appleAuth: async (data: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) => {
+    try {
+      return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/apple', data);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return {
+        access_token: `demo-apple-token-${Date.now()}`,
+        user: {
+          id: `demo-apple-user-${Date.now()}`,
+          email: data.email,
+          name: data.name || 'Apple User',
           avatarUrl: data.avatarUrl || null,
           role: 'CUSTOMER',
         },

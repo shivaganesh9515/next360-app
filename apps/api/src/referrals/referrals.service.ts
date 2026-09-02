@@ -20,7 +20,7 @@ export class ReferralsService {
       return user.referralCode;
     }
 
-    let code: string;
+    let code = '';
     let isUnique = false;
 
     while (!isUnique) {

@@ -1,8 +1,8 @@
 # Current Status
 
-> **Last updated:** 2026-08-10
+> **Last updated:** 2026-08-24
 > **Current branch:** main
-> **Latest changes:** Loyalty Engine integrated + store compliance fixes
+> **Latest changes:** Deploy blockers fixed — DeleteAccountScreen restored, DELETE /users/me endpoint added, loyalty migration generated, init-migration duplicate Zone columns fixed
 > **Git remote:** https://github.com/shivaganesh9515/next360-app.git
 
 ## Current Phase
@@ -10,6 +10,48 @@
 **Phase 13 — Store Submission & Launch** (NEW)
 
 Previous 12 build phases complete. Now focused on fixing Google Play rejection issues and preparing for App Store submission.
+
+## 2026-08-24 Session — Code Blockers Fixed ✅
+
+| Fix | Files |
+|-----|-------|
+| Restored missing `DeleteAccountScreen` (was breaking Metro/EAS bundle) | `apps/customer-app/src/screens/profile/DeleteAccountScreen.tsx` |
+| Added `DELETE /users/me` (anonymize + deactivate; Play policy) | `apps/api/src/users/users.service.ts`, `users.controller.ts`, customer `api.ts` |
+| Generated loyalty + drift migration (was never versioned) | `prisma/migrations/20260824000000_loyalty_engine_and_drift/` |
+| Fixed broken init migration (duplicate Zone createdAt/updatedAt ALTERs) | `prisma/migrations/20260714132826_init/migration.sql` |
+| Fixed 8 loyalty-module TS errors (untyped req params, wrong service call, unassigned var) | `loyalty.controller.ts`, `orders.service.ts`, `referrals.service.ts` |
+
+Verified: tsc passes on all 3 apps, `nest build` passes, both Expo apps export Android bundles successfully. Local Docker Postgres recreated + full migration chain replays clean (`No difference detected`).
+
+⚠️ **Prod Supabase note:** prod DB was seeded via `supabase_full_migration.sql`, not the migration chain. On first Railway deploy either run `prisma migrate deploy` against a FRESH db or use `prisma migrate resolve --applied 20260824000000_loyalty_engine_and_drift` if prod schema already matches.
+
+### 2026-08-24 Session 2 — Live Smoke Test ✅
+
+Ran the full stack locally (Docker Postgres + Redis + API on :4000):
+- OTP send → verify-otp-login → JWT → GET /users/me → **DELETE /users/me** all pass; DB confirms anonymization (name='Deleted User', isActive=false)
+- Catalog serves: 12 categories / 24 products after seeding
+- Fixed en route: JWT strategy missing dev-secret fallback (API crashed on boot without env vars); seed service passing non-existent `Product.slug` (demo seed endpoint was broken)
+
+**Railway deploy env requirements confirmed:** DATABASE_URL + DIRECT_URL + JWT_SECRET + REDIS_URL (hard requirement — API won't boot without Redis) + TWILIO_* keys. ⚠️ Without Twilio configured, OTPs are console-log only — real users/reviewers cannot log in. Twilio is a launch blocker, not optional.
+
+### 2026-08-24 Session 3 — Pre-Deploy Security Audit ✅
+
+Runtime probe (live API) + static audit of all layers:
+
+| Check | Result |
+|-------|--------|
+| Protected endpoints without/garbage token | ✅ 401 |
+| Admin routes w/ customer token | ✅ 403 |
+| Cross-user address access (IDOR) | ✅ 403 GET/PATCH/DELETE |
+| Mass-assignment (`role`/`isActive` injection) | ✅ 400 rejected |
+| Razorpay webhook signature | ✅ HMAC + timingSafeEqual |
+| Upload limits | ✅ MIME allowlist + 5MB |
+| console.log / token leaks both apps | ✅ zero |
+| Demo fallback off in production | ✅ |
+| Target API level | ✅ RN 0.85 → API 36 (meets Aug 31 2026 rule) |
+| **Rate limiting** | 🔴→✅ FIXED: ThrottlerGuard was configured but never registered — registered as APP_GUARD, OTP routes @Throttle'd (5/min send-otp), trust proxy added |
+
+Non-blocking notes: delivery Supabase session in AsyncStorage (medium); EAS keystore backup critical; Data Safety form must declare phone/email/location/photos/camera; verify 16KB page-size via internal testing track on AAB upload.
 
 ## Deployment Strategy
 

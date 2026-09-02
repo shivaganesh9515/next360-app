@@ -147,6 +147,16 @@ seed/          → POST seed-demo-data | POST reset (admin only)
 ### Key Schema Patterns
 **Zone model** — every Vendor and DeliveryPartner belongs to a Zone; orders are zone-scoped at MVP.
 
+**Vendor Delivery Fields** — each vendor configures delivery time estimates:
+```prisma
+model Vendor {
+  deliveryTimeMin  Int     @default(10)  // Minimum delivery time in minutes
+  deliveryTimeMax  Int     @default(20)  // Maximum delivery time in minutes
+  deliveryLabel    String?                // e.g. "Farm Direct", "Handcrafted", "Eco-Safe"
+}
+```
+These are shown on ProductCards, Cart headers, Checkout, Order Confirmation, and Tracking screens. Admin can set them during vendor approval or via bulk edit.
+
 **OrderVendorGroup** — the single most critical pattern. Links one Order to one vendor's portion:
 ```
 Order → OrderVendorGroup[] → OrderItem[]
@@ -154,7 +164,7 @@ Order → OrderVendorGroup[] → OrderItem[]
 ```
 Each `OrderVendorGroup` has its own `status` (tracks that vendor's fulfilment independently).
 
-**DeliveryAssignment** — includes `otp` (verified on pickup), `pickedUpAt`, `deliveredAt` timestamps.
+**DeliveryAssignment** — includes `otp` (verified on pickup), `pickedUpAt`, `deliveredAt` timestamps. Used to calculate actual delivery performance vs configured estimates.
 
 **DeliveryPartner** — tracks `currentLat`/`currentLng` (updated periodically for live tracking) and `status` (OFFLINE / AVAILABLE / ON_DELIVERY).
 
@@ -310,6 +320,21 @@ Highest information density. Job: gatekeep quality, oversee, resolve disputes. U
 | 5 | Delivery App + assignment module + real-time tracking | End-to-end fulfilment |
 | 6 | Notifications (WhatsApp/SMS), reviews, analytics | Retention + post-launch |
 
+## Delivery Time System (Implemented 2026-08-29)
+
+### Full Chain
+1. **Vendor sets** `deliveryTimeMin/Max/Label` via Vendor Dashboard → Settings → Delivery tab
+2. **Admin can set** via Vendor Approvals dialog, Vendor Detail page, or Bulk Edit from vendor list
+3. **Backend returns** delivery fields in all product queries (`vendor: { select: { deliveryTimeMin, ... } }`)
+4. **Customer App renders** across 7 screens: ProductCard, HomeScreen filter/sort, CartScreen section headers, CheckoutScreen estimate, OrderConfirmationScreen per-vendor breakdown, OrderTrackingScreen countdown timer
+5. **Analytics** — vendor dashboard shows delivery performance (avg/fastest/slowest delivery times vs configured estimates)
+
+### Admin Bulk Edit
+Select multiple vendors → click "Set Delivery" → enter min/max/label → applies to all selected.
+
+### Delivery Countdown Timer
+Shows on OrderTrackingScreen — live countdown from `estimatedDeliveryAt`, pulsing when < 5 min, shows "Arriving soon" when < 1 min.
+
 ## Open Decisions / Risk Register
 | # | Item | Action |
 |---|------|--------|
@@ -319,10 +344,15 @@ Highest information density. Job: gatekeep quality, oversee, resolve disputes. U
 | 4 | Redis for delivery assignment locking | Confirm Upstash Redis or GCP Memorystore before Phase 5 |
 | 5 | Wishlist — Phase 4 or Phase 6? | Decision needed |
 | 6 | Onboarding photography/illustrations | Confirm asset pipeline before Phase 4 UI build |
+| 7 | Return/refund customer UI | Model exists (`ReturnRequest`), no customer-facing screen to request returns — Tier 1 priority |
+| 8 | Product variant selection UI | PDP needs size/color picker — currently shows variants but no selection |
+| 9 | Search autocomplete | No suggestions or recent searches — just text input |
+| 10 | Dark mode | Tokens ready (`Colors.dark`), no toggle implementation |
 
 ## File Structure
 ```
 .planning/               → All planning docs (PROJECT, ROADMAP, STATE, SPRINTS, phase plans)
+.claude/memory/STATUS.md → Current project status, gap analysis, what's live
 CLAUDE.md                → This file — project memory for AI agents
 next360-home-preview.html → FINAL UI/UX reference — Customer App Home screen (open in browser)
 ```

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,9 +34,11 @@ export default function PromosScreen() {
 
   const handleCopyCode = async (code: string) => {
     try {
-      const expoClipboard = require('expo-clipboard');
-      if (expoClipboard?.setStringAsync) {
-        await expoClipboard.setStringAsync(code);
+      if (Platform.OS === 'web' && (navigator as any)?.clipboard) {
+        await (navigator as any).clipboard.writeText(code);
+      } else {
+        const expoClipboard = require('expo-clipboard');
+        if (expoClipboard?.setStringAsync) await expoClipboard.setStringAsync(code);
       }
     } catch { /* Clipboard not available */ }
     setCopiedCode(code);

@@ -39,6 +39,19 @@ export default function CheckoutScreen({ navigation }: any) {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
 
+  // Compute estimated delivery time from vendors in cart
+  const vendorDeliveryMap = new Map<string, { min: number; max: number; label?: string }>();
+  cartItems.forEach((item: any) => {
+    const v = item.product?.vendor;
+    if (v?.id && v?.deliveryTimeMin != null && v?.deliveryTimeMax != null && !vendorDeliveryMap.has(v.id)) {
+      vendorDeliveryMap.set(v.id, { min: v.deliveryTimeMin, max: v.deliveryTimeMax, label: v.deliveryLabel });
+    }
+  });
+  const vendorEntries = Array.from(vendorDeliveryMap.values());
+  const estimatedMin = vendorEntries.length > 0 ? Math.max(...vendorEntries.map((e) => e.min)) : null;
+  const estimatedMax = vendorEntries.length > 0 ? Math.max(...vendorEntries.map((e) => e.max)) : null;
+  const fastestLabel = vendorEntries.length === 1 ? vendorEntries[0].label : undefined;
+
   const discount = appliedCoupon?.discount || 0;
   const deliveryFee = getDeliveryFee(subtotal);
   const total = Math.max(0, subtotal - discount) + deliveryFee;
@@ -309,6 +322,24 @@ export default function CheckoutScreen({ navigation }: any) {
             </TouchableOpacity>
           )}
         </Animated.View>
+
+        {/* Estimated Delivery Time */}
+        {estimatedMin != null && estimatedMax != null && (
+          <Animated.View style={[styles.section, sectionStyle(1)]}>
+            <View style={[styles.deliveryEstimateCard, Shadows.card]}>
+              <View style={styles.deliveryEstimateIconWrap}>
+                <Ionicons name="time" size={18} color={Colors.organic} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.deliveryEstimateTitle}>Estimated Delivery</Text>
+                <Text style={styles.deliveryEstimateTime}>
+                  {estimatedMin}-{estimatedMax} min
+                  {fastestLabel ? ` • ${fastestLabel}` : vendorEntries.length > 1 ? ` • max across ${vendorEntries.length} vendors` : ''}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Delivery Slot */}
         <Animated.View style={[styles.section, sectionStyle(1)]}>
@@ -659,6 +690,35 @@ const styles = StyleSheet.create({
   addressText: {
     ...Typography.caption,
     color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  deliveryEstimateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.organicLight,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.15)',
+  },
+  deliveryEstimateIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deliveryEstimateTitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  deliveryEstimateTime: {
+    ...Typography.bodySmall,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.organic,
     marginTop: 2,
   },
   addAddressButton: {

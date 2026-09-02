@@ -9,7 +9,7 @@ import { Colors, Typography, Spacing, BorderRadius, Shadows, SPRING_CONFIG } fro
 import StaggerFadeIn from '../../components/StaggerFadeIn';
 import AnimatedCounter from '../../components/AnimatedCounter';
 import { customerApi } from '../../lib/api';
-import * as Clipboard from 'expo-clipboard';
+// expo-clipboard has no native module on web — lazy-require at call site instead
 
 // 8-tier tree growth loyalty program — Seed → Forest
 const LOYALTY_TIERS = [
@@ -241,7 +241,12 @@ export default function LoyaltyScreen({ navigation }: any) {
             <Text style={s.infoTitle}>Refer a Friend</Text>
             <View style={s.referralRow}>
               <Text style={s.referralCode}>{referralCode}</Text>
-              <TouchableOpacity style={s.copyButton} onPress={() => Clipboard.setStringAsync(referralCode)}>
+              <TouchableOpacity style={s.copyButton} onPress={async () => {
+                try {
+                  if (Platform.OS === 'web' && navigator.clipboard) await navigator.clipboard.writeText(referralCode);
+                  else { const C = require('expo-clipboard'); if (C?.setStringAsync) await C.setStringAsync(referralCode); }
+                } catch {}
+              }}>
                 <Ionicons name="copy-outline" size={16} color={Colors.organic} />
               </TouchableOpacity>
             </View>

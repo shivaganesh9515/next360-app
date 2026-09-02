@@ -23,23 +23,26 @@ import { handleSupabaseCallback, getInitialOAuthUrl } from './src/lib/supabaseAu
 import AppNavigator from './src/navigation/AppNavigator';
 import { Colors } from './src/constants/theme';
 
-// Initialize Sentry for crash reporting
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  environment: __DEV__ ? 'development' : 'production',
-  tracesSampleRate: 1.0,
-  enableAutoSessionTracking: true,
-  sessionTrackingIntervalMillis: 30000,
-  attachStacktrace: true,
-  // Don't send PII
-  beforeSend: (event) => {
-    // Remove any sensitive data from events
-    if (event.request?.headers) {
-      delete event.request.headers['Authorization'];
-    }
-    return event;
-  },
-});
+// Initialize Sentry for crash reporting — guard empty DSN (Play builds without DSN)
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: __DEV__ ? 'development' : 'production',
+    tracesSampleRate: 1.0,
+    enableAutoSessionTracking: true,
+    sessionTrackingIntervalMillis: 30000,
+    attachStacktrace: true,
+    beforeSend: (event) => {
+      if (event.request?.headers) {
+        delete event.request.headers['Authorization'];
+      }
+      return event;
+    },
+  });
+} else if (!__DEV__) {
+  console.warn('[Sentry] EXPO_PUBLIC_SENTRY_DSN not set — crash reporting disabled. Set it in eas.json production.env or EAS Secrets.');
+}
 
 // React Navigation's DefaultTheme background is '#f6f6f6' — swap in the app's
 // own white token so it never peeks through at screen edges/transitions.
