@@ -25,6 +25,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://next360.in'),
   title: 'Next360 | Organic Marketplace for Fresh, Verified, Sustainable Living',
   description:
     "Next360 connects you with verified organic stores, fresh produce, and trusted delivery partners across Hyderabad, Karimnagar & Vijayawada. Fresh. Organic. Delivered.",
