@@ -28,7 +28,10 @@
       "autoIncrement": true,
       "env": {
         "NODE_ENV": "production",
-        "EXPO_PUBLIC_ENABLE_DEMO_FALLBACK": "false"
+        "EXPO_PUBLIC_ENABLE_DEMO_FALLBACK": "false",
+        "EXPO_PUBLIC_API_URL": "https://api.next360.com/api",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dwjrflijewoxcopgiwmx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "your-anon-key"
       }
     }
   },

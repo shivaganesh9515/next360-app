@@ -1,32 +1,35 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView,
-  Platform, ScrollView, Alert, ActivityIndicator, Image,
+  Platform, ScrollView, Alert, ActivityIndicator, Image, Linking as RNLinking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import * as WebBrowser from 'expo-web-browser';
+import * as ExpoLinking from 'expo-linking';
 import { useAuth } from '../../lib/auth';
 import { isSupabaseConfigured, getSupabase } from '../../lib/supabase';
+import { handleSupabaseCallback } from '../../lib/supabaseAuthCallback';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import BigButton from '../../components/BigButton';
 
 const GOOGLE_LOGO = require('../../../assets/images/google-logo.png');
 
 // Cost-saving auth: phone OTP (DLT) removed for Customer App to save SMS spend.
-// Only Google + Apple remain as primary login. Phone flow code is hidden behind
-// ENABLE_PHONE_AUTH flag — Delivery App still uses phone OTP (its own screen).
-// To re-enable phone for customers later, set ENABLE_PHONE_AUTH=true and DLT envs.
+// Only Google remains as primary login (Apple removed for now). Phone flow hidden behind
+// ENABLE_PHONE_AUTH flag — Delivery App still uses phone OTP.
 const ENABLE_PHONE_AUTH = false;
 const COUNTRY_CODE = '+91';
 
+// Must match app.json scheme + intentFilter + Supabase redirect whitelist
+const OAUTH_REDIRECT = ExpoLinking.createURL('auth/callback', { scheme: 'next360' });
+
 export default function PhoneAuthScreen({ navigation }: any) {
   const { t } = useTranslation();
-  const { sendOtp, googleSignIn, appleSignIn, skipAuth } = useAuth() as any;
+  const { sendOtp, googleSignIn, skipAuth } = useAuth() as any;
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState('');
   const [focused, setFocused] = useState(false);
 
@@ -54,23 +57,39 @@ export default function PhoneAuthScreen({ navigation }: any) {
     }
   };
 
-  // Google Sign-In — checks Supabase configuration first. If a Supabase
-  // project is wired up (real credentials in .env), it uses Supabase's own
-  // OAuth flow (signInWithOAuth), which opens the system browser and
-  // redirects back via deep link — no inline return, so we return early and
-  // let the deep-link callback handle the auth flow. In dev/demo mode
-  // (Supabase not configured or placeholder credentials), it falls back to a
-  // simulated Google login with a demo profile, same pattern as the OTP flow.
+  // Google Sign-In — Supabase OAuth via system browser (expo-web-browser)
+  // isSupabaseConfigured() gate keeps dev/demo (placeholder creds) from opening a broken browser.
   const handleGoogleSignIn = async () => {
+    if (googleLoading) return;
     setGoogleLoading(true);
     try {
       if (isSupabaseConfigured()) {
         const supabase = getSupabase();
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: 'next360://auth/callback' },
+          options: {
+            redirectTo: OAUTH_REDIRECT,
+            skipBrowserRedirect: true,
+          },
         });
         if (error) throw error;
+        if (!data?.url) throw new Error('No OAuth URL returned');
+        const result = await WebBrowser.openAuthSessionAsync(data.url, OAUTH_REDIRECT);
+        if (result.type === 'cancel' || result.type === 'dismiss') {
+          return;
+        }
+        if (result.type === 'success' && result.url) {
+          const cb = await handleSupabaseCallback(result.url);
+          if (cb?.email) {
+            await googleSignIn({
+              email: cb.email,
+              googleId: cb.email,
+              name: cb.name,
+              avatarUrl: cb.avatarUrl,
+            });
+          }
+          return;
+        }
         return;
       }
 
@@ -87,42 +106,16 @@ export default function PhoneAuthScreen({ navigation }: any) {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setAppleLoading(true);
-    try {
-      // 1) Try native Apple Sign In on iOS device
-      try {
-        const AppleAuth: any = require('expo-apple-authentication');
-        if (AppleAuth?.isAvailableAsync) {
-          const avail = await AppleAuth.isAvailableAsync();
-          if (avail) {
-            const cred = await AppleAuth.signInAsync({
-              requestedScopes: [AppleAuth.AppleAuthenticationScope.FULL_NAME, AppleAuth.AppleAuthenticationScope.EMAIL],
-            });
-            const email = cred.email || `${cred.user}@privaterelay.appleid.com`;
-            const fullName = cred.fullName ? `${cred.fullName.givenName || ''} ${cred.fullName.familyName || ''}`.trim() : undefined;
-            await appleSignIn({ email, appleId: cred.user, identityToken: cred.identityToken || undefined, name: fullName || undefined });
-            return;
-          }
-        }
-      } catch (_) { /* fall through */ }
+  // Apple login removed for now — keep handler stub for future re-enable
+  // const handleAppleSignIn = async () => { ... };
 
-      // 2) Supabase OAuth (web / Android)
-      if (isSupabaseConfigured()) {
-        const supabase = getSupabase();
-        const { error } = await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: 'next360://auth/callback' } });
-        if (error) throw error;
-        return;
-      }
-
-      // 3) Demo fallback (no backend)
-      await appleSignIn({ email: 'demo@appleuser.com', appleId: 'demo-apple-user', name: 'Apple Demo User' });
-    } catch (err: any) {
-      if (err?.code === 'ERR_REQUEST_CANCELED') return;
-      Alert.alert('Apple Sign-In Failed', err.message || 'Could not sign in with Apple');
-    } finally {
-      setAppleLoading(false);
-    }
+  const openTerms = () => {
+    // In Auth stack there's no legal screen; open marketing site or show info
+    const url = 'https://next360.com/privacy';
+    RNLinking.canOpenURL(url).then((ok) => {
+      if (ok) RNLinking.openURL(url);
+      else Alert.alert('Terms & Privacy', 'By continuing you agree to our Terms and Privacy Policy.');
+    });
   };
 
   return (
@@ -132,13 +125,19 @@ export default function PhoneAuthScreen({ navigation }: any) {
       <View style={s.bgBlob2} />
 
       {__DEV__ && (
-        <TouchableOpacity style={s.skipBtn} onPress={skipAuth} hitSlop={12}>
+        <TouchableOpacity
+          style={s.skipBtn}
+          onPress={skipAuth}
+          hitSlop={12}
+          accessibilityLabel="Skip authentication (development only)"
+          accessibilityRole="button"
+        >
           <Text style={s.skipTxt}>{t('auth.devSkip')}</Text>
         </TouchableOpacity>
       )}
 
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={s.brandSection}>
             <View style={s.mark}>
               <Text style={s.markGlyph}>🌿</Text>
@@ -146,14 +145,14 @@ export default function PhoneAuthScreen({ navigation }: any) {
             <Text style={s.brandLabel}>NEXT360</Text>
           </View>
 
-          <Text style={s.title}>{ENABLE_PHONE_AUTH ? t('auth.welcome.title') : 'Welcome to Next360'}</Text>
+          <Text style={s.title} accessibilityRole="header">{ENABLE_PHONE_AUTH ? t('auth.welcome.title') : 'Welcome to Next360'}</Text>
           <Text style={s.subtitle}>{ENABLE_PHONE_AUTH ? t('auth.welcome.subtitle') : 'Sign in to shop organic, natural & eco-friendly products'}</Text>
 
           <View style={s.form}>
             {ENABLE_PHONE_AUTH && (
               <>
                 <View style={[
-                  s.field, 
+                  s.field,
                   focused && [s.fieldFocused, { borderColor: Colors.organic }],
                   !!error && s.fieldError
                 ]}>
@@ -170,9 +169,12 @@ export default function PhoneAuthScreen({ navigation }: any) {
                     keyboardType="phone-pad"
                     maxLength={10}
                     autoFocus
+                    accessibilityLabel="Phone number input"
+                    returnKeyType="done"
+                    onSubmitEditing={handleContinue}
                   />
                 </View>
-                {!!error && <Text style={s.error}>{error}</Text>}
+                {!!error && <Text style={s.error} accessibilityLiveRegion="polite">{error}</Text>}
 
                 <BigButton
                   label={t('common.continue')}
@@ -189,11 +191,15 @@ export default function PhoneAuthScreen({ navigation }: any) {
                 </View>
 
                 <View style={s.socialRow}>
-                  <TouchableOpacity style={s.socialBtn} onPress={handleGoogleSignIn} disabled={googleLoading} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    style={[s.socialBtn, googleLoading && s.socialBtnDisabled]}
+                    onPress={handleGoogleSignIn}
+                    disabled={googleLoading}
+                    activeOpacity={0.85}
+                    accessibilityLabel="Continue with Google"
+                    accessibilityRole="button"
+                  >
                     {googleLoading ? <ActivityIndicator size="small" color={Colors.text} /> : <Image source={GOOGLE_LOGO} style={s.socialIcon} />}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={s.socialBtn} onPress={handleAppleSignIn} disabled={appleLoading} activeOpacity={0.85}>
-                    {appleLoading ? <ActivityIndicator size="small" color={Colors.text} /> : <Ionicons name="logo-apple" size={26} color="#000000" />}
                   </TouchableOpacity>
                 </View>
               </>
@@ -201,22 +207,29 @@ export default function PhoneAuthScreen({ navigation }: any) {
 
             {!ENABLE_PHONE_AUTH && (
               <>
-                <TouchableOpacity style={s.socialBtnPrimary} onPress={handleGoogleSignIn} disabled={googleLoading} activeOpacity={0.85}>
+                <TouchableOpacity
+                  style={[s.socialBtnPrimary, googleLoading && s.socialBtnDisabled]}
+                  onPress={handleGoogleSignIn}
+                  disabled={googleLoading}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Continue with Google"
+                  accessibilityRole="button"
+                >
                   {googleLoading ? <ActivityIndicator size="small" color={Colors.text} /> : <Image source={GOOGLE_LOGO} style={s.socialIcon} />}
                   <Text style={s.socialBtnPrimaryText}>Continue with Google</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[s.socialBtnPrimary, s.socialBtnPrimaryApple]} onPress={handleAppleSignIn} disabled={appleLoading} activeOpacity={0.85}>
-                  {appleLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="logo-apple" size={22} color="#FFFFFF" />}
-                  <Text style={s.socialBtnPrimaryTextApple}>Continue with Apple</Text>
-                </TouchableOpacity>
+                {/* Helpful hint when Supabase not configured (dev placeholder) */}
+                {!isSupabaseConfigured() && __DEV__ && (
+                  <Text style={s.hint}>Demo mode — Google will sign in with a test account. Configure Supabase for real OAuth.</Text>
+                )}
               </>
             )}
           </View>
 
           <Text style={s.terms}>
             {t('auth.terms.prefix')}{' '}
-            <Text style={s.termsLink}>{t('auth.terms.link')}</Text> and <Text style={s.termsLink}>{t('auth.terms.privacyPolicy')}</Text>
+            <Text style={s.termsLink} onPress={openTerms}>{t('auth.terms.link')}</Text> and <Text style={s.termsLink} onPress={openTerms}>{t('auth.terms.privacyPolicy')}</Text>
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -301,6 +314,14 @@ const s = StyleSheet.create({
     lineHeight: 18,
   },
   termsLink: { color: Colors.organic, fontFamily: 'Inter_600SemiBold' },
+  hint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 14,
+  },
 
   divider: {
     flexDirection: 'row',
@@ -339,6 +360,9 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05, shadowRadius: 4,
     elevation: 2,
+  },
+  socialBtnDisabled: {
+    opacity: 0.6,
   },
   socialIcon: {
     width: 24,

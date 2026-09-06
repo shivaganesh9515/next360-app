@@ -1,6 +1,10 @@
+import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useRef } from 'react';
 import { Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+
+// Required for Supabase OAuth: completes the auth session when the browser redirects back
+WebBrowser.maybeCompleteAuthSession();
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -88,10 +92,10 @@ function App() {
   const googleSignInRef = useRef<((data: any) => Promise<any>) | null>(null);
 
   React.useEffect(() => {
-    // Process a single OAuth callback URL
+    // Process a single OAuth callback URL (covers both next360:// and exp:// schemes)
     async function processOAuthUrl(url: string | null) {
       if (!url) return;
-      if (!url.startsWith('next360://auth')) return;
+      if (!url.includes('auth/callback') && !url.includes('auth/')) return;
       const result = await handleSupabaseCallback(url);
       if (!result || !result.email) return;
       // Sync the Supabase-authenticated user into the backend's JWT + Prisma table

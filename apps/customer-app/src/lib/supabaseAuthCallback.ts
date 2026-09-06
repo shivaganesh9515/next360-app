@@ -19,6 +19,7 @@
  */
 
 import { Linking } from 'react-native';
+import * as LinkingExpo from 'expo-linking';
 import { getSupabase, isSupabaseConfigured } from './supabase';
 
 /**
@@ -30,14 +31,15 @@ export async function handleSupabaseCallback(url: string): Promise<{
   email: string;
   name: string | undefined;
   avatarUrl: string | undefined;
+  sub: string | undefined;
 } | null> {
   if (!isSupabaseConfigured()) return null;
 
-  // Supabase appends the session as a URL fragment (#) on callback URLs.
-  // For PKCE flow (Expo/mobile), the code is in the query string instead.
+  // Accept both production scheme (next360://) and Expo Go dev scheme (exp://)
+  // Supabase appends the session as a URL fragment (#) or PKCE code in query string.
   const isAuthCallback =
-    url.startsWith('next360://auth/callback') ||
-    url.startsWith('next360://auth/');
+    url.includes('auth/callback') ||
+    url.includes('auth/');
 
   if (!isAuthCallback) return null;
 
@@ -70,6 +72,7 @@ export async function handleSupabaseCallback(url: string): Promise<{
         email: user.email || '',
         name: user.user_metadata?.full_name || user.user_metadata?.name,
         avatarUrl: user.user_metadata?.avatar_url,
+        sub: user.id,
       };
     }
 
@@ -80,6 +83,7 @@ export async function handleSupabaseCallback(url: string): Promise<{
       email: user.email || '',
       name: user.user_metadata?.full_name || user.user_metadata?.name,
       avatarUrl: user.user_metadata?.avatar_url,
+      sub: user.id,
     };
   } catch {
     return null;
@@ -93,8 +97,20 @@ export async function handleSupabaseCallback(url: string): Promise<{
  */
 export async function getInitialOAuthUrl(): Promise<string | null> {
   try {
+    // Use expo-linking for consistent URL handling across Expo Go + standalone
+    const url = await LinkingExpo.getInitialURL();
+    if (url) return url;
     return await Linking.getInitialURL();
   } catch {
     return null;
   }
+}
+
+/**
+ * Builds the OAuth redirect URL that must be whitelisted in Supabase dashboard:
+ * Dashboard → Authentication → URL Configuration → Redirect URLs
+ * Add both: next360://auth/callback and exp://.../--/auth/callback (for Expo Go)
+ */
+export function getOAuthRedirectUrl(): string {
+  return LinkingExpo.createURL('auth/callback', { scheme: 'next360' });
 }
