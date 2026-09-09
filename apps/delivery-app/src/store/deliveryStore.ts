@@ -32,6 +32,21 @@ interface Earnings {
   totalDeliveries: number;
 }
 
+// Safety net: at most one background refetch per 60s, plus a 60s
+// interval while the channel is alive. Realtime events otherwise only
+// patch the changed order in place — never refetch both lists per event.
+const SAFETY_REFETCH_MS = 60000;
+let lastSafetyRefetch = 0;
+let safetyInterval: ReturnType<typeof setInterval> | null = null;
+
+function runSafetyRefetch(get: () => DeliveryState) {
+  const now = Date.now();
+  if (now - lastSafetyRefetch < SAFETY_REFETCH_MS) return;
+  lastSafetyRefetch = now;
+  void get().fetchActiveDeliveries();
+  void get().fetchNewOrders();
+}
+
 interface DeliveryState {
   newOrders: Order[];
   activeDeliveries: Order[];
@@ -192,12 +207,30 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
         schema: 'public',
         table: 'orders',
       }, (payload) => {
-        const updatedOrder = payload.new as Order;
-        // Refresh lists on relevant changes
-        get().fetchActiveDeliveries();
-        get().fetchNewOrders();
+        // Targeted update: patch only the changed order in place from the
+        // realtime payload. A full refetch runs at most every 60s as safety.
+        const updated = payload.new as Order;
+        set(state => {
+          const patch = (list: Order[]) =>
+            list.some(o => o.id === updated.id)
+              ? list.map(o => (o.id === updated.id ? { ...o, ...updated } : o))
+              : list;
+          const newOrders = patch(state.newOrders);
+          return {
+            newOrders:
+              newOrders === state.newOrders && updated.status === 'READY_FOR_DELIVERY'
+                ? [updated, ...state.newOrders]
+                : newOrders,
+            activeDeliveries: patch(state.activeDeliveries),
+          };
+        });
+        runSafetyRefetch(get);
       })
       .subscribe();
+
+    if (safetyInterval) clearInterval(safetyInterval);
+    lastSafetyRefetch = Date.now();
+    safetyInterval = setInterval(() => runSafetyRefetch(get), SAFETY_REFETCH_MS);
 
     set({ realtimeChannel: channel });
   },
@@ -207,6 +240,10 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     if (realtimeChannel) {
       supabase.removeChannel(realtimeChannel);
       set({ realtimeChannel: null });
+    }
+    if (safetyInterval) {
+      clearInterval(safetyInterval);
+      safetyInterval = null;
     }
   },
 }));

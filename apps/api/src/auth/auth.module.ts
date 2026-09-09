@@ -13,10 +13,18 @@ import { redisProvider, REDIS_CLIENT } from '../providers/redis/redis.provider';
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
-      useFactory: () => ({
-        secret: process.env.JWT_SECRET || process.env.SUPABASE_URL || 'next360-dev-secret',
-        signOptions: { expiresIn: '7d' },
-      }),
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+          throw new Error(
+            'JWT_SECRET is required. Set it in environment configuration.',
+          );
+        }
+        return {
+          secret,
+          signOptions: { expiresIn: '7d' },
+        };
+      },
     }),
     NotificationsModule,
     SmsModule,

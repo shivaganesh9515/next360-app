@@ -4,6 +4,7 @@ import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('ai')
 export class AiController {
@@ -14,6 +15,7 @@ export class AiController {
    */
   @Post('chat')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ ai: { ttl: 60000, limit: 20 } })
   async chat(
     @Req() req: any,
     @Body() body: { message: string; context?: { productId?: string; orderId?: string } },
@@ -27,6 +29,7 @@ export class AiController {
    */
   @Post('scan')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ ai: { ttl: 60000, limit: 10 } })
   @UseInterceptors(FileInterceptor('file'))
   async scan(
     @Req() req: any,

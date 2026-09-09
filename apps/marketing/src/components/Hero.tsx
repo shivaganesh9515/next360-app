@@ -9,11 +9,11 @@ import { durations, easings, staggers } from '@/lib/motion';
 gsap.registerPlugin(ScrollTrigger);
 
 const avatars = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&q=80',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&q=80',
+  { initial: 'P', bg: '#4B5E3F' },
+  { initial: 'A', bg: '#B98B4E' },
+  { initial: 'R', bg: '#2F5D62' },
+  { initial: 'S', bg: '#9B6A3F' },
+  { initial: 'M', bg: '#5C6B4D' },
 ];
 
 export default function Hero() {
@@ -98,11 +98,11 @@ export default function Hero() {
       ref={sectionRef}
       className="relative w-full min-h-screen overflow-hidden bg-brand-primary"
     >
-      {/* ── LAYER 0: Full-bleed background photo ─────────────── */}
-      <div className="hero-photo absolute inset-0 w-full h-full">
+      {/* ── LAYER 0: Full-bleed local background ─────────────── */}
+      <div className="hero-photo absolute inset-0 w-full h-full" aria-hidden="true">
         <Image
-          src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1600&q=85"
-          alt="Fresh organic vegetables and produce at a local market in Hyderabad"
+          src="/images/hero-organic.svg"
+          alt=""
           fill
           className="object-cover"
           style={{ objectFit: 'cover' }}
@@ -126,9 +126,9 @@ export default function Hero() {
         className="absolute top-24 lg:top-28 left-6 lg:left-8 z-20"
       >
         <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-surface-clay shadow-card">
-          <span className="text-[10px] leading-none tracking-tighter text-brand-primary">★★★★★</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-secondary" aria-hidden="true" />
           <span className="text-[11px] font-semibold text-brand-primary leading-none whitespace-nowrap">
-            4.8 rated by 10,000+ households
+            Now onboarding in Hyderabad, Karimnagar &amp; Vijayawada
           </span>
         </div>
       </div>
@@ -160,14 +160,10 @@ export default function Hero() {
                 href="#how-it-works"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-brand-accent text-white text-sm font-semibold shadow-btn hover:scale-105 transition-all duration-300"
               >
-                {/* App Store glyph */}
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-                {/* Play Store glyph */}
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.61 2.1c-.08.2-.11.42-.11.65v18.5c0 .23.03.45.11.65l10.3-9.9-10.3-9.9zM14.42 12.82l2.3 2.2 3.68-2.08c.54-.3.82-.78.82-1.28 0-.47-.26-.93-.72-1.2l-3.69-2.08-2.39 2.2v1.24zM4.46 21.96l9.36-9-1.4-1.34-7.96 10.34zM4.46 2.04l7.96 10.34 1.4-1.34-9.36-9z"/></svg>
-                <span>Get the App</span>
+                <span>How it works</span>
               </a>
               <a
-                href="#how-it-works"
+                href="/sellers"
                 className="rv inline-flex px-6 py-3.5 rounded-full border border-brand-primary text-brand-primary text-sm font-semibold hover:bg-brand-primary/10 transition-all duration-300 backdrop-blur-sm"
               >
                 Become a Seller
@@ -176,24 +172,21 @@ export default function Hero() {
 
             {/* Avatar stack + social proof */}
             <div className="rv flex items-center gap-3 mt-6">
-              <div className="flex -space-x-2.5">
-                {avatars.map((src, i) => (
+              <div className="flex -space-x-2.5" aria-hidden="true">
+                {avatars.map((a) => (
                   <div
-                    key={i}
-                    className="w-8 h-8 rounded-full border-2 border-neutral-bg overflow-hidden"
+                    key={a.initial + a.bg}
+                    className="w-8 h-8 rounded-full border-2 border-neutral-bg overflow-hidden flex items-center justify-center"
+                    style={{ backgroundColor: a.bg }}
                   >
-                    <Image
-                      src={src}
-                      alt=""
-                      width={32}
-                      height={32}
-                      className="object-cover w-full h-full"
-                    />
+                    <span className="text-[11px] font-bold text-white leading-none">
+                      {a.initial}
+                    </span>
                   </div>
                 ))}
               </div>
               <span className="text-text-secondary text-xs font-medium">
-                Joined by <strong className="text-brand-primary">10,000+</strong> households across <strong className="text-brand-primary">3 cities</strong>
+                Now onboarding sellers &amp; delivery partners across <strong className="text-brand-primary">2 cities</strong>
               </span>
             </div>
           </div>
@@ -208,8 +201,8 @@ export default function Hero() {
         <div className="relative w-[200px] sm:w-[240px] lg:w-[280px]">
           <div className="relative aspect-[3/4] rounded-[24px] overflow-hidden shadow-card animate-badge-float">
             <Image
-              src="https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=600&q=85"
-              alt="Fresh organic vegetables in a wooden crate"
+              src="/images/harvest-crate.svg"
+              alt="Illustration of fresh organic produce in a wooden crate"
               fill
               className="object-cover"
               style={{ objectFit: 'cover' }}
@@ -225,9 +218,9 @@ export default function Hero() {
             />
             {/* Stat pill on corner */}
             <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-moss/90 shadow-card">
-              <span className="text-xs">🌱</span>
+              <span className="text-xs" aria-hidden="true">🌱</span>
               <span className="text-[10px] font-semibold text-brand-primary whitespace-nowrap">
-                500+ Verified Sellers
+                Verified organic sellers
               </span>
             </div>
           </div>

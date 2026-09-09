@@ -76,6 +76,10 @@ export default function DashboardScreen() {
             onPress={toggleAvailability}
             disabled={isLoading}
             activeOpacity={0.85}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: isAvailable, disabled: isLoading }}
+            accessibilityLabel="Availability for delivery orders"
+            accessibilityHint={isAvailable ? 'Activates to go offline' : 'Activates to go online and receive orders'}
           >
             <View style={styles.availRow}>
               <View style={styles.availDotWrap}>

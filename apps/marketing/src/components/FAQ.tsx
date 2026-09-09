@@ -8,7 +8,7 @@ const faqs = [
   {
     persona: 'Customer',
     q: 'How do I start ordering on Next360?',
-    a: 'Download the app from the App Store or Google Play. Create an account, set your delivery location, and start browsing products from verified organic sellers across multiple storefronts.',
+    a: 'Create an account in the customer app, set your delivery location, and start browsing products from verified organic sellers across multiple storefronts.',
   },
   {
     persona: 'Customer',
@@ -18,22 +18,22 @@ const faqs = [
   {
     persona: 'Seller',
     q: 'What do I need to register my store?',
-    a: 'You need a registered business, product list, and valid certifications. Our team verifies each store within 48 hours. Once approved, you can start listing products and receiving orders immediately.',
+    a: 'You need a registered business, product list, and valid certifications. Our team verifies each store before it goes live. Once approved, you can start listing products and receiving orders.',
   },
   {
     persona: 'Seller',
     q: 'How do payouts work for sellers?',
-    a: 'Payouts are processed every Monday for the previous week\'s orders. You can track your earnings, pending settlements, and payout history from your vendor dashboard.',
+    a: 'Earnings are settled to your linked account on a regular cycle. You can track your earnings, pending settlements, and payout history from your vendor dashboard. Exact terms are confirmed during onboarding.',
   },
   {
     persona: 'Delivery Partner',
     q: 'What are the requirements to deliver?',
-    a: 'You need a valid ID proof, a smartphone, and a vehicle (bicycle, scooter, or bike). Complete a brief verification process, and you can start accepting deliveries within 24 hours.',
+    a: 'You need a valid ID proof, a smartphone, and a vehicle (bicycle, scooter, or bike). Complete the verification process, and you can start accepting deliveries once approved.',
   },
   {
     persona: 'Delivery Partner',
     q: 'How much can I earn as a partner?',
-    a: 'Earnings vary based on deliveries completed. Active partners typically earn ₹10,000-₹25,000 per week. You get paid per delivery plus incentives for peak hours and high ratings.',
+    a: 'Earnings depend on the deliveries you complete, distance, and any active incentives. You get paid per delivery plus incentives for peak hours and high ratings. Exact rates are shared during onboarding.',
   },
 ];
 

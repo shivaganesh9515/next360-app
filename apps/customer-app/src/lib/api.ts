@@ -116,6 +116,11 @@ let demoUsersByPhone: Record<string, { id: string; phone: string; name: string; 
 let demoUserIdCounter = 0;
 
 function demoVerifyOtpLogin(phone: string, otp: string): { access_token: string; user: any; isNewUser: boolean } {
+  // Defense in depth: demo auth must never run in a production build, even
+  // if the demo flag is misconfigured. Production store builds set it false.
+  if (!__DEV__ && process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK !== 'true') {
+    throw new Error('Demo sign-in is not available in production.');
+  }
   if (otp !== DEMO_OTP) throw new Error(`Incorrect code. In demo mode, use ${DEMO_OTP}.`);
   const existing = demoUsersByPhone[phone];
   if (existing) {

@@ -50,7 +50,7 @@ export default function PromosScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.center}>
-          <ActivityIndicator size="large" color="#22FF88" />
+          <ActivityIndicator size="large" color={Colors.organic} />
         </View>
       </SafeAreaView>
     );
@@ -148,7 +148,7 @@ const s = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#22FF88',
+    backgroundColor: Colors.organicLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.lg,
@@ -175,12 +175,12 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   discountBadge: {
-    backgroundColor: '#22FF88',
+    backgroundColor: Colors.organic,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: BorderRadius.pill,
   },
-  discountBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#0A0A0A' },
+  discountBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: Colors.white },
 
   copyBtn: {
     backgroundColor: '#0A0A0A',
@@ -188,7 +188,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: BorderRadius.sm,
   },
-  copyBtnText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: '#22FF88' },
+  copyBtnText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: Colors.white },
 
   cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.text },
   cardDesc: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#616161', marginTop: 4, lineHeight: 18 },

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -36,7 +36,7 @@ export class SupportService {
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string, role: string) {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id },
       include: {
@@ -48,6 +48,9 @@ export class SupportService {
       },
     });
     if (!ticket) throw new NotFoundException('Ticket not found');
+    if (role !== 'ADMIN' && ticket.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
     return ticket;
   }
 
@@ -58,7 +61,15 @@ export class SupportService {
     });
   }
 
-  async addReply(ticketId: string, userId: string, message: string) {
+  async addReply(ticketId: string, userId: string, message: string, role: string) {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, userId: true },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (role !== 'ADMIN' && ticket.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
     return this.prisma.ticketReply.create({
       data: { ticketId, userId, message },
     });

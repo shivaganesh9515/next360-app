@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="ogTitle ogDesc">
+  <title id="ogTitle">Next360 — Fresh. Organic. Delivered.</title>
+  <desc id="ogDesc">Next360 brand cover: product name and tagline on a deep pine background.</desc>
+  <rect width="1200" height="630" fill="#16241C"/>
+  <circle cx="1020" cy="90" r="260" fill="#4B5E3F" opacity="0.35"/>
+  <circle cx="1080" cy="560" r="300" fill="#4B5E3F" opacity="0.22"/>
+  <circle cx="140" cy="560" r="180" fill="#B98B4E" opacity="0.16"/>
+  <ellipse cx="600" cy="640" rx="700" ry="140" fill="#B98B4E" opacity="0.10"/>
+  <g fill="none" stroke="#F1EFE4" stroke-width="3" opacity="0.28">
+    <path d="M120 470 Q300 400 420 470 T720 470 T1020 470"/>
+    <path d="M120 500 Q300 430 420 500 T720 500 T1020 500"/>
+  </g>
+  <text x="100" y="270" font-family="Georgia, 'Times New Roman', serif" font-size="130" font-weight="600" fill="#F1EFE4" letter-spacing="1">Next360</text>
+  <rect x="102" y="310" width="120" height="6" fill="#B98B4E"/>
+  <text x="100" y="380" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-style="italic" fill="#B98B4E">Fresh. Organic. Delivered.</text>
+  <text x="100" y="440" font-family="Verdana, Arial, sans-serif" font-size="30" fill="#F1EFE4" opacity="0.75">Verified organic sellers &#183; next360.in</text>
+</svg>

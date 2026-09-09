@@ -42,6 +42,13 @@ export class SmsService {
     return !!(this.msg91AuthKey || (this.twilioAccountSid && this.twilioAuthToken));
   }
 
+  /** Redact a phone number for logs: keep country/last-2 only. */
+  private maskPhone(phone: string): string {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length <= 4) return '****';
+    return `+${digits.slice(0, digits.length - 4).replace(/\d/g, '*')}${digits.slice(-2)}`;
+  }
+
   async sendOtp(phone: string, code: string): Promise<boolean> {
     // Prefer MSG91 DLT flow in India (required for deliverability)
     if (this.msg91AuthKey) {
@@ -55,8 +62,16 @@ export class SmsService {
     if (this.twilioAccountSid && this.twilioAuthToken) {
       return this.sendViaTwilio(phone, `Your Next360 OTP is ${code}. Valid for 5 minutes.`);
     }
-    this.logger.log(`[SMS] OTP for ${phone}: ${code} (no SMS provider configured)`);
-    return true;
+    // No provider configured: honest failure (never log the OTP code).
+    // Callers must handle false without blocking dev OTP verification flows.
+    // Dev-only: print the code so local testing works without an SMS plan.
+    // Production logs must never contain OTPs (FRD §112).
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.log(`[SMS:DEV] OTP for ${this.maskPhone(phone)}: ${code}`);
+    } else {
+      this.logger.warn(`[SMS] NOT_CONFIGURED — OTP not sent to ${this.maskPhone(phone)}`);
+    }
+    return false;
   }
 
   async send(phone: string, message: string): Promise<boolean> {
@@ -66,8 +81,8 @@ export class SmsService {
     if (this.twilioAccountSid && this.twilioAuthToken) {
       return this.sendViaTwilio(phone, message);
     }
-    this.logger.log(`[SMS] To ${phone}: ${message}`);
-    return true;
+    this.logger.warn(`[SMS] NOT_CONFIGURED — message not sent to ${this.maskPhone(phone)}`);
+    return false;
   }
 
   /**
@@ -103,7 +118,7 @@ export class SmsService {
         this.logger.error(`MSG91 DLT send failed (${response.status}): ${text}`);
         return false;
       }
-      this.logger.log(`[SMS] OTP sent via MSG91 DLT to ${mobiles} (template ${this.msg91TemplateId})`);
+      this.logger.log(`[SMS] OTP sent via MSG91 DLT to ${this.maskPhone(phone)} (template ${this.msg91TemplateId})`);
       return true;
     } catch (error) {
       this.logger.error(`MSG91 DLT send error: ${error}`);

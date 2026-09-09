@@ -23,10 +23,10 @@ export default function WalletScreen({ navigation }: any) {
 
   const getHighlightColor = (type: string) => {
     switch (type) {
-      case 'ORGANIC': return '#22FF88';
+      case 'ORGANIC': return '#5C6B4D';
       case 'NATURAL': return '#E5A93B'; // Gold
       case 'ECO_FRIENDLY': return '#00E5FF'; // Cyan
-      default: return '#22FF88';
+      default: return '#5C6B4D';
     }
   };
   const highlightColor = getHighlightColor(storeType);
@@ -253,7 +253,7 @@ const s = StyleSheet.create({
   balanceLabel: { fontFamily: 'JetBrainsMono_400Regular', fontSize: 10, color: Colors.textSecondary, letterSpacing: 1.5 },
   balanceValue: { fontFamily: 'Fraunces_700Bold', fontSize: 32, color: '#FFFFFF', marginVertical: 4 },
   safeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-  safeBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#22FF88' },
+  safeBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#5C6B4D' },
 
   /* Top Up Card */
   topUpCard: {
@@ -291,7 +291,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     borderRadius: BorderRadius.md,
     height: 48,
   },

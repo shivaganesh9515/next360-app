@@ -37,10 +37,10 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
 
   const getHighlightColor = (type: string) => {
     switch (type) {
-      case 'ORGANIC': return '#22FF88';
+      case 'ORGANIC': return '#5C6B4D';
       case 'NATURAL': return '#E5A93B'; // Gold
       case 'ECO_FRIENDLY': return '#00E5FF'; // Cyan
-      default: return '#22FF88';
+      default: return '#5C6B4D';
     }
   };
   const highlightColor = getHighlightColor(storeType);
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   editProfileText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
-    color: '#22FF88',
+    color: '#5C6B4D',
   },
   closeBtn: {
     width: 28,

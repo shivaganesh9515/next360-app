@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('coupons')
 export class CouponsController {
@@ -41,8 +42,9 @@ export class CouponsController {
     return this.couponsService.findOne(id);
   }
 
-  // Public validate endpoint
+  // Public validate endpoint — throttled: coupon guessing is abuse-sensitive.
   @Post('validate')
+  @Throttle({ coupon: { ttl: 60000, limit: 20 } })
   validate(@Body() dto: ValidateCouponDto) {
     return this.couponsService.validate(dto);
   }

@@ -302,6 +302,9 @@ export const adminApi = {
 
   // Payouts (generic) — same gap as getVendorPayouts/getDeliveryPayouts above.
   getPayouts: (params?: any) => api.get<any>('/payouts', params),
+  // Re-queue / status updates use the existing PATCH /payouts/:id/status route.
+  updatePayoutStatus: (id: string, status: string) =>
+    api.patch<any>(`/payouts/${id}/status`, { status }),
 
   // Reports (generic) — same gap as getSalesReport/getRevenueReport above.
   getReports: (params?: any) => api.get<any>('/reports', params),

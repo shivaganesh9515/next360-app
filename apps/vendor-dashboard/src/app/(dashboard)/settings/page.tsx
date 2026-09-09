@@ -6,7 +6,7 @@ import { api, vendorApi } from '@/lib/api';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('notifications');
-  const [notifications, setNotifications] = useState({ orderUpdates: true, lowStock: true, earnings: true, promotions: false });
+  const [notifications] = useState({ orderUpdates: true, lowStock: true, earnings: true, promotions: false });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [deliveryForm, setDeliveryForm] = useState({ deliveryTimeMin: 10, deliveryTimeMax: 20, deliveryLabel: '' });
   const [saving, setSaving] = useState(false);
@@ -94,19 +94,24 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
           <h3 className="font-semibold text-slate-800">Notification Preferences</h3>
           <p className="text-sm text-slate-500">Choose which notifications you&apos;d like to receive.</p>
-          <div className="space-y-3">
+          {/* No notification-preferences endpoint exists on the backend, so
+              these toggles are shown disabled until persistence is supported. */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-700">Notification preferences are local-only for now and aren&apos;t saved — coming soon.</p>
+          </div>
+          <div className="space-y-3 opacity-60" aria-disabled="true">
             {[
               { key: 'orderUpdates', label: 'Order Updates', desc: 'New orders, status changes, cancellations' },
               { key: 'lowStock', label: 'Low Stock Alerts', desc: 'Products running low on inventory' },
               { key: 'earnings', label: 'Earnings Reports', desc: 'Weekly payout summaries and transaction updates' },
               { key: 'promotions', label: 'Promotions & Offers', desc: 'Platform-wide promotional campaigns' },
             ].map((item) => (
-              <label key={item.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+              <label key={item.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-not-allowed">
                 <div>
                   <p className="text-sm font-medium text-slate-700">{item.label}</p>
                   <p className="text-xs text-slate-400">{item.desc}</p>
                 </div>
-                <input type="checkbox" checked={(notifications as any)[item.key]} onChange={(e) => setNotifications({ ...notifications, [item.key]: e.target.checked })} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                <input type="checkbox" disabled checked={(notifications as any)[item.key]} readOnly className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed" />
               </label>
             ))}
           </div>

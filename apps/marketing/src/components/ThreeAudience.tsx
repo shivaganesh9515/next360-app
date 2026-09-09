@@ -11,8 +11,8 @@ const cards = [
     bg: 'bg-surface-moss',
     copy: 'Discover nearby organic stores, track deliveries in real-time, and enjoy fresh groceries at your doorstep.',
     steps: ['Discover', 'Order', 'Track', 'Enjoy'],
-    cta: 'Download the App',
-    href: '#download',
+    cta: 'Explore categories',
+    href: '#categories',
   },
   {
     role: 'Sellers',
@@ -21,7 +21,7 @@ const cards = [
     copy: 'Register your store, get verified, manage inventory, and grow your business digitally with thousands of customers.',
     steps: ['Register', 'Get Verified', 'Sell', 'Grow'],
     cta: 'List Your Store',
-    href: '#seller-cta',
+    href: '/sellers',
   },
   {
     role: 'Delivery Partners',
@@ -30,7 +30,7 @@ const cards = [
     copy: 'Enjoy a flexible schedule, transparent earnings, and weekly payouts — all while serving your community.',
     steps: ['Register', 'Get Approved', 'Deliver', 'Earn'],
     cta: 'Start Earning',
-    href: '#seller-cta',
+    href: '/partners',
   },
 ];
 

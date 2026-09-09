@@ -274,11 +274,11 @@ const s = StyleSheet.create({
     borderColor: '#EFEFEF',
   },
   tagChipActive: {
-    backgroundColor: '#22FF88',
-    borderColor: '#22FF88',
+    backgroundColor: Colors.organic,
+    borderColor: Colors.organic,
   },
   tagText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#757575' },
-  tagTextActive: { color: '#0A0A0A' },
+  tagTextActive: { color: Colors.white },
 
   card: {
     backgroundColor: '#FFFFFF',
@@ -326,8 +326,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#22FF88',
+    borderColor: Colors.organic,
   },
   disabledBtn: { opacity: 0.5 },
-  saveBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#22FF88' },
+  saveBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.white },
 });

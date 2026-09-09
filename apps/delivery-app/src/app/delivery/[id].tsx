@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, Linking, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, Linking, Image, Animated, Platform } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,7 +25,9 @@ export default function DeliveryDetailScreen() {
   const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [proofPhoto, setProofPhoto] = useState<string | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [skipReason, setSkipReason] = useState('');  const [showFailureModal, setShowFailureModal] = useState(false);
   const [failureReason, setFailureReason] = useState('');
   const [failureDetails, setFailureDetails] = useState('');
   const mapRef = useRef<MapView>(null);
@@ -187,20 +189,29 @@ export default function DeliveryDetailScreen() {
     }
   };
 
-  const handleCompleteWithPhoto = async () => {
+  const handleCompleteWithPhoto = async (opts?: { skipped?: boolean; reason?: string }) => {
+    setUploadError(null);
     setIsProcessing(true);
     try {
-      // Upload proof photo if taken
-      if (proofPhoto) {
+      // Upload proof photo if taken. A failed upload BLOCKS completion —
+      // it is never swallowed — until retry succeeds or the partner
+      // explicitly skips with a recorded reason.
+      if (proofPhoto && !opts?.skipped) {
         const formData = new FormData();
         const filename = proofPhoto.split('/').pop() || 'delivery-proof.jpg';
         formData.append('file', { uri: proofPhoto, name: filename, type: 'image/jpeg' } as any);
-        // Upload to backend (silent fail if endpoint not ready)
         try {
           await deliveryApi.upload('/upload', formData);
-        } catch {}
+        } catch (uploadErr: any) {
+          setUploadError(uploadErr?.message || 'Photo upload failed. Check your connection and retry.');
+          return;
+        }
       }
-      await updateDeliveryStatus(id!, 'DELIVERED');
+      await updateDeliveryStatus(
+        id!,
+        'DELIVERED',
+        opts?.skipped ? { proofSkipped: true, skipReason: opts.reason } : undefined,
+      );
       setCurrentStatus('DELIVERED');
       router.replace(
         order?.deliveryFee != null
@@ -212,6 +223,14 @@ export default function DeliveryDetailScreen() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleConfirmSkipUpload = async () => {
+    const reason = skipReason.trim();
+    if (!reason) return;
+    setShowSkipModal(false);
+    setSkipReason('');
+    await handleCompleteWithPhoto({ skipped: true, reason });
   };
 
   if (!order) {
@@ -518,6 +537,49 @@ export default function DeliveryDetailScreen() {
         </View>
       </Modal>
 
+      {/* Skip-upload modal — completing without proof requires a reason,
+          which is sent with the status update for the audit trail. */}
+      <Modal visible={showSkipModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Skip Photo Upload?</Text>
+            <Text style={styles.modalSubtitle}>
+              The delivery will be marked complete without proof. Tell us why the photo couldn't upload.
+            </Text>
+            <TextInput
+              style={styles.failureDetails}
+              value={skipReason}
+              onChangeText={setSkipReason}
+              placeholder="Reason (required)"
+              placeholderTextColor="#9CA3AF"
+              multiline
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowSkipModal(false);
+                  setSkipReason('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirm, (!skipReason.trim() || isProcessing) && styles.modalConfirmDisabled]}
+                onPress={handleConfirmSkipUpload}
+                disabled={!skipReason.trim() || isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Complete Anyway</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Action Buttons */}
       <View style={styles.actionContainer}>
         {currentStatus === 'ASSIGNED' && (
@@ -539,9 +601,33 @@ export default function DeliveryDetailScreen() {
 
         {currentStatus === 'IN_TRANSIT' && (
           <>
+            {/* Upload error banner — completion stays blocked until the
+                partner retries (primary action) or skips with a reason. */}
+            {uploadError && (
+              <View style={styles.uploadErrorBox}>
+                <View style={styles.uploadErrorRow}>
+                  <Ionicons name="cloud-offline-outline" size={20} color="#DC2626" />
+                  <Text style={styles.uploadErrorText}>{uploadError}</Text>
+                </View>
+                <View style={styles.uploadErrorActions}>
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => handleCompleteWithPhoto()}
+                    disabled={isProcessing}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="refresh" size={16} color="#FFFFFF" />
+                    <Text style={styles.retryText}>Retry Upload</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowSkipModal(true)} disabled={isProcessing}>
+                    <Text style={styles.skipText}>Skip with reason</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
-              onPress={handleCompleteWithPhoto}
+              onPress={() => handleCompleteWithPhoto()}
               disabled={isProcessing}
             >
               {isProcessing ? (
@@ -762,7 +848,8 @@ const styles = StyleSheet.create({
   maskedPhone: {
     fontSize: 13,
     color: '#6B7280',
-    fontFamily: 'JetBrainsMono_400Regular',
+    // System monospace — the JetBrainsMono expo-font was never loaded.
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginLeft: 28,
     marginTop: 2,
   },
@@ -930,5 +1017,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  uploadErrorBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  uploadErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  uploadErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
+  },
+  uploadErrorActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+    textDecorationLine: 'underline',
   },
 });

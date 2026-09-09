@@ -14,6 +14,7 @@ import { useFlyToCart } from './flyToCart';
 import { Product, Review } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows, getStoreAccent, getStoreAccentLight } from '../constants/theme';
 import QuantityStepper from '../components/QuantityStepper';
+import ErrorState from '../components/ErrorState';
 
 // Collapsed thumbnail size (45% snap) vs the full-bleed hero (90% snap) — the
 // image itself grows between these, driven directly by the sheet's own
@@ -33,7 +34,7 @@ const ADD_BTN_HEIGHT = 56;
 const FLY_GHOST_SIZE = 56;
 const ADD_BTN_CENTER_Y_FROM_BOTTOM = FOOTER_HEIGHT - Spacing.md - ADD_BTN_HEIGHT / 2;
 
-// Generic, honest per-store brand copy — used for the "Why We Love Them"
+// Generic, honest per-store notes — used for the "About this store"
 // section since we have no product-specific provenance data (no fabricated
 // per-product claims, only true-in-general statements about the storefront).
 const STORE_HIGHLIGHTS: Record<string, { icon: string; text: string }[]> = {
@@ -199,6 +200,7 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -213,10 +215,16 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
     setQty(1);
     setIsWishlisted(false);
     setLoading(true);
+    setLoadError(false);
 
     customerApi.getProduct(id)
       .then((res: any) => {
         const p = res?.data || res;
+        if (!p || !p.id) {
+          setProduct(null);
+          setLoadError(true);
+          return;
+        }
         setProduct(p);
         if (p) {
           customerApi.getProducts({ storeType: p.storeType, categoryId: p.categoryId, limit: 8 })
@@ -227,7 +235,10 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
             .catch(() => setSuggestions([]));
         }
       })
-      .catch(() => setProduct(null))
+      .catch(() => {
+        setProduct(null);
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
 
     customerApi.getProductReviews(id).then((res: any) => {
@@ -376,9 +387,16 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
       backgroundStyle={s.sheetBg}
       handleIndicatorStyle={s.handle}
     >
-      {loading || !product ? (
+      {loading ? (
         <View style={s.loadingBox}>
           <ActivityIndicator size="large" color={accent} />
+        </View>
+      ) : loadError || !product ? (
+        <View style={s.loadingBox}>
+          <ErrorState
+            message="Couldn't load this product."
+            onRetry={() => { if (productId) loadProduct(productId); }}
+          />
         </View>
       ) : (
         <BottomSheetScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -425,7 +443,7 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
 
               {!!STORE_HIGHLIGHTS[product.storeType] && (
                 <View style={s.highlightsSection}>
-                  <Text style={s.sectionTitle}>Why We Love Them</Text>
+                  <Text style={s.sectionTitle}>About this store</Text>
                   {STORE_HIGHLIGHTS[product.storeType].map((h) => (
                     <View key={h.text} style={s.highlightRow}>
                       <Ionicons name={h.icon as any} size={18} color={accent} style={s.highlightIcon} />

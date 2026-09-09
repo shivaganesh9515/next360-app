@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || '';
 
@@ -62,6 +63,7 @@ export class PaymentsController {
 
   @Post('razorpay/verify')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ payment: { ttl: 60000, limit: 20 } })
   verifyPayment(
     @CurrentUser() user: { id: string },
     @Body() dto: VerifyPaymentDto,
@@ -122,7 +124,10 @@ export class PaymentsController {
 
   @Get(':orderId')
   @UseGuards(JwtAuthGuard)
-  getPayments(@Param('orderId') orderId: string) {
-    return this.paymentsService.getPaymentsForOrder(orderId);
+  getPayments(
+    @CurrentUser() user: { id: string; role: string },
+    @Param('orderId') orderId: string,
+  ) {
+    return this.paymentsService.getPaymentsForOrder(orderId, user.id, user.role);
   }
 }

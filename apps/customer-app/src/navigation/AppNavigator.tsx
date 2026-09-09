@@ -156,7 +156,15 @@ function MiniCartBar() {
   };
 
   const renderRightActions = () => (
-    <TouchableOpacity style={miniCart.removeAction} onPress={handleRemove} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={miniCart.removeAction}
+      onPress={handleRemove}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel="Remove last added item from cart"
+      accessibilityHint="Removes the item from the cart"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
       <Ionicons name="trash-outline" size={18} color={Colors.white} />
       <Text style={miniCart.removeActionText}>Remove</Text>
     </TouchableOpacity>
@@ -174,6 +182,10 @@ function MiniCartBar() {
               activeOpacity={0.85}
               style={[miniCart.bar, Shadows.raised]}
               onPress={openCartSheet}
+              accessibilityRole="button"
+              accessibilityLabel={cartCount > 0 ? `View cart, ${cartCount} items` : 'View cart'}
+              accessibilityHint="Opens the cart"
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
               <View ref={iconWrapRef} collapsable={false} style={miniCart.iconWrap}>
                 {lastItem?.product?.images?.[0] ? (
@@ -235,6 +247,11 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
             style={pill.tab}
             onPress={() => handleTabPress(0, 'Home')}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: state.index === 0 }}
+            accessibilityLabel="Home tab"
+            accessibilityHint="Shows the home storefront"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
               name={state.index === 0 ? 'home' : 'home-outline'}
@@ -248,6 +265,11 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
             style={pill.tab}
             onPress={() => handleTabPress(1, 'AllProducts')}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: state.index === 1 }}
+            accessibilityLabel="All products tab"
+            accessibilityHint="Shows all products"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <View style={pill.iconWrap}>
               <Ionicons
@@ -263,6 +285,11 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
             style={pill.tab}
             onPress={() => handleTabPress(2, 'Orders')}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: state.index === 2 }}
+            accessibilityLabel="Orders tab"
+            accessibilityHint="Shows order history"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <View style={pill.iconWrap}>
               <Ionicons

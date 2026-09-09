@@ -34,7 +34,7 @@ export class ReturnsController {
   @UseGuards(RolesGuard)
   @Roles('VENDOR')
   findVendorReturns(@CurrentUser() user: any) {
-    return this.returnsService.findAll(user.id, 'ADMIN'); // Admins see all, vendors see all
+    return this.returnsService.findAll(user.id, 'VENDOR');
   }
 
   @Get('refunds')
@@ -50,7 +50,7 @@ export class ReturnsController {
     @CurrentUser() user: { id: string; role: string },
     @Param('id') id: string,
   ) {
-    return this.returnsService.findOne(id);
+    return this.returnsService.findOne(id, user.id, user.role);
   }
 
   @Patch(':id')

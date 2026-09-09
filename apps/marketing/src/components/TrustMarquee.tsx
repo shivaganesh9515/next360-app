@@ -3,9 +3,9 @@ export default function TrustMarquee() {
     'Hyderabad',
     'Karimnagar',
     'Vijayawada',
-    '500+ Verified Stores',
-    '10,000+ Households',
-    '4.8★ Average Rating',
+    'Verified Organic Sellers',
+    'Farm-to-Door Delivery',
+    'Supporting Local Communities',
   ];
 
   return (

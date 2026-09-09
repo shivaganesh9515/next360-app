@@ -15,8 +15,7 @@ export default function IndexScreen() {
   }
 
   if (!isAuthenticated) {
-    // Cast: new file, stale Expo Router typed-routes cache (see phone-login.tsx).
-    return <Redirect href={'/(auth)/phone-login' as any} />;
+    return <Redirect href="/(auth)/phone-login" />;
   }
 
   return <Redirect href="/(tabs)" />;

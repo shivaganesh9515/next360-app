@@ -171,6 +171,16 @@ export class PaymentsService {
 
     if (!order) throw new NotFoundException('Order not found');
 
+    // Ownership: a customer must never verify another customer's payment.
+    if (order.userId !== userId) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Idempotency: duplicate verify callbacks must not duplicate effects.
+    if (order.paymentStatus === 'PAID') {
+      return { success: true, message: 'Payment already verified' };
+    }
+
     // Update payment and order status
     await this.prisma.$transaction([
       this.prisma.payment.updateMany({
@@ -215,6 +225,23 @@ export class PaymentsService {
           where: { razorpayOrderId: payment.order_id },
         });
         if (!order) throw new NotFoundException('Order not found');
+
+        // Idempotency: Razorpay retries webhooks. Same provider payment ID
+        // must never double-apply financial effects.
+        const alreadyCaptured = await this.prisma.payment.findFirst({
+          where: {
+            razorpayOrderId: payment.order_id,
+            razorpayPaymentId: payment.id,
+            status: 'CAPTURED',
+          },
+          select: { id: true },
+        });
+        if (alreadyCaptured && order.paymentStatus === 'PAID') {
+          this.logger.log(
+            `Webhook dedup: payment ${payment.id} for order ${order.id} already captured — skipping`,
+          );
+          return { received: true, status: 'captured', deduplicated: true };
+        }
 
         await this.prisma.$transaction([
           this.prisma.payment.updateMany({
@@ -266,30 +293,11 @@ export class PaymentsService {
         }
 
         /*
-         * IDEMPOTENCY NOTE — SCHEMA LIMITATION
-         *
-         * Exact duplicate detection is impossible without an `orderId` column on the
-         * Payout model.  The current Payout schema stores only (vendorId, amount,
-         * status, createdAt) — there is no way to query "has this specific order's
-         * payout for this vendor already been created?"
-         *
-         * The 5-minute time-window heuristic below is the best available application-level
-         * check.  It protects against Razorpay's typical retry interval (seconds to
-         * minutes).  It does NOT protect against retries that arrive after the window
-         * expires, and it carries a small false-positive risk for consecutive orders
-         * from the same vendor with identical subtotals.
-         *
-         * To achieve exact idempotency the Payout model requires:
-         *   - an `orderId` column (to link payout → order)
-         *   - a unique constraint on `(orderId, vendorId)` (database-level dedup)
-         *
-         * Until that schema change lands, every webhook retry beyond the window will
-         * create a duplicate transfer and a duplicate Payout record.  This is an
-         * accepted risk tracked in the project risk register.
+         * Exact idempotency via Payout(orderId, vendorId).
+         * The schema carries @@unique([orderId, vendorId]), so a retried
+         * webhook for the same order+vendor hits the existing record and
+         * skips the duplicate Route transfer. No time-window heuristic.
          */
-        const DEDUP_WINDOW_MS = 5 * 60 * 1000;
-        const cutoff = new Date(Date.now() - DEDUP_WINDOW_MS);
-
         for (const group of fullOrder.vendorGroups) {
           const commission = fullOrder.commissions.find(
             (c: any) => c.vendorId === group.vendorId,
@@ -328,16 +336,17 @@ export class PaymentsService {
             continue;
           }
 
-          const existingPayout = await this.prisma.payout.findFirst({
+          const existingPayout = await this.prisma.payout.findUnique({
             where: {
-              vendorId: group.vendorId,
-              amount: payoutAmount,
-              createdAt: { gte: cutoff },
+              orderId_vendorId: {
+                orderId: order.id,
+                vendorId: group.vendorId,
+              },
             },
           });
           if (existingPayout) {
             this.logger.log(
-              `Skipping vendor ${group.vendorId} — dedup: existing Payout ${existingPayout.id} found within window for order ${order.id}`,
+              `Skipping vendor ${group.vendorId} — dedup: existing Payout ${existingPayout.id} for order ${order.id}`,
             );
             continue;
           }
@@ -369,6 +378,7 @@ export class PaymentsService {
           try {
             await this.prisma.payout.create({
               data: {
+                orderId: order.id,
                 vendorId: group.vendorId,
                 amount: payoutAmount,
                 status: payoutStatus,
@@ -504,9 +514,29 @@ export class PaymentsService {
   }
 
   /**
-   * Get payment history for an order.
+   * Get payment history for an order. Owner, participating vendor, or admin.
    */
-  async getPaymentsForOrder(orderId: string) {
+  async getPaymentsForOrder(orderId: string, userId: string, role: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        userId: true,
+        vendorGroups: { select: { vendorId: true } },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (role !== 'ADMIN' && order.userId !== userId) {
+      if (role === 'VENDOR') {
+        const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+        const member = vendor && order.vendorGroups.some((g) => g.vendorId === vendor.id);
+        if (!member) throw new NotFoundException('Order not found');
+      } else {
+        throw new NotFoundException('Order not found');
+      }
+    }
+
     return this.prisma.payment.findMany({
       where: { orderId },
       orderBy: { createdAt: 'desc' },

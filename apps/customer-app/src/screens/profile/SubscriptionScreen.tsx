@@ -10,7 +10,7 @@ const PLANS = [
     name: 'Weekly Organic Box',
     price: 499,
     badge: 'MOST POPULAR',
-    badgeColor: '#22FF88',
+    badgeColor: '#5C6B4D',
     sub: 'Fresh farm essentials every 7 days',
     features: ['5 Seasonal fruits & vegetables', '2 Pantry staples', 'Free priority delivery'],
   },
@@ -111,11 +111,11 @@ export default function SubscriptionScreen({ navigation }: any) {
         <View style={s.perksCard}>
           <Text style={s.perksTitle}>VIP Member Privileges</Text>
           <View style={s.perkRow}>
-            <Ionicons name="flash-outline" size={18} color="#22FF88" />
+            <Ionicons name="flash-outline" size={18} color="#5C6B4D" />
             <Text style={s.perkText}>Priority 6:00 AM slots reserved exclusively for VIP</Text>
           </View>
           <View style={s.perkRow}>
-            <Ionicons name="refresh-outline" size={18} color="#22FF88" />
+            <Ionicons name="refresh-outline" size={18} color="#5C6B4D" />
             <Text style={s.perkText}>Pause, skip delivery or cancel subscription anytime</Text>
           </View>
         </View>
@@ -188,7 +188,7 @@ const s = StyleSheet.create({
     ...Shadows.card,
   },
   planCardSelected: {
-    borderColor: '#22FF88',
+    borderColor: '#5C6B4D',
     backgroundColor: '#FAFFFA',
   },
   planHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
@@ -197,7 +197,7 @@ const s = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#22FF88',
+    borderColor: '#5C6B4D',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 2,
@@ -234,7 +234,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     borderRadius: BorderRadius.lg,
     height: 52,
   },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   DollarSign, ShoppingCart, AlertTriangle, ArrowRight, Truck,
   CheckCircle2, Package, Store, Clock, TrendingUp, BarChart3,
@@ -93,6 +94,7 @@ function formatTime(date: Date): string {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -333,15 +335,10 @@ export default function DashboardPage() {
               {data.dailyActiveUsers !== null ? (
                 <p className="text-xl font-bold text-slate-900 tabular-nums">{data.dailyActiveUsers.toLocaleString()}</p>
               ) : (
-                <p className="text-sm text-slate-400 italic mt-0.5">Data unavailable</p>
+                <p className="text-sm text-slate-400 italic mt-0.5" title="This metric is not reported by the backend yet">Unavailable</p>
               )}
             </div>
           </div>
-          {data.dailyActiveUsers === null && (
-            <p className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">
-              Backend field <code className="text-xs bg-slate-100 px-1 rounded">dailyActiveUsers</code> not yet implemented
-            </p>
-          )}
         </div>
 
         {/* Conversion Rate */}
@@ -355,15 +352,10 @@ export default function DashboardPage() {
               {data.conversionRate !== null ? (
                 <p className="text-xl font-bold text-slate-900 tabular-nums">{data.conversionRate}%</p>
               ) : (
-                <p className="text-sm text-slate-400 italic mt-0.5">Data unavailable</p>
+                <p className="text-sm text-slate-400 italic mt-0.5" title="This metric is not reported by the backend yet">Unavailable</p>
               )}
             </div>
           </div>
-          {data.conversionRate === null && (
-            <p className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">
-              Backend field <code className="text-xs bg-slate-100 px-1 rounded">conversionRate</code> not yet implemented
-            </p>
-          )}
         </div>
 
         {/* Average Delivery Time */}
@@ -377,15 +369,10 @@ export default function DashboardPage() {
               {data.avgDeliveryTimeMinutes !== null ? (
                 <p className="text-xl font-bold text-slate-900 tabular-nums">{data.avgDeliveryTimeMinutes} <span className="text-sm font-normal text-slate-400">min</span></p>
               ) : (
-                <p className="text-sm text-slate-400 italic mt-0.5">Data unavailable</p>
+                <p className="text-sm text-slate-400 italic mt-0.5" title="This metric is not reported by the backend yet">Unavailable</p>
               )}
             </div>
           </div>
-          {data.avgDeliveryTimeMinutes === null && (
-            <p className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">
-              Backend field <code className="text-xs bg-slate-100 px-1 rounded">avgDeliveryTimeMinutes</code> not yet implemented
-            </p>
-          )}
         </div>
       </div>
 
@@ -608,7 +595,7 @@ export default function DashboardPage() {
                     key={order.id}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors cursor-pointer"
                     role="listitem"
-                    onClick={() => window.location.href = `/orders/${order.id}`}
+                    onClick={() => router.push(`/orders/${order.id}`)}
                   >
                     <td className="py-2.5 font-medium text-slate-800">#{order.orderNo || order.id?.slice(0, 8)}</td>
                     <td className="py-2.5 text-slate-600">{order.customerName || order.user?.name || '—'}</td>

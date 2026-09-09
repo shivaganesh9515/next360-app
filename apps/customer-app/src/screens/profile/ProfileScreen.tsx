@@ -48,10 +48,10 @@ export default function ProfileScreen({ navigation }: any) {
 
   const getHighlightColor = (type: string) => {
     switch (type) {
-      case 'ORGANIC': return '#22FF88';
+      case 'ORGANIC': return '#5C6B4D';
       case 'NATURAL': return '#E5A93B'; // Gold
       case 'ECO_FRIENDLY': return '#00E5FF'; // Cyan
-      default: return '#22FF88';
+      default: return '#5C6B4D';
     }
   };
   const highlightColor = getHighlightColor(storeType);
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   editProfileText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
-    color: '#22FF88',
+    color: '#5C6B4D',
   },
 
   /* VIP Banner */

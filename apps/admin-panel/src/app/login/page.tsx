@@ -19,17 +19,6 @@ export default function LoginPage() {
     emailRef.current?.focus();
   }, []);
 
-  const handleSkip = () => {
-    localStorage.setItem('admin_token', 'dev-admin-token');
-    localStorage.setItem('admin_user', JSON.stringify({
-      id: 'dev-admin-001',
-      email: 'admin@next360.com',
-      name: 'Dev Admin',
-      role: 'ADMIN',
-    }));
-    window.location.href = '/vendors';
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -190,14 +179,6 @@ export default function LoginPage() {
               </button>
             </p>
           </div>
-
-          {/* Dev skip */}
-          <button
-            onClick={handleSkip}
-            className="mt-6 w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-2"
-          >
-            Skip (Dev)
-          </button>
         </div>
       </div>
     </div>

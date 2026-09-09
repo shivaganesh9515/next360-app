@@ -83,7 +83,7 @@ export default function ProductCard({
           <Image source={{ uri: product.images[0] }} style={styles.image} />
         ) : (
           <View style={[styles.imagePlaceholder, { backgroundColor: accent + '1A' }]}>
-            <Text style={styles.placeholderText}>🌿</Text>
+            <Ionicons name="leaf-outline" size={40} color={accent} />
           </View>
         )}
 

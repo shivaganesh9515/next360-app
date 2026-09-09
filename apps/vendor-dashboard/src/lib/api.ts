@@ -172,6 +172,7 @@ export const vendorApi = {
 
   // Notifications
   getNotifications: () => api.get<any[]>('/notifications'),
+  getUnreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
   markAllNotificationsRead: () =>

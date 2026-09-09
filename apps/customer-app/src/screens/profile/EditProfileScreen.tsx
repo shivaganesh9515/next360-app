@@ -171,12 +171,12 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#22FF88',
+    borderColor: '#5C6B4D',
   },
   avatarText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 30,
-    color: '#22FF88',
+    color: '#5C6B4D',
   },
   cameraBadge: {
     position: 'absolute',
@@ -185,7 +185,7 @@ const s = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -273,7 +273,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#22FF88',
+    borderColor: '#5C6B4D',
   },
   disabledBtn: {
     opacity: 0.6,
@@ -281,6 +281,6 @@ const s = StyleSheet.create({
   saveBtnText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
-    color: '#22FF88',
+    color: '#5C6B4D',
   },
 });

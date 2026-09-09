@@ -10,7 +10,7 @@ export class CreateReturnDto {
 
 export class ProcessReturnDto {
   @IsString()
-  status: 'APPROVED' | 'REJECTED';
+  status: 'APPROVED' | 'REJECTED' | 'REFUNDED';
 
   @IsNumber()
   @Min(0)

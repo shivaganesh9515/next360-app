@@ -56,6 +56,10 @@ export class VendorsService {
         storeType: dto.storeType,
         zoneId,
         status: 'PENDING',
+        // FRD §40 default commission. Set explicitly so the rate does not
+        // depend on the DB column default (schema migration to align the
+        // column default is tracked separately).
+        commissionPct: 15,
       },
     });
 

@@ -33,7 +33,16 @@ function SwatchPill({ store, isActive, onPress }: { store: StoreType; isActive: 
   }, [isActive]);
 
   return (
-    <TouchableOpacity style={styles.pill} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.pill}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={`${getStoreLabel(store)} store`}
+      accessibilityHint={`Shows ${getStoreLabel(store)} products`}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+    >
       <Animated.View
         style={[styles.pillFill, { backgroundColor: accent, opacity: fade, pointerEvents: 'none' }]}
       />
@@ -78,6 +87,7 @@ const styles = StyleSheet.create({
   pill: {
     flex: 1,
     paddingVertical: Spacing.sm + 2,
+    minHeight: 44,
     borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',

@@ -72,13 +72,13 @@ export default function SellerCTA() {
             transition={{ duration: durations.slow, delay: 0.25, ease: easings.easeOutExpo.array }}
           >
             <a
-              href="#"
+              href="/sellers"
               className="inline-flex px-8 py-3.5 rounded-full bg-brand-accent text-white text-sm font-semibold shadow-btn hover:scale-105 transition-all duration-300"
             >
               Apply as a Seller
             </a>
             <a
-              href="#"
+              href="/partners"
               className="inline-flex px-8 py-3.5 rounded-full border-2 border-brand-primary text-brand-primary text-sm font-semibold hover:bg-brand-primary hover:text-neutral-bg transition-all duration-300"
             >
               Apply as Delivery Partner

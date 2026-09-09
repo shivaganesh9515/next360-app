@@ -6,8 +6,8 @@ import { durations, easings, staggers } from '@/lib/motion';
 
 const principles = [
   { label: 'Premium', text: 'Handpicked organic produce from verified farms. Every product meets our quality standard.' },
-  { label: 'Trustworthy', text: 'NPOP-certified sellers, KYC-verified vendors. Complete transparency from farm to table.' },
-  { label: 'Fast', text: '30-minute delivery in your city. Real-time tracking from pickup to your doorstep.' },
+  { label: 'Trustworthy', text: 'KYC-verified sellers and a quality review on new listings. Transparency from farm to table.' },
+  { label: 'Fast', text: 'Quick, trackable delivery in your city. Real-time tracking from pickup to your doorstep.' },
   { label: 'Local', text: 'Supporting local farmers and businesses. Every order strengthens your community.' },
 ];
 

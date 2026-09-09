@@ -17,25 +17,46 @@ export default function OrdersPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectItem, setRejectItem] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
 
   const fetchOrders = () => {
-    vendorApi.getOrders({}).then((res: any) => {
-      // Backend returns { data: [...vendorGroups], meta: {...} }
-      const raw = res.data || res || [];
-      // Normalize OrderVendorGroup items to have flat fields for DataTable
-      const normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
-        id: g.id,
-        orderId: g.orderId || g.order?.id,
-        orderNo: g.order?.orderNo || g.id?.slice(0, 8),
-        status: g.status || g.order?.status,
-        subtotal: g.subtotal,
-        totalAmount: g.subtotal,
-        createdAt: g.order?.createdAt || g.createdAt,
-        paymentStatus: g.order?.paymentStatus,
-        paymentMethod: g.order?.paymentMethod,
-        items: g.items || [],
-      }));
-      setOrders(normalized);
+    // The vendor orders endpoint returns OrderVendorGroups whose nested order
+    // only carries userId (no customer name). Join with /vendors/me/customers
+    // (keyed by user id) so the Customer column shows real names.
+    Promise.allSettled([vendorApi.getOrders({}), vendorApi.getCustomers()]).then(([ordersRes, customersRes]) => {
+      if (customersRes.status === 'fulfilled') {
+        const list = Array.isArray(customersRes.value) ? customersRes.value : [];
+        const map: Record<string, string> = {};
+        for (const c of list) {
+          if (c?.id && c?.name) map[c.id] = c.name;
+        }
+        setCustomerNames(map);
+      }
+      if (ordersRes.status === 'fulfilled') {
+        const res: any = ordersRes.value;
+        // Backend returns { data: [...vendorGroups], meta: {...} }
+        const raw = res.data || res || [];
+        // Normalize OrderVendorGroup items to have flat fields for DataTable.
+        // NOTE: the nested order select only includes userId — no customer name
+        // (see findVendorOrders). Names are joined from the customers map above.
+        const normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
+          id: g.id,
+          orderId: g.orderId || g.order?.id,
+          orderNo: g.order?.orderNo || g.id?.slice(0, 8),
+          status: g.status || g.order?.status,
+          customerUserId: g.order?.userId,
+          customerName: g.order?.user?.name,
+          subtotal: g.subtotal,
+          totalAmount: g.subtotal,
+          createdAt: g.order?.createdAt || g.createdAt,
+          paymentStatus: g.order?.paymentStatus,
+          paymentMethod: g.order?.paymentMethod,
+          items: g.items || [],
+        }));
+        setOrders(normalized);
+      } else {
+        setOrders([]);
+      }
     }).catch(() => {}).finally(() => setLoading(false));
   };
 
@@ -50,7 +71,12 @@ export default function OrdersPage() {
 
   const columns = [
     { key: 'orderNo', label: 'Order #', render: (item: any) => <span className="font-mono text-sm font-medium">{item.orderNo}</span> },
-    { key: 'customer', label: 'Customer', render: () => <span className="text-slate-400 text-xs">—</span> },
+    { key: 'customer', label: 'Customer', render: (item: any) => {
+      const name = item.customerName || (item.customerUserId ? customerNames[item.customerUserId] : undefined);
+      return name
+        ? <span className="text-sm text-slate-700">{name}</span>
+        : <span className="text-slate-400 text-xs" title="Customer name not available">—</span>;
+    } },
     { key: 'items', label: 'Items', render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount || 0).toLocaleString()}</span> },
     { key: 'status', label: 'Status', render: (item: any) => <StatusBadge status={item.status} /> },

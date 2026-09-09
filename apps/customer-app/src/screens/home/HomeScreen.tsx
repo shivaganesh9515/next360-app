@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
-  RefreshControl, ScrollView, Dimensions, Animated, Platform,
+  RefreshControl, ScrollView, Dimensions, Animated, Platform, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +20,6 @@ import ProductCard from '../../components/ProductCard';
 import NotificationsPopover from '../../components/NotificationsPopover';
 import LocationPopover from '../../components/LocationPopover';
 import Shimmer from '../../components/Shimmer';
-import StaggerFadeIn from '../../components/StaggerFadeIn';
 import ErrorState from '../../components/ErrorState';
 import TrustBadge from '../../components/TrustBadge';
 import { useTranslation } from 'react-i18next';
@@ -53,11 +52,8 @@ interface HeroBanner {
 }
 
 const DEMO_FALLBACK_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK === 'true';
-const FALLBACK_HERO_SLIDES: HeroBanner[] = DEMO_FALLBACK_ENABLED ? [
-  { id: 'placeholder-1', offerValue: '27%', offerLabel: 'EXTRA\nDISCOUNT', desc: 'Enjoy your first order with a\nspecial discount!' },
-  { id: 'placeholder-2', offerValue: '15%', offerLabel: 'FRESH\nARRIVALS', desc: 'New organic harvest,\njust landed this week!' },
-  { id: 'placeholder-3', offerValue: 'FREE', offerLabel: 'DELIVERY\nOVER ₹499', desc: 'Fast, reliable delivery\nright to your doorstep.' },
-] : [];
+// Banners come only from the API. When the API returns none there is no
+// active campaign, so the carousel renders nothing — never a fabricated offer.
 
 export default function HomeScreen({ navigation }: any) {
   const { t } = useTranslation();
@@ -67,7 +63,7 @@ export default function HomeScreen({ navigation }: any) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
-  const [banners, setBanners] = useState<HeroBanner[]>(FALLBACK_HERO_SLIDES);
+  const [banners, setBanners] = useState<HeroBanner[]>([]);
   // Production must not fabricate discount banners — empty means “no active campaign”, not a fake 27% off
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,6 +78,7 @@ export default function HomeScreen({ navigation }: any) {
   // ── Auto-scroll banner carousel ───────────────────────────────────────────
   const startAutoScroll = useCallback(() => {
     if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
+    if (banners.length === 0) return;
     autoScrollTimer.current = setInterval(() => {
       if (isUserDragging.current) return;
       setActiveSlide((prev) => {
@@ -136,11 +133,9 @@ export default function HomeScreen({ navigation }: any) {
           desc: b.description || '',
         }));
         setBanners(mapped);
-      } else if (!DEMO_FALLBACK_ENABLED) {
-        // Production: backend returned no banners → show nothing, not a fabricated discount
+      } else {
+        // Backend returned no banners (or request failed) → show nothing, not a fabricated discount
         setBanners([]);
-      } else if (FALLBACK_HERO_SLIDES.length > 0) {
-        setBanners(FALLBACK_HERO_SLIDES);
       }
       setError(false);
     } catch {
@@ -186,7 +181,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         <View style={s.greetingRow}>
-          <Text style={s.greeting}>Good {getGreetingWord()}! 👋</Text>
+          <Text style={s.greeting}>Good {getGreetingWord()}</Text>
           <View style={[s.trustChip, { backgroundColor: `${accent}14` }]}>
             <Ionicons name="shield-checkmark" size={12} color={accent} />
             <Text style={[s.trustChipText, { color: accent }]}>Verified {storeLabel}</Text>
@@ -201,7 +196,8 @@ export default function HomeScreen({ navigation }: any) {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={accent} />
         }
       >
-        {/* Banner carousel */}
+        {/* Banner carousel — rendered only when the API returns active banners */}
+        {banners.length > 0 && (
         <View style={s.carouselContainer}>
           <ScrollView
             ref={bannerScrollRef}
@@ -237,7 +233,7 @@ export default function HomeScreen({ navigation }: any) {
 
                       <View style={s.heroCopy}>
                         <View style={[s.bannerTag, { backgroundColor: accent }]}>
-                          <Text style={s.bannerTagText}>LIMITED OFFER</Text>
+                          <Text style={s.bannerTagText}>OFFER</Text>
                         </View>
                         <View style={s.offerRow}>
                           <Text style={s.offerValue}>{slide.offerValue}</Text>
@@ -266,6 +262,7 @@ export default function HomeScreen({ navigation }: any) {
             ))}
           </View>
         </View>
+        )}
 
         <SafeAreaView edges={[]} style={s.safe}>
           {/* Store Swatch Selector */}
@@ -283,7 +280,7 @@ export default function HomeScreen({ navigation }: any) {
               >
                 <View style={s.farmerCardLeft}>
                   <Text style={s.farmerCardLabel}>MEET THE GROWERS</Text>
-                  <Text style={s.farmerCardTitle}>Know Your Farmer 🌱</Text>
+                  <Text style={s.farmerCardTitle}>Know Your Farmer</Text>
                   <Text style={s.farmerCardDesc}>Meet the growers behind your fresh organic produce</Text>
                   <View style={s.farmerCardCTA}>
                     <Text style={[s.farmerCardLink, { color: accent }]}>Explore farmers</Text>
@@ -405,30 +402,40 @@ export default function HomeScreen({ navigation }: any) {
 
             <View style={s.grid}>
               {loading ? (
-                [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)
+                [0, 1, 2, 3].map((i) => <SkeletonCard key={`skeleton-${i}`} />)
               ) : error ? (
                 <View style={{ width: '100%' }}>
                   <ErrorState message={t('home.error.loadProducts')} onRetry={load} />
                 </View>
-              ) : filtered.length === 0 ? (
-                <View style={s.emptyState}>
-                  <Ionicons name="time-outline" size={36} color={Colors.textSecondary} />
-                  <Text style={s.emptyText}>No products with delivery under {deliveryFilter} min</Text>
-                  <TouchableOpacity onPress={() => setDeliveryFilter(null)}>
-                    <Text style={[s.emptyText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>Clear filter</Text>
-                  </TouchableOpacity>
-                </View>
               ) : (
-                filtered.map((product, index) => (
-                  <StaggerFadeIn key={product.id} index={index}>
+                <FlatList
+                  data={filtered}
+                  keyExtractor={(item) => item.id}
+                  numColumns={2}
+                  // Nested in the screen ScrollView — the outer scroller owns
+                  // scrolling, this list only lays out rows (no per-row timers).
+                  scrollEnabled={false}
+                  style={s.gridList}
+                  columnWrapperStyle={s.gridRow}
+                  contentContainerStyle={s.gridContent}
+                  renderItem={({ item }) => (
                     <ProductCard
-                      product={product}
+                      product={item}
                       onPress={(p) => openProduct(p.id)}
                       onQuickAdd={handleQuickAdd}
                       onVendorPress={handleVendorPress}
                     />
-                  </StaggerFadeIn>
-                ))
+                  )}
+                  ListEmptyComponent={
+                    <View style={s.emptyState}>
+                      <Ionicons name="time-outline" size={36} color={Colors.textSecondary} />
+                      <Text style={s.emptyText}>No products with delivery under {deliveryFilter} min</Text>
+                      <TouchableOpacity onPress={() => setDeliveryFilter(null)}>
+                        <Text style={[s.emptyText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>Clear filter</Text>
+                      </TouchableOpacity>
+                    </View>
+                  }
+                />
               )}
             </View>
           </Animated.View>
@@ -714,6 +721,9 @@ const s = StyleSheet.create({
   },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: Spacing.xl },
+  gridList: { width: '100%' },
+  gridRow: { justifyContent: 'space-between' },
+  gridContent: { flexGrow: 1 },
 
   skeletonCard: { width: '48%', marginBottom: Spacing.lg },
   skeletonImg: { height: 140, borderRadius: BorderRadius.lg, backgroundColor: Colors.border, marginBottom: Spacing.sm },

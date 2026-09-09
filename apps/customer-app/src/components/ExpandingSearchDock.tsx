@@ -26,9 +26,9 @@ const DEBOUNCE_MS = 300;
 const DEFAULT_Y = 60;
 
 const STORE_SHORTCUTS: { type: StoreType; tag: string; icon: string }[] = [
-  { type: StoreType.ORGANIC, tag: 'CURATED', icon: 'leaf' },
-  { type: StoreType.NATURAL, tag: 'ARTISANAL', icon: 'flower' },
-  { type: StoreType.ECO_FRIENDLY, tag: 'SUSTAINABLE', icon: 'earth' },
+  { type: StoreType.ORGANIC, tag: 'ORGANIC', icon: 'leaf' },
+  { type: StoreType.NATURAL, tag: 'NATURAL', icon: 'flower' },
+  { type: StoreType.ECO_FRIENDLY, tag: 'ECO-FRIENDLY', icon: 'earth' },
 ];
 
 const POPULAR_SEARCHES = [

@@ -64,7 +64,7 @@ export default function AddressListScreen({ navigation, route }: any) {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.center}>
-          <ActivityIndicator size="large" color="#22FF88" />
+          <ActivityIndicator size="large" color="#5C6B4D" />
         </View>
       </SafeAreaView>
     );
@@ -196,7 +196,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: BorderRadius.pill,
@@ -211,7 +211,7 @@ const s = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.lg,
@@ -222,7 +222,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#22FF88',
+    backgroundColor: '#5C6B4D',
     borderRadius: BorderRadius.pill,
     paddingHorizontal: 24,
     paddingVertical: 13,

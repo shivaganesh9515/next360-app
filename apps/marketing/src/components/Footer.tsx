@@ -18,17 +18,32 @@ export default function Footer() {
     },
     {
       title: 'For Customers',
-      items: ['Download the App', 'Browse Stores', 'How to Order', 'Delivery Areas', 'Track Your Order'],
+      items: [
+        { label: 'How it works', href: '/#how-it-works' },
+        { label: 'Categories', href: '/#categories' },
+        { label: 'Why Next360', href: '/#why' },
+        { label: 'FAQ', href: '/#faq' },
+      ],
       type: 'links' as const,
     },
     {
       title: 'For Sellers',
-      items: ['Register Your Store', 'Vendor Dashboard', 'Pricing & Payouts', 'Seller Resources', 'Success Stories'],
+      items: [
+        { label: 'Become a seller', href: '/sellers' },
+        { label: 'Payouts', href: '/sellers#payouts' },
+        { label: 'Seller FAQ', href: '/sellers#faq' },
+        { label: 'Contact onboarding', href: 'mailto:support@next360.com?subject=Seller%20application%20—%20Next360' },
+      ],
       type: 'links' as const,
     },
     {
       title: 'For Delivery Partners',
-      items: ['Become a Partner', 'Partner App', 'Earnings & Payouts', 'Partner Support', 'FAQ'],
+      items: [
+        { label: 'Become a partner', href: '/partners' },
+        { label: 'Earnings', href: '/partners#earnings' },
+        { label: 'Partner FAQ', href: '/partners#faq' },
+        { label: 'Contact onboarding', href: 'mailto:support@next360.com?subject=Delivery%20partner%20application%20—%20Next360' },
+      ],
       type: 'links' as const,
     },
   ];
@@ -85,7 +100,7 @@ export default function Footer() {
                   <ul className="space-y-2.5">
                     {col.items.map((link, linkIndex) => (
                       <motion.li
-                        key={link}
+                        key={link.label}
                         initial={{ opacity: 0, x: -10 }}
                         animate={isInView ? { opacity: 1, x: 0 } : {}}
                         transition={{
@@ -95,10 +110,10 @@ export default function Footer() {
                         }}
                       >
                         <a
-                          href="#"
+                          href={link.href}
                           className="text-text-on-dark/50 text-sm hover:text-text-on-dark/80 transition-colors"
                         >
-                          {link}
+                          {link.label}
                         </a>
                       </motion.li>
                     ))}
@@ -120,32 +135,21 @@ export default function Footer() {
             ease: easings.easeOut.array,
           }}
         >
-          <form
-            className="flex items-center gap-3 w-full sm:w-auto"
-            onSubmit={(e) => e.preventDefault()}
-          >
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 sm:w-auto px-4 py-2.5 rounded-full bg-white/10 border border-white/20 text-text-on-dark text-sm placeholder:text-text-on-dark/30 outline-none focus:border-brand-accent transition-colors"
-            />
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:scale-105 transition-all duration-300 shrink-0"
+          <div className="w-full sm:w-auto">
+            <a
+              href="mailto:support@next360.com"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 border border-white/20 text-text-on-dark text-sm hover:border-brand-accent transition-colors"
             >
-              Subscribe
-            </button>
-          </form>
+              Contact us: support@next360.com
+            </a>
+          </div>
 
           <div className="flex items-center gap-6 text-text-on-dark/30 text-xs">
             <a href="/sitemap.xml" className="sr-only focus:not-sr-only focus:absolute focus:text-text-on-dark/60" aria-label="Sitemap">
               Sitemap
             </a>
-            <a href="#" className="hover:text-text-on-dark/60 transition-colors">
+            <a href="/privacy" className="hover:text-text-on-dark/60 transition-colors">
               Privacy
-            </a>
-            <a href="#" className="hover:text-text-on-dark/60 transition-colors">
-              Terms
             </a>
             <span>&copy; {new Date().getFullYear()} Next360</span>
           </div>

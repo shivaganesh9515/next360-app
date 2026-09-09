@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Fraunces, Playfair_Display, Manrope } from 'next/font/google';
 import LenisProvider from '@/components/lenis-provider';
 import './globals.css';
@@ -24,11 +24,18 @@ const manrope = Manrope({
   weight: ['300', '400', '500', '600', '700', '800'],
 });
 
+export const viewport: Viewport = {
+  themeColor: '#16241C',
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://next360.in'),
   title: 'Next360 | Organic Marketplace for Fresh, Verified, Sustainable Living',
   description:
     "Next360 connects you with verified organic stores, fresh produce, and trusted delivery partners across Hyderabad, Karimnagar & Vijayawada. Fresh. Organic. Delivered.",
+  icons: {
+    icon: '/icon.svg',
+  },
   openGraph: {
     title: 'Next360 — Fresh. Organic. Delivered.',
     description:
@@ -37,13 +44,21 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     siteName: 'Next360',
     url: 'https://next360.in/',
-    images: [{ url: '/og/next360-cover.jpg', width: 1200, height: 630 }],
+    images: [
+      {
+        url: '/og/next360-cover.svg',
+        width: 1200,
+        height: 630,
+        alt: 'Next360 — Fresh. Organic. Delivered.',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Next360 — Fresh. Organic. Delivered.',
     description:
       "India's trusted organic commerce ecosystem — verified sellers, fresh produce, flexible delivery earnings.",
+    images: ['/og/next360-cover.svg'],
   },
   robots: { index: true, follow: true },
   alternates: { canonical: 'https://next360.in/' },
@@ -61,11 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               '@type': 'Organization',
               name: 'Next360',
               url: 'https://next360.in',
-              logo: 'https://next360.in/logo.png',
-              sameAs: [
-                'https://instagram.com/next360',
-                'https://linkedin.com/company/next360',
-              ],
+              logo: 'https://next360.in/icon.svg',
               areaServed: ['Hyderabad', 'Karimnagar', 'Vijayawada'],
             }),
           }}

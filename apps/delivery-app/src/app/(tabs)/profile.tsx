@@ -3,15 +3,21 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, A
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import { useDeliveryStore } from '../../store/deliveryStore';
 import { deliveryApi } from '../../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useStaggeredEntrance, useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuthStore();
+  const { earnings, fetchEarnings } = useDeliveryStore();
   const headerAnim = useSpringEntrance(0);
   const statsAnim = useSpringEntrance(150);
   const menuAnim = useSpringEntrance(250);
+
+  useEffect(() => {
+    fetchEarnings('all');
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -36,9 +42,12 @@ export default function ProfileScreen() {
     { icon: 'information-circle-outline', label: 'About', color: Colors.textSecondary, route: null, action: () => Alert.alert('Next360 Delivery', 'Version 1.0.0\n\nDelivery Partner App') },
   ];
 
-  const totalEarningsFormatted = user?.totalEarnings
-    ? `₹${(user.totalEarnings / 100).toLocaleString('en-IN')}`
-    : '₹0';
+  // Real weekly earnings from the store; '—' until loaded — never a
+  // fabricated number, and never the lifetime delivery count relabeled.
+  const weekEarningsText =
+    earnings == null
+      ? '—'
+      : `₹${((earnings.thisWeek ?? 0) / 100).toLocaleString('en-IN')}`;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -81,7 +90,7 @@ export default function ProfileScreen() {
           <View style={[styles.statIconWrap, { backgroundColor: Colors.primaryLight }]}>
             <Ionicons name="cash" size={20} color={Colors.primary} />
           </View>
-          <Text style={styles.statValue}>{user?.completedDeliveries || 0}</Text>
+          <Text style={styles.statValue}>{weekEarningsText}</Text>
           <Text style={styles.statLabel}>This Week</Text>
         </View>
       </Animated.View>

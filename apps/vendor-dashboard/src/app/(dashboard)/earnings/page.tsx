@@ -5,19 +5,36 @@ import { DollarSign, Clock, CheckCircle, TrendingUp } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
 import { vendorApi } from '@/lib/api';
 
+// Platform spec default commission rate (CLAUDE.md) when the backend
+// doesn't report one for this vendor.
+const SPEC_DEFAULT_COMMISSION_RATE = 15;
+
 export default function EarningsPage() {
   const [earnings, setEarnings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    vendorApi.getEarnings().then((res: any) => {
-      // Backend returns { totalEarnings, paidEarnings, pendingEarnings, commissionRate, totalOrders }
+    // NOTE: GET /vendors/me/earnings returns { totalEarnings, paid, pending,
+    // pendingPayout, ... } — no paidEarnings/pendingEarnings keys and no
+    // commissionRate/totalOrders. Commission rate comes from the vendor
+    // profile (commissionPct) and order count from the transactions meta.
+    Promise.allSettled([
+      vendorApi.getEarnings(),
+      vendorApi.getMyProfile(),
+      vendorApi.getTransactions({ page: 1, limit: 1 }),
+    ]).then(([earningsRes, profileRes, txRes]) => {
+      const res: any = earningsRes.status === 'fulfilled' ? earningsRes.value : {};
+      const profile: any = profileRes.status === 'fulfilled' ? profileRes.value : {};
+      const tx: any = txRes.status === 'fulfilled' ? txRes.value : {};
+      // getTransactions unwraps to { data, meta } (service returns
+      // { success, data, meta }); fall back to array length otherwise.
+      const totalOrders = tx?.meta?.total ?? (Array.isArray(tx?.data) ? tx.data.length : Array.isArray(tx) ? tx.length : 0);
       setEarnings({
         totalEarnings: res.totalEarnings || 0,
-        paid: res.paidEarnings || 0,
-        pending: res.pendingEarnings || 0,
-        commissionRate: res.commissionRate || 10,
-        totalOrders: res.totalOrders || 0,
+        paid: res.paid ?? res.paidEarnings ?? 0,
+        pending: res.pending ?? res.pendingPayout ?? res.pendingEarnings ?? 0,
+        commissionRate: res.commissionRate ?? profile?.commissionPct ?? SPEC_DEFAULT_COMMISSION_RATE,
+        totalOrders,
       });
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -27,7 +44,7 @@ export default function EarningsPage() {
       <div><h2 className="text-xl font-bold text-slate-900">Earnings</h2><p className="text-sm text-slate-500">Track your revenue and payouts. Commission is deducted from each order at the rate shown below.</p></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard icon={DollarSign} label="Total Earnings" value={earnings ? `₹${Number(earnings.totalEarnings || 0).toLocaleString()}` : '₹0'} accent="emerald" />
-        <StatsCard icon={TrendingUp} label="Commission Rate" value={earnings ? `${earnings.commissionRate || 10}%` : '10%'} accent="blue" />
+        <StatsCard icon={TrendingUp} label="Commission Rate" value={earnings ? `${earnings.commissionRate ?? SPEC_DEFAULT_COMMISSION_RATE}%` : `${SPEC_DEFAULT_COMMISSION_RATE}%`} accent="blue" />
         <StatsCard icon={Clock} label="Pending" value={earnings ? `₹${Number(earnings.pending || 0).toLocaleString()}` : '₹0'} accent="amber" />
         <StatsCard icon={CheckCircle} label="Paid" value={earnings ? `₹${Number(earnings.paid || 0).toLocaleString()}` : '₹0'} accent="emerald" />
       </div>
@@ -41,7 +58,7 @@ export default function EarningsPage() {
               <p className="text-xl font-bold text-slate-900 mt-1">{earnings.totalOrders || 0}</p>
             </div>
             <div className="bg-slate-50 rounded-lg p-4 text-center">
-              <p className="text-xs text-slate-500 font-medium">Avg Commission per Order</p>
+              <p className="text-xs text-slate-500 font-medium">Avg Earning per Order</p>
               <p className="text-xl font-bold text-slate-900 mt-1">₹{earnings.totalOrders > 0 ? Number(earnings.totalEarnings / earnings.totalOrders).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}</p>
             </div>
             <div className="bg-slate-50 rounded-lg p-4 text-center">

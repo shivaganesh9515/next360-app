@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 const navLinks = [
   { label: 'For Customers', href: '#how-it-works' },
-  { label: 'For Sellers', href: '#how-it-works' },
-  { label: 'For Delivery Partners', href: '#how-it-works' },
+  { label: 'For Sellers', href: '/sellers' },
+  { label: 'For Delivery Partners', href: '/partners' },
   { label: 'Why Next360', href: '#why' },
   { label: 'FAQ', href: '#faq' },
 ];
@@ -18,7 +19,11 @@ function scrollToSection(href: string) {
   }
 }
 
-const sectionIds = ['how-it-works', 'categories', 'why', 'testimonials', 'grow', 'faq'];
+function isHashHref(href: string) {
+  return href.startsWith('#');
+}
+
+const sectionIds = ['how-it-works', 'categories', 'why', 'grow', 'faq'];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -67,9 +72,8 @@ export default function Navbar() {
 
   // ── Determine if a nav item maps to the currently active section ──
   const isActive = (href: string) => {
+    if (!isHashHref(href)) return false;
     const id = href.replace('#', '');
-    // For the three audience links, check how-it-works
-    if (id === 'how-it-works') return activeSection === 'how-it-works';
     return activeSection === id;
   };
 
@@ -91,41 +95,53 @@ export default function Navbar() {
               </span>
             </a>
 
-            {/* Desktop nav — buttons with active indicator */}
-            <nav className="hidden lg:flex items-center gap-1">
+            {/* Desktop nav — crawlable anchors with active indicator */}
+            <nav className="hidden lg:flex items-center gap-1" aria-label="Primary">
               {navLinks.map((l) => {
                 const active = isActive(l.href);
-                // For the first 3 links (audience), the href is the same — use a unique key
                 const key = `${l.label}-${l.href}`;
+                const className = `px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                  active
+                    ? 'bg-brand-primary/10 text-brand-primary'
+                    : 'text-text-secondary hover:text-brand-primary hover:bg-brand-primary/5'
+                }`;
+                if (isHashHref(l.href)) {
+                  return (
+                    <a
+                      key={key}
+                      href={l.href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        scrollToSection(l.href);
+                        setMobileOpen(false);
+                      }}
+                      aria-current={active ? 'true' : undefined}
+                      className={className}
+                    >
+                      {l.label}
+                    </a>
+                  );
+                }
                 return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      scrollToSection(l.href);
-                      setMobileOpen(false);
-                    }}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                      active
-                        ? 'bg-brand-primary/10 text-brand-primary'
-                        : 'text-text-secondary hover:text-brand-primary hover:bg-brand-primary/5'
-                    }`}
-                  >
+                  <Link key={key} href={l.href} className={className}>
                     {l.label}
-                  </button>
+                  </Link>
                 );
               })}
             </nav>
 
             {/* Right */}
             <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => scrollToSection('#how-it-works')}
+              <a
+                href="#how-it-works"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('#how-it-works');
+                }}
                 className="hidden sm:inline-flex px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold shadow-btn hover:scale-105 transition-all duration-300"
               >
-                Download App
-              </button>
+                Get started
+              </a>
               {/* Hamburger */}
               <button
                 type="button"
@@ -155,31 +171,44 @@ export default function Navbar() {
         }`}
         style={{ top: '64px' }}
       >
-        <nav className="flex flex-col gap-4 p-8 pt-12">
-          {navLinks.map((l) => (
-            <button
-              key={l.label}
-              type="button"
-              onClick={() => {
-                scrollToSection(l.href);
-                setMobileOpen(false);
-              }}
-              className="text-left text-2xl font-display font-medium text-brand-primary hover:text-brand-accent transition-colors"
-            >
-              {l.label}
-            </button>
-          ))}
+        <nav className="flex flex-col gap-4 p-8 pt-12" aria-label="Mobile">
+          {navLinks.map((l) =>
+            isHashHref(l.href) ? (
+              <a
+                key={l.label}
+                href={l.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection(l.href);
+                  setMobileOpen(false);
+                }}
+                className="text-left text-2xl font-display font-medium text-brand-primary hover:text-brand-accent transition-colors"
+              >
+                {l.label}
+              </a>
+            ) : (
+              <Link
+                key={l.label}
+                href={l.href}
+                onClick={() => setMobileOpen(false)}
+                className="text-left text-2xl font-display font-medium text-brand-primary hover:text-brand-accent transition-colors"
+              >
+                {l.label}
+              </Link>
+            )
+          )}
           <div className="pt-6 border-t border-neutral-surface">
-            <button
-              type="button"
-              onClick={() => {
+            <a
+              href="#how-it-works"
+              onClick={(e) => {
+                e.preventDefault();
                 scrollToSection('#how-it-works');
                 setMobileOpen(false);
               }}
               className="inline-flex px-6 py-3 rounded-full bg-brand-accent text-white text-sm font-semibold shadow-btn"
             >
-              Download App
-            </button>
+              Get started
+            </a>
           </div>
         </nav>
       </div>
