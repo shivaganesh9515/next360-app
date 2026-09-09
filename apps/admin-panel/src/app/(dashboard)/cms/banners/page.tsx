@@ -134,7 +134,7 @@ export default function BannersPage() {
       label: 'Image',
       render: (b: any) =>
         b.imageUrl ? (
-          <img src={b.imageUrl} alt="" className="w-20 h-10 object-cover rounded border border-gray-200" />
+          <img src={b.imageUrl} alt={b.title ? `Banner: ${b.title}` : 'Promotional banner'} className="w-20 h-10 object-cover rounded border border-gray-200" />
         ) : (
           <div className="w-20 h-10 bg-gray-100 rounded flex items-center justify-center border border-gray-200">
             <ImageIcon className="w-4 h-4 text-gray-400" />
@@ -266,7 +266,7 @@ export default function BannersPage() {
                     <div className="relative inline-block">
                       <img
                         src={previewUrl}
-                        alt="Preview"
+                        alt={form.title ? `Preview: ${form.title}` : 'Banner image preview'}
                         className="max-h-32 rounded object-contain mx-auto"
                       />
                       <button
