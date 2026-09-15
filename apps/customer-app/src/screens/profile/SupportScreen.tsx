@@ -24,7 +24,7 @@ export default function SupportScreen({ navigation }: any) {
     },
     {
       q: 'What payment modes are accepted?',
-      a: 'We accept UPI (Google Pay, PhonePe, Paytm), Credit/Debit Cards, Net Banking, Next360 Wallet Cash, and Cash on Delivery (COD).',
+      a: 'We currently accept Cash on Delivery (COD) up to ₹2,000 per order. Online payments (UPI/cards) are coming soon.',
     },
   ];
 

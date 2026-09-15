@@ -56,36 +56,10 @@ export default function WalletScreen({ navigation }: any) {
   ]);
 
   const handleTopUp = () => {
-    const amt = parseFloat(topUpAmount);
-    if (isNaN(amt) || amt <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount to add to your wallet.');
-      return;
-    }
-    
-    // Simulate Razorpay checkout integration
+    // COD-only MVP: online wallet top-up disabled — no Razorpay keys.
     Alert.alert(
-      'Proceed to Payment',
-      `Add ₹${amt} to your Next360 Wallet via Razorpay Secure Checkout?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Pay Securely', 
-          onPress: () => {
-            const newBal = balance + amt;
-            setBalance(newBal);
-            const newTxn: Transaction = {
-              id: `TXN-${Math.floor(10000 + Math.random() * 90000)}-360`,
-              type: 'CREDIT',
-              amount: amt,
-              description: 'Wallet Top-up via Razorpay',
-              date: 'Just Now',
-            };
-            setTransactions([newTxn, ...transactions]);
-            setTopUpAmount('');
-            Alert.alert('Success', `₹${amt} successfully added to your wallet!`);
-          } 
-        }
-      ]
+      'Coming Soon',
+      'Online wallet top-up is coming soon. Please pay with Cash on Delivery (COD) for now.',
     );
   };
 

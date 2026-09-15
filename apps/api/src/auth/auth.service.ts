@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException, GoneException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Redis from 'ioredis';
@@ -135,96 +135,16 @@ export class AuthService {
   // Zomato-style single phone-OTP flow for the customer app — send-otp +
   // verify-otp-login together replace signup/login for that client entirely
   // (email+password above stays as-is for vendor/admin, which still use it).
+  // DISABLED (2026-09): Customer app is Google-only + COD-only for MVP.
+  // Phone OTP (DLT/SMS) removed to save SMS spend — see PhoneAuthScreen
+  // ENABLE_PHONE_AUTH=false. Endpoints return 410 Gone so the partner audit
+  // OTP findings (brute-force, send abuse) are out of scope by design.
   async sendOtp(dto: SendOtpDto) {
-    // Anti-abuse: enforce 60-second cooldown between OTP sends per phone number
-    const cooldownKey = `otp:cooldown:${dto.phone}`;
-    try {
-      const existing = await this.redis.get(cooldownKey);
-      if (existing) {
-        throw new BadRequestException('Please wait 60 seconds before requesting a new code.');
-      }
-    } catch (err) {
-      if (err instanceof BadRequestException) throw err;
-      // Redis unavailable — skip cooldown check in dev
-    }
-
-    const code = String(crypto.randomInt(100000, 999999));
-    const key = `${AuthService.OTP_KEY_PREFIX}${dto.phone}`;
-
-    try {
-      // Redis-backed: SET with TTL, falls back to in-memory on connection failure
-      await this.redis.set(key, code, 'EX', AuthService.OTP_TTL_SECONDS);
-      // Set 60-second cooldown to prevent SMS bombing
-      await this.redis.set(cooldownKey, '1', 'EX', 60);
-    } catch (err) {
-      this.logger.warn('Redis unavailable for OTP, falling back to in-memory');
-      this.otpFallback.set(dto.phone, {
-        code,
-        expiresAt: Date.now() + AuthService.OTP_TTL_SECONDS * 1000,
-      });
-    }
-
-    // Send OTP via SMS provider (falls back to console log if no provider configured)
-    await this.smsService.sendOtp(dto.phone, code);
-
-    return { message: 'OTP sent' };
+    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
   }
 
   async verifyOtpLogin(dto: VerifyOtpLoginDto) {
-    const key = `${AuthService.OTP_KEY_PREFIX}${dto.phone}`;
-    let code: string | null = null;
-
-    try {
-      code = await this.redis.get(key);
-    } catch {
-      // Redis unavailable — check in-memory fallback
-    }
-
-    // Also check in-memory fallback
-    if (!code) {
-      const fallback = this.otpFallback.get(dto.phone);
-      if (fallback && fallback.expiresAt > Date.now()) {
-        code = fallback.code;
-      }
-    }
-
-    if (!code) {
-      throw new UnauthorizedException('OTP expired or not requested. Request a new code and try again.');
-    }
-    if (code !== dto.otp) {
-      throw new UnauthorizedException('Incorrect code.');
-    }
-
-    // Delete used OTP from both stores
-    try {
-      await this.redis.del(key);
-    } catch { /* ignore */ }
-    this.otpFallback.delete(dto.phone);
-
-    let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
-    let isNewUser = false;
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: { phone: dto.phone, role: 'CUSTOMER' },
-      });
-      isNewUser = true;
-    }
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
-    // Send welcome notification for new users
-    if (isNewUser && user) {
-      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
-    }
-
-    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
-
-    return {
-      user: this.sanitizeUser(user),
-      access_token: token,
-      isNewUser,
-    };
+    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
   }
 
   async getProfile(userId: string) {
@@ -254,19 +174,7 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    if (this.supabase) {
-      const { error } = await this.supabase.auth.verifyOtp({
-        email: dto.email,
-        token: dto.otp,
-        type: 'email',
-      });
-
-      if (error) {
-        throw new BadRequestException(`OTP verification failed: ${error.message}`);
-      }
-    }
-
-    return { message: 'OTP verified successfully' };
+    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
   }
 
   async googleLogin(dto: { email: string; googleId: string; name?: string; avatarUrl?: string }) {

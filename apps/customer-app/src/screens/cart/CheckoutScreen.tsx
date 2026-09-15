@@ -16,9 +16,10 @@ import DeliverySlotPicker from '../../components/DeliverySlotPicker';
 const SLIDE_THRESHOLD = 0.85;
 const COD_CAP = 2000;
 
+// COD-only MVP (2026-09): Razorpay disabled — no keys. Single option kept as
+// an array so re-enabling online payment is a one-line add.
 const PAYMENT_OPTIONS = [
   { key: 'COD' as const, labelKey: 'checkout.payment.cod', icon: 'cash-outline' as const, comingSoon: false },
-  { key: 'RAZORPAY' as const, labelKey: 'checkout.payment.razorpay', icon: 'card-outline' as const, comingSoon: false },
 ];
 
 const CHECKOUT_STEPS = ['Address', 'Payment', 'Confirm'];
@@ -28,7 +29,7 @@ export default function CheckoutScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { cartItems, subtotal, clearCart } = useStore();
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD'>('COD');
   const [notes, setNotes] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<{ slotConfigId: string; date: string; timeRange: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,31 +199,7 @@ export default function CheckoutScreen({ navigation }: any) {
       const result = await customerApi.createOrder(orderData);
       const orderId = result?.id || result?.data?.id;
 
-      if (paymentMethod === 'RAZORPAY') {
-        try {
-          const razorpayOrder = await customerApi.createRazorpayOrder(orderId);
-          const RazorpayCheckout = require('react-native-razorpay');
-          const paymentResult = await RazorpayCheckout.open({
-            key: razorpayOrder.key,
-            amount: razorpayOrder.amount,
-            currency: razorpayOrder.currency,
-            order_id: razorpayOrder.order_id,
-            name: 'Next360',
-            description: `Order ${razorpayOrder.receipt || orderId.slice(0, 8).toUpperCase()}`,
-            prefill: {},
-            theme: { color: '#5C6B4D' },
-          });
-          await customerApi.verifyPayment({
-            razorpayOrderId: razorpayOrder.order_id,
-            razorpayPaymentId: paymentResult.razorpay_payment_id,
-            razorpaySignature: paymentResult.razorpay_signature,
-          });
-        } catch (razorpayError: any) {
-          const msg = razorpayError?.message || 'Payment was cancelled or failed';
-          Alert.alert('Payment Failed', msg);
-          return false;
-        }
-      }
+      // Razorpay disabled for COD-only MVP — order is already CONFIRMED.
 
       await clearCart();
       navigation.replace('OrderConfirmation', { orderId });

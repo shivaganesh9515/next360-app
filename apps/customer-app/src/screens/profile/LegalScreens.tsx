@@ -73,7 +73,7 @@ export function TermsOfServiceScreen({ navigation }: any) {
 
         <Text style={styles.sectionTitle}>2. Ordering & Payments</Text>
         <Text style={styles.paragraph}>
-          Orders can be placed via Cash on Delivery (COD), Next360 Wallet, or online payment options. Prices and delivery fees are displayed at checkout before confirmation.
+          Orders can be placed via Cash on Delivery (COD) up to ₹2,000 per order. Prices and delivery fees are displayed at checkout before confirmation.
         </Text>
 
         <Text style={styles.sectionTitle}>3. Delivery & Cancellations</Text>
