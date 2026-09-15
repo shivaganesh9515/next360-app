@@ -27,3 +27,8 @@ Thumbs.db
 # Local reference files
 _references/
 loyalty-engine/
+
+# Build artifacts
+build/
+*.apk
+*.aab
