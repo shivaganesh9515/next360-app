@@ -7,7 +7,7 @@ import {
   BarChart3, DollarSign, Store, Bell, Settings, HelpCircle,
   ChevronDown, ChevronRight, Box, AlertTriangle, Percent, Receipt
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -47,7 +47,21 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState<string[]>(['Products', 'Orders']);
+  const [expanded, setExpanded] = useState<string[]>(() => {
+    return navItems
+      .filter(item => item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)))
+      .map(item => item.label);
+  });
+
+  useEffect(() => {
+    setExpanded(prev => {
+      const autoExpand = navItems
+        .filter(item => item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)))
+        .map(item => item.label);
+      const merged = new Set([...prev, ...autoExpand]);
+      return Array.from(merged);
+    });
+  }, [pathname]);
 
   const toggleExpand = (label: string) => {
     setExpanded(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]);

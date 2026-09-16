@@ -28,7 +28,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    // Client-side validation
     if (!email.trim()) {
       setError('Please enter your email address');
       return;
@@ -51,7 +50,7 @@ export default function LoginPage() {
 
   const handleSkip = () => {
     skipAuth();
-    router.push('/');
+    window.location.href = '/';
   };
 
   return (
