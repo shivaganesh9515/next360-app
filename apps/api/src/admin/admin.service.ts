@@ -376,4 +376,159 @@ export class AdminService {
 
     return updated;
   }
+
+  async getAnalytics(startDate?: string, endDate?: string, period?: string) {
+    const now = new Date();
+    let fromDate: Date;
+
+    if (startDate) {
+      fromDate = new Date(startDate);
+    } else if (period === 'week') {
+      fromDate = new Date(now);
+      fromDate.setDate(fromDate.getDate() - 7);
+    } else if (period === 'month') {
+      fromDate = new Date(now);
+      fromDate.setMonth(fromDate.getMonth() - 1);
+    } else if (period === 'year') {
+      fromDate = new Date(now);
+      fromDate.setFullYear(fromDate.getFullYear() - 1);
+    } else {
+      fromDate = new Date(now);
+      fromDate.setDate(fromDate.getDate() - 30);
+    }
+
+    const toDate = endDate ? new Date(endDate) : now;
+    toDate.setHours(23, 59, 59, 999);
+
+    const dateWhere = { createdAt: { gte: fromDate, lte: toDate } };
+
+    const [
+      totalOrders,
+      totalRevenue,
+      totalUsers,
+      newUsers,
+      totalVendors,
+      newVendors,
+      totalProducts,
+      activeProducts,
+      topVendors,
+      topProducts,
+      ordersByStatus,
+      revenueByDay,
+      paymentMethodSplit,
+    ] = await Promise.all([
+      this.prisma.order.count({ where: dateWhere }),
+      this.prisma.payment.aggregate({
+        where: { ...dateWhere, status: 'CAPTURED' },
+        _sum: { amount: true },
+      }),
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: dateWhere }),
+      this.prisma.vendor.count({ where: { status: 'APPROVED' } }),
+      this.prisma.vendor.count({ where: dateWhere }),
+      this.prisma.product.count(),
+      this.prisma.product.count({ where: { isActive: true, isApproved: true } }),
+      this.prisma.vendor.findMany({
+        where: { status: 'APPROVED' },
+        select: {
+          id: true,
+          storeName: true,
+          storeType: true,
+          _count: { select: { products: true, vendorGroups: true } },
+          vendorGroups: {
+            select: { subtotal: true },
+          },
+        },
+        take: 10,
+      }),
+      this.prisma.product.findMany({
+        where: { isActive: true, isApproved: true },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          images: true,
+          _count: { select: { orderItems: true, reviews: true } },
+          reviews: { select: { rating: true } },
+        },
+        orderBy: { orderItems: { _count: 'desc' } },
+        take: 10,
+      }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where: dateWhere,
+        _count: true,
+      }),
+      this.prisma.payment.groupBy({
+        by: ['createdAt'],
+        where: { ...dateWhere, status: 'CAPTURED' },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.payment.groupBy({
+        by: ['method'],
+        where: dateWhere,
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
+
+    const topVendorsFormatted = topVendors.map((v) => ({
+      id: v.id,
+      storeName: v.storeName,
+      storeType: v.storeType,
+      productCount: v._count.products,
+      orderCount: v._count.vendorGroups,
+      totalRevenue: v.vendorGroups.reduce(
+        (sum, g) => sum + Number(g.subtotal),
+        0,
+      ),
+    })).sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+    const topProductsFormatted = topProducts.map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price),
+      image: p.images[0] || null,
+      orderCount: p._count.orderItems,
+      reviewCount: p._count.reviews,
+      avgRating: p.reviews.length > 0
+        ? Number((p.reviews.reduce((sum, r) => sum + r.rating, 0) / p.reviews.length).toFixed(1))
+        : 0,
+    }));
+
+    return {
+      period: {
+        start: fromDate.toISOString(),
+        end: toDate.toISOString(),
+      },
+      overview: {
+        totalOrders,
+        totalRevenue: Number(revenueByDay.reduce((sum, d) => sum + Number(d._sum.amount || 0), 0)),
+        totalUsers,
+        newUsers,
+        totalVendors,
+        newVendors,
+        totalProducts,
+        activeProducts,
+        conversionRate: totalUsers > 0 ? Number(((totalOrders / totalUsers) * 100).toFixed(1)) : 0,
+      },
+      ordersByStatus: ordersByStatus.map((s) => ({
+        status: s.status,
+        count: s._count,
+      })),
+      revenueByDay: revenueByDay.map((d) => ({
+        date: d.createdAt,
+        revenue: Number(d._sum.amount || 0),
+        orders: d._count,
+      })),
+      paymentMethodSplit: paymentMethodSplit.map((p) => ({
+        method: p.method || 'UNKNOWN',
+        count: p._count,
+        amount: Number(p._sum.amount || 0),
+      })),
+      topVendors: topVendorsFormatted,
+      topProducts: topProductsFormatted,
+    };
+  }
 }

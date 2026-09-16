@@ -377,7 +377,6 @@ model Order {
   payouts      Payout[]
   returnRequests ReturnRequest[]
   commissions    Commission[]
-  payouts      Payout[]
 }
 
 // One record per vendor per order — tracked and fulfilled independently (Swiggy/Zomato model)

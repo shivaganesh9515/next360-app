@@ -48,6 +48,16 @@ export class PaymentsService {
    * at scale, consider moving the Razorpay call outside with a Redis lock.
    */
   async createRazorpayOrder(userId: string, dto: CreateRazorpayOrderDto) {
+    // DISABLED (2026-09): COD-only MVP — no Razorpay keys. Returns 503 so the
+    // partner-audit Razorpay findings (idempotency race, order-creation abuse,
+    // webhook replay) are out of scope by design. Settlement implementation
+    // (advisory-lock + orphan cleanup) below is kept for re-enable.
+    throw new HttpException(
+      'Online payments are disabled. Please use Cash on Delivery (COD).',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+
+    /* eslint-disable-next-line no-unreachable */
     if (!this.isConfigured()) {
       throw new HttpException(
         'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.',
@@ -141,6 +151,13 @@ export class PaymentsService {
    * Verify a Razorpay payment signature after successful payment on the client side.
    */
   async verifyPayment(userId: string, dto: VerifyPaymentDto) {
+    // DISABLED (2026-09): COD-only MVP — see createRazorpayOrder guard.
+    throw new HttpException(
+      'Online payments are disabled. Please use Cash on Delivery (COD).',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+
+    /* eslint-disable-next-line no-unreachable */
     // Verify signature
     const body = dto.razorpayOrderId + '|' + dto.razorpayPaymentId;
 
@@ -200,6 +217,14 @@ export class PaymentsService {
    * Handle Razorpay webhook events (payment captured, failed, etc.)
    */
   async handleWebhook(webhookDto: RazorpayWebhookDto) {
+    // DISABLED (2026-09): COD-only MVP — webhooks not accepted. Handler kept
+    // (capture dedup, refund crash-recovery, Route transfers) for re-enable.
+    throw new HttpException(
+      'Online payments are disabled. Webhooks not accepted.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+
+    /* eslint-disable-next-line no-unreachable */
     const event = webhookDto.event;
 
     switch (event) {
@@ -1408,6 +1433,14 @@ export class PaymentsService {
    * admin double-click or crash recovery.
    */
   async initiateRefund(orderId: string, reason?: string) {
+    // DISABLED (2026-09): COD-only MVP — no captured online payments exist.
+    // CAS refund flow kept below for re-enable.
+    throw new HttpException(
+      'Online refunds are disabled in COD-only mode.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+
+    /* eslint-disable-next-line no-unreachable */
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { payments: true },

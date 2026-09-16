@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('reviews')
 export class ReviewsController {
@@ -49,6 +50,19 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   findByUser(@CurrentUser() user: { id: string }) {
     return this.reviewsService.findByUser(user.id);
+  }
+
+  @Get('ratings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  getRatingsAggregate(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reviewsService.getRatingsAggregate(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   @Delete(':id')

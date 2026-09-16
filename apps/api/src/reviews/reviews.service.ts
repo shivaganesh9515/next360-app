@@ -135,4 +135,57 @@ export class ReviewsService {
     await this.prisma.review.delete({ where: { id: reviewId } });
     return { message: 'Review deleted' };
   }
+
+  async getRatingsAggregate(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [overallAggregate, ratingDistribution, recentReviews, total] = await Promise.all([
+      this.prisma.review.aggregate({
+        _avg: { rating: true },
+        _count: { rating: true },
+        _min: { rating: true },
+        _max: { rating: true },
+      }),
+      this.prisma.review.groupBy({
+        by: ['rating'],
+        _count: true,
+        orderBy: { rating: 'asc' },
+      }),
+      this.prisma.review.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, avatarUrl: true } },
+          product: { select: { id: true, name: true, images: true } },
+        },
+      }),
+      this.prisma.review.count(),
+    ]);
+
+    const distribution = [1, 2, 3, 4, 5].map((rating) => {
+      const found = ratingDistribution.find((r) => r.rating === rating);
+      return {
+        rating,
+        count: found ? found._count : 0,
+        percentage: total > 0
+          ? Math.round(((found ? found._count : 0) / total) * 100)
+          : 0,
+      };
+    });
+
+    return {
+      summary: {
+        averageRating: overallAggregate._avg.rating
+          ? Number(overallAggregate._avg.rating.toFixed(1))
+          : 0,
+        totalReviews: overallAggregate._count.rating,
+        minRating: overallAggregate._min.rating || 0,
+        maxRating: overallAggregate._max.rating || 0,
+      },
+      distribution,
+      recentReviews,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
 }
