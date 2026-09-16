@@ -377,6 +377,7 @@ model Order {
   payouts      Payout[]
   returnRequests ReturnRequest[]
   commissions    Commission[]
+  payouts      Payout[]
 }
 
 // One record per vendor per order — tracked and fulfilled independently (Swiggy/Zomato model)
@@ -444,6 +445,11 @@ model Payment {
   status            String        @default("PENDING") // PENDING, CAPTURED, FAILED, REFUNDED
   method            String?
   createdAt         DateTime      @default(now())
+
+  @@index([razorpayOrderId])
+  @@index([razorpayPaymentId])
+  @@index([orderId])
+  @@index([status])
 }
 
 model Commission {
@@ -458,6 +464,8 @@ model Commission {
   isPaid          Boolean  @default(false)
   paidAt          DateTime?
   createdAt       DateTime @default(now())
+
+  @@unique([orderId, vendorId])
 }
 
 model Payout {
@@ -469,13 +477,17 @@ model Payout {
   orderId     String?
   order       Order?   @relation(fields: [orderId], references: [id])
   amount      Decimal  @db.Decimal(10, 2)
-  status      String   @default("PENDING") // PENDING, PROCESSED, PAID, FAILED
+  status      String   @default("PENDING") // PENDING, SETTLING, PROCESSED, PAID, FAILED
+  transferId  String?  // Razorpay Route transfer ID — populated after successful transfer for reconciliation
   periodStart DateTime?
   periodEnd   DateTime?
   paidAt      DateTime?
   createdAt   DateTime @default(now())
 
   @@unique([orderId, vendorId])
+  @@unique([deliveryPartnerId, periodStart, periodEnd])
+  @@index([vendorId, status])
+  @@index([transferId])
 }
 
 model SupportTicket {
@@ -551,6 +563,8 @@ model ReturnRequest {
   refundAmount Decimal?    @db.Decimal(10, 2)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  @@unique([orderId, userId])
 }
 
 model KYC {

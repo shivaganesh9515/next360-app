@@ -28,8 +28,10 @@ export class QueueService {
     await this.invoiceQueue.add('generate', { orderId });
   }
 
-  async processSettlement(vendorId: string, amount: number) {
-    await this.settlementQueue.add('process', { vendorId, amount });
+  async processSettlement(vendorId: string, amount: number, payoutId: string) {
+    await this.settlementQueue.add('process', { vendorId, amount, payoutId }, {
+      jobId: `settle-${payoutId}`,
+    });
   }
 
   async getQueueMetrics() {

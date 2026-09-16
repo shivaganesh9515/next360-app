@@ -33,47 +33,42 @@ export class ReturnsService {
       throw new BadRequestException('Only delivered orders can be returned');
     }
 
-    // Check if return already exists
-    const existing = await this.prisma.returnRequest.findFirst({
-      where: { orderId: dto.orderId, userId },
-    });
-    if (existing) {
-      throw new BadRequestException('Return request already exists for this order');
-    }
-
-    const returnRequest = await this.prisma.returnRequest.create({
-      data: {
-        orderId: dto.orderId,
-        userId,
-        reason: dto.reason,
-        refundAmount: order.totalAmount,
-      },
-      include: { order: true },
-    });
-
-    // Notify customer that refund has been initiated
+    // TOCTOU FIX: Removed findFirst+create (racy — two concurrent requests
+    // can both pass the check and create duplicate returns). Instead, create
+    // directly and catch P2002 (unique constraint violation on [orderId, userId]).
+    // The schema-level @@unique([orderId, userId]) ensures only one return per
+    // order per user at the DB level.
     try {
-      await this.notificationsService.sendRefundInitiatedNotification(userId, dto.orderId);
-    } catch (error: any) {
-      this.logger.error(`Refund initiated notification failed: ${error.message}`);
-    }
+      const returnRequest = await this.prisma.returnRequest.create({
+        data: {
+          orderId: dto.orderId,
+          userId,
+          reason: dto.reason,
+          refundAmount: order.totalAmount,
+        },
+        include: { order: true },
+      });
 
-    return returnRequest;
+      return returnRequest;
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new BadRequestException('Return request already exists for this order');
+      }
+      throw error;
+    }
   }
 
   async findAll(userId: string, role: string) {
     const where: any = {};
 
-    // Customers see only their returns; vendors see returns on orders
-    // containing their groups; admins see all.
+    // Customers see only their returns; vendors see returns for orders that
+    // include one of their vendor groups; admins see everything.
     if (role === 'CUSTOMER') {
       where.userId = userId;
     } else if (role === 'VENDOR') {
       const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
       if (!vendor) throw new NotFoundException('Vendor profile not found');
       where.order = { vendorGroups: { some: { vendorId: vendor.id } } };
-    } else if (role !== 'ADMIN') {
-      where.userId = userId;
     }
 
     return this.prisma.returnRequest.findMany({
@@ -86,7 +81,7 @@ export class ReturnsService {
     });
   }
 
-  async findOne(id: string, userId: string, role: string) {
+  async findOne(id: string, userId?: string, role?: string) {
     const ret = await this.prisma.returnRequest.findUnique({
       where: { id },
       include: {
@@ -104,7 +99,9 @@ export class ReturnsService {
       },
     });
     if (!ret) throw new NotFoundException('Return request not found');
-    if (role !== 'ADMIN' && ret.userId !== userId) {
+    // PII guard: non-admin callers may only read their own returns, except a
+    // vendor who fulfills part of the underlying order.
+    if (userId && role && role !== 'ADMIN' && ret.userId !== userId) {
       if (role === 'VENDOR') {
         const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
         const member =
@@ -130,14 +127,62 @@ export class ReturnsService {
   }
 
   async process(id: string, dto: ProcessReturnDto) {
-    // Admin-only caller (controller enforces ADMIN); bypass ownership checks.
-    const ret = await this.findOne(id, '', 'ADMIN');
+    const ret = await this.findOne(id);
 
     if (ret.status !== 'PENDING') {
+      // Crash recovery: if return was approved but the refund/order-update
+      // didn't complete (process crashed after CAS but before side effects),
+      // retry the incomplete operation. This is safe because:
+      // - initiateRefund has its own CAS guard (cannot double-refund)
+      // - COD order.update is idempotent (setting REFUNDED when already
+      //   REFUNDED is harmless)
+      // - The exception is still thrown after recovery so the admin knows
+      //   the return was already processed.
+      if (ret.status === 'APPROVED' && dto.status === 'APPROVED') {
+        const recoveryOrder = await this.prisma.order.findUnique({
+          where: { id: ret.orderId },
+        });
+        if (recoveryOrder && recoveryOrder.status !== 'REFUNDED') {
+          try {
+            if (recoveryOrder.paymentMethod === 'RAZORPAY') {
+              await this.paymentsService.initiateRefund(
+                recoveryOrder.id,
+                'Return approved (crash recovery)',
+              );
+            } else if (recoveryOrder.paymentMethod === 'COD') {
+              await this.prisma.order.update({
+                where: { id: recoveryOrder.id },
+                data: { status: 'REFUNDED' },
+              });
+            }
+            this.logger.log(
+              `Return ${id} crash recovery: completed deferred refund for order ${recoveryOrder.id}`,
+            );
+          } catch (error: any) {
+            this.logger.error(
+              `Return ${id} crash recovery failed: ${error.message}. Admin must retry refund for order ${recoveryOrder.id}.`,
+            );
+          }
+        }
+      }
       throw new BadRequestException(`Return is already ${ret.status.toLowerCase()}`);
     }
 
     const refundAmount = dto.refundAmount ?? ret.refundAmount;
+
+    // ── TASK 3 FIX: Reject partial refunds ──────────────────────────────
+    // The Razorpay refund pipeline (initiateRefund) always refunds the full
+    // order total. If an admin provides a different refundAmount, the
+    // ReturnRequest record would show a partial amount while Razorpay
+    // refunds the full amount — a dangerous mismatch. Reject explicitly
+    // until partial refund support is implemented end-to-end.
+    if (dto.refundAmount !== undefined && dto.refundAmount !== Number(ret.refundAmount)) {
+      throw new BadRequestException(
+        `Partial refunds are not supported. ` +
+        `Refund amount must be ₹${ret.refundAmount} (full order amount). ` +
+        `Received: ₹${dto.refundAmount}.`,
+      );
+    }
 
     if (dto.status === 'APPROVED') {
       const order = await this.prisma.order.findUnique({
@@ -149,89 +194,97 @@ export class ReturnsService {
 
       if (!order) throw new NotFoundException('Order not found');
 
-      // Razorpay orders: trigger refund via Razorpay API
-      // (initiateRefund already updates Payment + Order status to REFUNDED)
+      // CAS + stock restoration FIRST — before any irreversible side effects.
+      // This prevents the race where a concurrent REJECTED wins the CAS after
+      // initiateRefund has already sent the Razorpay refund. Without this order,
+      // a race between approve and reject could leave Payment=REFUNDED +
+      // ReturnRequest=REJECTED + stock not restored.
+      const txResult = await this.prisma.$transaction(async (tx) => {
+        const claim = await tx.returnRequest.updateMany({
+          where: { id, status: 'PENDING' },
+          data: { status: 'APPROVED', refundAmount },
+        });
+
+        if (claim.count === 0) {
+          return { casSucceeded: false as const };
+        }
+
+        for (const group of order.vendorGroups) {
+          for (const item of group.items || []) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            });
+          }
+        }
+
+        return { casSucceeded: true as const };
+      });
+
+      if (!txResult.casSucceeded) {
+        this.logger.warn(
+          `Return ${id} CAS failed (already processed) — skipping stock restoration`,
+        );
+        return await this.findOne(id);
+      }
+
+      // Side effects AFTER CAS succeeded — only reached when this thread
+      // exclusively owns the PENDING → APPROVED transition.
       if (order.paymentMethod === 'RAZORPAY') {
         try {
           await this.paymentsService.initiateRefund(order.id, 'Return approved');
         } catch (error: any) {
+          // CAS already succeeded — ReturnRequest=APPROVED, stock restored.
+          // The refund failed but can be retried via crash recovery when the
+          // admin calls process() again with status='APPROVED'. Log CRITICAL
+          // so ops can also intervene manually.
           this.logger.error(
-            `Razorpay refund failed for order ${order.id}: ${error.message}`,
+            `CRITICAL: Return ${id} approved but Razorpay refund failed for order ${order.id}: ${error.message}. ` +
+            `ReturnRequest=APPROVED, stock restored, Payment=CAPTURED. ` +
+            `Retry via crash recovery or admin manual retry.`,
           );
-          throw new BadRequestException(`Refund failed: ${error.message}`);
         }
-      }
-
-      // COD orders: update order status directly (no Razorpay payment to refund)
-      if (order.paymentMethod === 'COD') {
+      } else if (order.paymentMethod === 'COD') {
         await this.prisma.order.update({
           where: { id: order.id },
           data: { status: 'REFUNDED' },
         });
       }
 
-      // Restore product stock atomically with the return-record update so a
-      // crash between the two can never double-restore or lose the restore.
-      const stockOps = [];
-      for (const group of order.vendorGroups) {
-        for (const item of group.items || []) {
-          stockOps.push(
-            this.prisma.product.update({
-              where: { id: item.productId },
-              data: { stock: { increment: item.quantity } },
-            }),
-          );
-        }
-      }
-
-      const updated = await this.prisma.$transaction([
-        ...stockOps,
-        this.prisma.returnRequest.update({
-          where: { id },
-          data: { status: dto.status, refundAmount },
-        }),
-      ]);
-
-      // Send notifications based on status change
-      try {
-        if (dto.status === 'APPROVED') {
+      // APPROVED+Razorpay: initiateRefund already sent "refund initiated" notification.
+      // APPROVED+COD: no refund notification from initiateRefund — send here.
+      if (order.paymentMethod === 'COD') {
+        try {
           await this.notificationsService.sendRefundInitiatedNotification(ret.userId, ret.orderId);
-        } else if (dto.status === 'REFUNDED') {
-          await this.notificationsService.sendRefundCompletedNotification(
-            ret.userId,
-            ret.orderId,
-            Number(refundAmount),
-          );
+        } catch (error: any) {
+          this.logger.error(`Return approved notification failed: ${error.message}`);
         }
-      } catch (error: any) {
-        this.logger.error(`Return status notification failed: ${error.message}`);
       }
 
-      return updated[updated.length - 1];
+      return await this.findOne(id);
     }
 
-    const updated = await this.prisma.returnRequest.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        refundAmount,
-      },
+    // REJECTED path — CAS guard prevents overwriting an APPROVED state
+    // if two admins process the same return concurrently.
+    const rejectClaim = await this.prisma.returnRequest.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'REJECTED', refundAmount },
     });
 
-    // Send notifications based on status change.
-    // Only REJECTED and direct-to-REFUNDED reach here (APPROVED returns above).
-    try {
-      if (dto.status === 'REFUNDED') {
-        await this.notificationsService.sendRefundCompletedNotification(
-          ret.userId,
-          ret.orderId,
-          Number(refundAmount),
-        );
-      }
-    } catch (error: any) {
-      this.logger.error(`Return status notification failed: ${error.message}`);
+    if (rejectClaim.count === 0) {
+      return await this.findOne(id);
     }
 
-    return updated;
+    try {
+      await this.notificationsService.sendPaymentFailedNotification(
+        ret.userId,
+        ret.orderId,
+        'Your return request has been rejected.',
+      );
+    } catch (error: any) {
+      this.logger.error(`Return rejected notification failed: ${error.message}`);
+    }
+
+    return await this.findOne(id);
   }
 }

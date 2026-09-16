@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { ReturnsService } from './returns.service';
 import { CreateReturnDto, ProcessReturnDto } from './dto/return.dto';
@@ -46,10 +47,11 @@ export class ReturnsController {
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  findOne(
+  async findOne(
     @CurrentUser() user: { id: string; role: string },
     @Param('id') id: string,
   ) {
+    // Ownership enforced in service (findOne filters non-admins to their own returns)
     return this.returnsService.findOne(id, user.id, user.role);
   }
 

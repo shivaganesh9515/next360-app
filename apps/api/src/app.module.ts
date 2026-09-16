@@ -41,6 +41,7 @@ import { ReportsModule } from './reports/reports.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
+import { RazorpayModule } from './razorpay/razorpay.module';
 import { SmsModule } from './providers/sms/sms.module';
 import { EmailModule } from './providers/email/email.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -106,6 +107,7 @@ import { ThrottlerGuard } from './common/guards/throttler.guard';
     ReportsModule,
     LoyaltyModule,
     QueueModule,
+    RazorpayModule,
     SmsModule,
     EmailModule,
   ],
