@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsArray, Min, Max, ArrayNotEmpty, ArrayUnique, Matches } from 'class-validator';
 
 export class CreateZoneDto {
   @IsString()
@@ -7,6 +7,14 @@ export class CreateZoneDto {
   @IsOptional()
   @IsString()
   city?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @Matches(/^\d{6}$/, { each: true, message: 'Each pincode must be exactly 6 digits' })
+  pincodes?: string[];
 
   @IsOptional()
   @IsNumber()

@@ -26,6 +26,7 @@ export class ZonesService {
       data: {
         name: dto.name,
         city,
+        pincodes: dto.pincodes ?? [],
         isActive: dto.isActive ?? true,
       },
     });
@@ -45,6 +46,7 @@ export class ZonesService {
       id: z.id,
       name: z.name,
       city: z.city,
+      pincodes: z.pincodes,
       isActive: z.isActive,
       createdAt: z.createdAt,
       updatedAt: z.updatedAt,
@@ -73,6 +75,7 @@ export class ZonesService {
       id: zone.id,
       name: zone.name,
       city: zone.city,
+      pincodes: zone.pincodes,
       isActive: zone.isActive,
       createdAt: zone.createdAt,
       updatedAt: zone.updatedAt,
@@ -93,6 +96,7 @@ export class ZonesService {
     const data: any = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.city !== undefined) data.city = dto.city;
+    if (dto.pincodes !== undefined) data.pincodes = dto.pincodes;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
 
     const updated = await this.prisma.zone.update({
@@ -109,6 +113,7 @@ export class ZonesService {
       id: updated.id,
       name: updated.name,
       city: updated.city,
+      pincodes: updated.pincodes,
       isActive: updated.isActive,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
@@ -167,5 +172,48 @@ export class ZonesService {
       };
     }
     return { valid: true };
+  }
+
+  async validatePincode(pincode: string): Promise<{ valid: boolean; zone?: any; error?: string }> {
+    const zone = await this.prisma.zone.findFirst({
+      where: {
+        pincodes: { has: pincode },
+        isActive: true,
+      },
+    });
+
+    if (!zone) {
+      return {
+        valid: false,
+        error: `Pincode ${pincode} is not serviceable. We currently serve Hyderabad and Vijayawada.`,
+      };
+    }
+
+    const cityLower = zone.city.toLowerCase();
+    const isMvpZone = MVP_ZONES.some((z) => z.toLowerCase() === cityLower);
+    if (!isMvpZone) {
+      return {
+        valid: false,
+        error: `Pincode ${pincode} belongs to a zone outside the MVP service area.`,
+      };
+    }
+
+    return {
+      valid: true,
+      zone: {
+        id: zone.id,
+        name: zone.name,
+        city: zone.city,
+        isActive: zone.isActive,
+      },
+    };
+  }
+
+  async findByPincode(pincode: string) {
+    return this.prisma.zone.findFirst({
+      where: {
+        pincodes: { has: pincode },
+      },
+    });
   }
 }

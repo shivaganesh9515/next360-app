@@ -158,9 +158,9 @@ model Zone {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  vendors            Vendor[]
-  deliveryPartners   DeliveryPartner[]
-  deliverySlotConfigs DeliverySlotConfig[]
+  vendors          Vendor[]
+  deliveryPartners DeliveryPartner[]
+  slotConfigs      DeliverySlotConfig[]
 }
 
 model Vendor {

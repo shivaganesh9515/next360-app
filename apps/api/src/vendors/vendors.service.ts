@@ -131,7 +131,7 @@ export class VendorsService {
 
     // Audit log: record who changed the status and what changed
     if (adminId) {
-      this.auditService.log({
+      await this.auditService.log({
         adminId,
         action: `${newStatus === 'APPROVED' ? 'APPROVE' : newStatus === 'REJECTED' ? 'REJECT' : 'SUSPEND'}_VENDOR`,
         resource: 'Vendor',
@@ -330,6 +330,17 @@ export class VendorsService {
     if (vendor.status === 'APPROVED') {
       throw new ConflictException('Vendor is already approved');
     }
+
+    const kyc = await this.prisma.kYC.findUnique({
+      where: { userId: vendor.userId },
+    });
+
+    if (!kyc || kyc.status !== 'VERIFIED') {
+      throw new BadRequestException(
+        `Cannot approve vendor: KYC is ${kyc?.status?.toLowerCase() || 'not submitted'}. KYC must be VERIFIED before approval.`,
+      );
+    }
+
     const updated = await this.prisma.vendor.update({
       where: { id },
       data: { status: 'APPROVED' },

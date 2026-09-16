@@ -538,6 +538,26 @@ export class NotificationsService {
     );
   }
 
+  async sendDeliveryPartnerKycApprovedNotification(userId: string) {
+    return this.notify(
+      userId,
+      'KYC Verified',
+      'Your identity verification has been approved. You can now start accepting deliveries.',
+      'DP_KYC_APPROVED',
+      { screen: 'Home' },
+    );
+  }
+
+  async sendDeliveryPartnerKycRejectedNotification(userId: string, rejectionReason?: string) {
+    return this.notify(
+      userId,
+      'KYC Not Approved',
+      `Your identity verification was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''} Please resubmit your documents.`,
+      'DP_KYC_REJECTED',
+      { screen: 'Profile' },
+    );
+  }
+
   /**
    * V9. Document Expiry Reminder — sent to vendor when KYC documents are expiring.
    * This is typically called from a cron job, not during a request.

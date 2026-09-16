@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { DeliveryPartnerStatus } from '@prisma/client';
+import { DeliveryPartnerStatus, UserRole } from '@prisma/client';
+import { CreateDeliveryPartnerDto } from './dto/create-delivery-partner.dto';
+
 
 @Injectable()
 export class DeliveryPartnersService {
@@ -28,6 +30,90 @@ export class DeliveryPartnersService {
     phone: true,
     avatarUrl: true,
   };
+  async create(dto: CreateDeliveryPartnerDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== UserRole.DELIVERY_PARTNER) {
+      throw new BadRequestException('User is not a delivery partner');
+    }
+
+    const existing = await this.prisma.deliveryPartner.findUnique({
+      where: { userId: dto.userId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Delivery partner already exists');
+    }
+
+    return this.prisma.deliveryPartner.create({
+      data: {
+        userId: dto.userId,
+        vehicleType: dto.vehicleType,
+        zoneId: dto.zoneId,
+      },
+      include: {
+        user: {
+          select: this.userSelect,
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+          },
+        },
+      },
+    });
+  }
+
+  async setup(userId: string, dto: { vehicleType: string; zoneId: string }) {
+    const existing = await this.prisma.deliveryPartner.findUnique({
+      where: { userId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Delivery partner profile already exists');
+    }
+
+    const zone = await this.prisma.zone.findUnique({
+      where: { id: dto.zoneId },
+    });
+
+    if (!zone) {
+      throw new NotFoundException('Zone not found');
+    }
+
+    if (!zone.isActive) {
+      throw new BadRequestException('Zone is not active');
+    }
+
+    return this.prisma.deliveryPartner.create({
+      data: {
+        userId,
+        vehicleType: dto.vehicleType,
+        zoneId: dto.zoneId,
+        status: DeliveryPartnerStatus.AVAILABLE,
+      },
+      include: {
+        user: {
+          select: this.userSelect,
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+          },
+        },
+      },
+    });
+  }
 
   async findAll(params: {
     page: number;
