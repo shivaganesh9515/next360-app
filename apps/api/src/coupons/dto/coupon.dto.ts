@@ -39,6 +39,13 @@ export class CreateCouponDto {
   @IsDateString()
   @IsOptional()
   expiresAt?: string;
+
+  @IsOptional()
+  isActive?: boolean;
+
+  @IsUUID()
+  @IsOptional()
+  vendorId?: string;
 }
 
 export class UpdateCouponDto {

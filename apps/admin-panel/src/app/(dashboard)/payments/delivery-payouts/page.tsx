@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CreditCard } from 'lucide-react';
+import { ArrowLeft, CreditCard, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -25,6 +25,28 @@ export default function DeliveryPayoutsPage() {
     } catch { setPayouts([]); } finally { setLoading(false); }
   };
 
+  const handleExport = () => {
+    const rows: string[][] = [['Partner', 'Amount', 'Period', 'Deliveries', 'Status', 'Date']];
+    payouts.forEach((p: any) => {
+      rows.push([
+        p.deliveryPartner?.name || p.deliveryPartner?.user?.name || '-',
+        String(p.amount || 0),
+        p.period || '-',
+        String(p.deliveryCount || 0),
+        p.status || 'PENDING',
+        new Date(p.createdAt).toLocaleDateString('en-IN'),
+      ]);
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `delivery-payouts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const columns = [
     { key: 'partner', label: 'Partner', render: (p: any) => <span className="font-medium text-gray-800">{p.deliveryPartner?.name || p.deliveryPartner?.user?.name || '-'}</span> },
     { key: 'amount', label: 'Amount', render: (p: any) => <span className="font-mono font-bold">₹{(p.amount || 0).toLocaleString()}</span> },
@@ -38,7 +60,14 @@ export default function DeliveryPayoutsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
-        <div><h2 className="text-xl font-bold text-gray-800">Delivery Payouts</h2><p className="text-sm text-gray-500">Payouts to delivery partners</p></div>
+        <div className="flex-1"><h2 className="text-xl font-bold text-gray-800">Delivery Payouts</h2><p className="text-sm text-gray-500">Payouts to delivery partners</p></div>
+        <button
+          onClick={handleExport}
+          disabled={payouts.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
       </div>
       <DataTable columns={columns} data={payouts} loading={loading} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No delivery payout records" emptyIcon={<CreditCard className="w-10 h-10" />} />
     </div>

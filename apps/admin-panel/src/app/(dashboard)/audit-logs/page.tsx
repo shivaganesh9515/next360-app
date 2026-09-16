@@ -1,15 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ClipboardList, Users, AlertTriangle, Clock,
   ChevronDown, Search, RefreshCw, Calendar,
-  XCircle, Filter, ChevronRight
+  XCircle, Filter, ChevronRight, BarChart3
 } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -247,6 +251,19 @@ export default function AuditLogsPage() {
     setPage(1);
   }, [actionFilter, moduleFilter, dateRange]);
 
+  /* ── Compute action chart data (derived from logs) ── */
+  const actionChartData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    logs.forEach(log => {
+      const action = log.action || 'UNKNOWN';
+      counts[action] = (counts[action] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([action, count]) => ({ action, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [logs]);
+
   /* ── Handlers ── */
   const handleRefresh = () => {
     loadSummary();
@@ -387,6 +404,37 @@ export default function AuditLogsPage() {
           color="purple"
           loading={summaryLoading}
         />
+      </div>
+
+      {/* ── Action Distribution Chart ── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-700">Top Actions Today</h3>
+          {!loading && logs.length > 0 && (
+            <span className="text-xs text-slate-400 tabular-nums">
+              {actionChartData.reduce((sum, d) => sum + d.count, 0)} total
+            </span>
+          )}
+        </div>
+        {!loading && logs.length > 0 && actionChartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={actionChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="action" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="#E2E8F0" />
+              <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="#E2E8F0" allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                formatter={(value: any) => [value ?? 0, 'Actions']}
+              />
+              <Bar dataKey="count" fill="#10B981" radius={[4, 4, 0, 0]} name="Count" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[200px] flex flex-col items-center justify-center text-slate-400">
+            <BarChart3 className="w-8 h-8 mb-2 opacity-40" />
+            <p className="text-xs">No action data available</p>
+          </div>
+        )}
       </div>
 
       {/* ── Filters ── */}

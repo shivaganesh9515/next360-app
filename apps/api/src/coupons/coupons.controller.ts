@@ -20,18 +20,20 @@ import { Throttle } from '@nestjs/throttler';
 export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
-  // Vendor creates a coupon for their store
+  // Vendor or Admin creates a coupon
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   create(@CurrentUser() user: any, @Body() dto: CreateCouponDto) {
-    return this.couponsService.create(dto, user.vendorId);
+    // Admin creates platform-wide coupons; vendor creates store coupons
+    const vendorId = user.role === 'ADMIN' ? dto.vendorId : user.vendorId;
+    return this.couponsService.create(dto, vendorId);
   }
 
-  // Vendor lists their coupons
+  // Lists coupons — vendors see their own, admins see all
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   findAll(@CurrentUser() user: any) {
     return this.couponsService.findAll(user.vendorId);
   }
@@ -51,14 +53,14 @@ export class CouponsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   update(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateCouponDto) {
     return this.couponsService.update(id, dto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.couponsService.remove(id);
   }
