@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 @Injectable()
 export class EmailService {
@@ -6,11 +8,12 @@ export class EmailService {
   private readonly sendgridKey: string | undefined;
   private readonly resendKey: string | undefined;
   private readonly fromEmail: string;
+  private transporter: Transporter | null = null;
 
   constructor() {
     this.sendgridKey = process.env.SENDGRID_API_KEY;
     this.resendKey = process.env.RESEND_API_KEY;
-    this.fromEmail = process.env.FROM_EMAIL || 'noreply@next360.com';
+    this.fromEmail = process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@next360.com';
   }
 
   async send(options: { to: string; subject: string; html: string; text?: string }): Promise<boolean> {
@@ -20,10 +23,17 @@ export class EmailService {
     if (this.resendKey) {
       return this.sendViaResend(options);
     }
-    // Fallback: log to console
-    this.logger.log(`[EMAIL] To: ${options.to}, Subject: ${options.subject}`);
-    this.logger.log(`[EMAIL] Body: ${(options.html || options.text || '').substring(0, 200)}...`);
-    return true;
+    if (this.isSmtpConfigured()) {
+      return this.sendViaSmtp(options);
+    }
+    // Fallback: honest failure in production (never log bodies — PII).
+    // Dev-only: short subject line so local testing stays observable.
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.log(`[EMAIL:DEV] To: ${options.to}, Subject: ${options.subject}`);
+    } else {
+      this.logger.warn(`[EMAIL] NOT_CONFIGURED — email not sent to ${options.to}`);
+    }
+    return false;
   }
 
   async sendOtpEmail(email: string, code: string): Promise<boolean> {
@@ -61,6 +71,53 @@ export class EmailService {
       return response.ok;
     } catch (error) {
       this.logger.error(`SendGrid failed: ${error}`);
+      return false;
+    }
+  }
+
+  private isSmtpConfigured(): boolean {
+    return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  }
+
+  private getTransporter(): Transporter {
+    if (!this.transporter) {
+      const port = Number(process.env.SMTP_PORT || 587);
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port,
+        secure: process.env.SMTP_SECURE === 'true' || port === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+    }
+    return this.transporter;
+  }
+
+  /** Verify SMTP connectivity (useful as a health check / debug endpoint). */
+  async verifySmtp(): Promise<boolean> {
+    try {
+      await this.getTransporter().verify();
+      return true;
+    } catch (error) {
+      this.logger.error(`SMTP verify failed: ${error}`);
+      return false;
+    }
+  }
+
+  private async sendViaSmtp(options: { to: string; subject: string; html: string; text?: string }) {
+    try {
+      await this.getTransporter().sendMail({
+        from: this.fromEmail,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+      return true;
+    } catch (error) {
+      this.logger.error(`SMTP send failed: ${error}`);
       return false;
     }
   }

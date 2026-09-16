@@ -49,6 +49,13 @@
 - [x] **Payouts Admin Oversight** — payouts/ module with GET /payouts, GET /payouts/vendors, GET /payouts/delivery, GET /payouts/summary, PATCH /payouts/:id/status
 - [x] **Remaining Admin Endpoints** — GET /payments (admin list all), GET /reviews/ratings (rating distribution + top-rated), GET /admin/analytics (platform metrics: orders, revenue, users, vendors, products, AOV)
 
+### Loyalty Engine (2026-08-10)
+- [x] **Prisma Schema** — Added LoyaltyTier, PointsTransactionType, ReferralStatus enums + 5 new models
+- [x] **Loyalty Module** — NestJS module with service + controller (7 API endpoints)
+- [x] **Referrals Module** — Referral code generation, validation, reward processing
+- [x] **Order Integration** — Auto-award points on purchase, process referral rewards
+- [x] **Customer App** — LoyaltyScreen updated to use real API with demo fallback
+
 ### Platform / Core (shivaganesh9515)
 - [x] Monorepo scaffold (Turborepo + workspaces)
 - [x] Prisma schema finalized + migrated (20+ models, 541 lines)

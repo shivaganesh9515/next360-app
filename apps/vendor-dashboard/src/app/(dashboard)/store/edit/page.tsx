@@ -25,7 +25,7 @@ export default function EditStorePage() {
   }, []);
 
   const validateRazorpayId = (id: string): string => {
-    if (!id) return ''; // optional field
+    if (!id) return '';
     if (!/^acc_[a-zA-Z0-9]{14,30}$/.test(id.trim())) return 'Invalid Razorpay account ID. Must start with "acc_" followed by alphanumeric characters.';
     return '';
   };
@@ -55,11 +55,11 @@ export default function EditStorePage() {
       </div>
       <form onSubmit={handleSave} className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-sm">
         {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">{error}</div>}
-        
+
         {/* Store Name */}
         <div><label className="block text-sm font-medium text-slate-700 mb-1">Store Name *</label>
           <input value={form.storeName} onChange={(e) => setForm({...form, storeName: e.target.value})} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" /></div>
-        
+
         {/* Description */}
         <div><label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
           <textarea value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} rows={4} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" /></div>

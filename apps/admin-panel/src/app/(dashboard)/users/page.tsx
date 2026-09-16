@@ -53,6 +53,16 @@ export default function UsersPage() {
     { key: 'phone', label: 'Phone', render: (u: any) => u.phone || '-' },
     { key: 'role', label: 'Role', render: (u: any) => <StatusBadge status={u.role} /> },
     { key: 'status', label: 'Status', render: (u: any) => <StatusBadge status={u.status || 'ACTIVE'} /> },
+    { key: 'loyaltyTier', label: 'Loyalty', render: (u: any) => {
+      const tier = u.loyaltyTier || u.userMetrics?.tier || '-';
+      const points = u.pointsBalance ?? u.userMetrics?.pointsBalance ?? null;
+      return (
+        <div className="flex flex-col">
+          <StatusBadge status={tier} />
+          {points !== null && <span className="text-xs text-gray-400 mt-0.5">{points} pts</span>}
+        </div>
+      );
+    }},
     { key: 'createdAt', label: 'Joined', render: (u: any) => new Date(u.createdAt).toLocaleDateString() },
     { key: 'actions', label: 'Actions', render: (u: any) => (
       <div className="flex gap-1">

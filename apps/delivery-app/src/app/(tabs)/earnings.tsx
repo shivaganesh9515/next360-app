@@ -30,6 +30,15 @@ export default function EarningsScreen() {
     setRefreshing(false);
   };
 
+  // Hero reflects the selected tab — never a hardcoded period.
+  const heroByPeriod = {
+    today: { label: "Today's Earnings", value: earnings?.today ?? 0 },
+    week: { label: "This Week's Earnings", value: earnings?.thisWeek ?? 0 },
+    month: { label: "This Month's Earnings", value: earnings?.thisMonth ?? 0 },
+    all: { label: 'Total Earnings', value: earnings?.allTime ?? 0 },
+  } as const;
+  const hero = heroByPeriod[period];
+
   const avgPerDelivery = earnings?.totalDeliveries
     ? Math.round((earnings?.allTime || 0) / earnings.totalDeliveries)
     : 0;
@@ -44,8 +53,8 @@ export default function EarningsScreen() {
       {/* Summary Hero */}
       <Animated.View style={[styles.summaryCard, { opacity: summaryAnim, transform: [{ scale: summaryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>
         <View style={styles.summaryGlow} />
-        <Text style={styles.summaryLabel}>Total Earnings</Text>
-        <Text style={styles.summaryAmount}>{formatCurrency(earnings?.allTime || 0)}</Text>
+        <Text style={styles.summaryLabel}>{hero.label}</Text>
+        <Text style={styles.summaryAmount}>{formatCurrency(hero.value)}</Text>
         <Text style={styles.summarySubtext}>{earnings?.totalDeliveries || 0} deliveries completed</Text>
         <View style={styles.summaryTrend}>
           <Ionicons name="trending-up" size={16} color={Colors.white} />

@@ -63,8 +63,11 @@ export class OrdersController {
   }
 
   @Get(':id/timeline')
-  getTimeline(@Param('id') id: string) {
-    return this.ordersService.getOrderStatusTimeline(id);
+  getTimeline(
+    @CurrentUser() user: { id: string; role: string },
+    @Param('id') id: string,
+  ) {
+    return this.ordersService.getOrderStatusTimeline(user.id, user.role, id);
   }
 
   @Get(':id')
@@ -142,6 +145,16 @@ export class OrdersController {
     @Body() dto: VerifyPickupDto,
   ) {
     return this.deliveryService.verifyPickup(userId, id, dto.otp);
+  }
+
+  @Post(':id/start-transit')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  startTransit(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.startTransit(userId, id);
   }
 
   @Post(':id/deliver')

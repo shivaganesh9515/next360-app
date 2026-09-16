@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,6 +31,7 @@ export class UploadController {
   }
 
   @Post('images')
+  @Throttle({ upload: { ttl: 60000, limit: 10 } })
   @UseInterceptors(FilesInterceptor('files', 10))
   async uploadImages(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files || files.length === 0) {

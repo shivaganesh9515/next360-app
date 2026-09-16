@@ -26,9 +26,9 @@ const DEBOUNCE_MS = 300;
 const DEFAULT_Y = 60;
 
 const STORE_SHORTCUTS: { type: StoreType; tag: string; icon: string }[] = [
-  { type: StoreType.ORGANIC, tag: 'CURATED', icon: 'leaf' },
-  { type: StoreType.NATURAL, tag: 'ARTISANAL', icon: 'flower' },
-  { type: StoreType.ECO_FRIENDLY, tag: 'SUSTAINABLE', icon: 'earth' },
+  { type: StoreType.ORGANIC, tag: 'ORGANIC', icon: 'leaf' },
+  { type: StoreType.NATURAL, tag: 'NATURAL', icon: 'flower' },
+  { type: StoreType.ECO_FRIENDLY, tag: 'ECO-FRIENDLY', icon: 'earth' },
 ];
 
 const POPULAR_SEARCHES = [
@@ -129,7 +129,6 @@ export default function ExpandingSearchDock({
     Keyboard.dismiss();
     triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y, width, height) => {
-      console.log('[DEBUG] ExpandingSearchDock measured:', { x, y, width, height, OS: Platform.OS });
       originX.value = x;
       const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
       originY.value = y + statusBarOffset;
@@ -326,7 +325,7 @@ const styles = StyleSheet.create({
   panel: { position: 'absolute', overflow: 'hidden', zIndex: 20 },
   panelShadow: Platform.select({
     web: {
-      boxShadow: '0px 20px 40px rgba(10, 10, 8, 0.35)',
+      boxShadow: '0px 10px 40px rgba(10, 10, 8, 0.35)',
     },
     default: {
       shadowColor: '#0A0A08', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.35, shadowRadius: 40, elevation: 24,

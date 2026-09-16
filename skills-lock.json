@@ -1,11 +1,17 @@
 {
   "version": 1,
   "skills": {
-    "gluestack-ui-v5": {
-      "source": "gluestack/agent-skills",
+    "supabase": {
+      "source": "supabase/agent-skills",
       "sourceType": "github",
-      "skillPath": ".agents/skills/gluestack-ui-v5/SKILL.md",
-      "computedHash": "b19717e992153a421da7423f0609a39c4864f947c7f50fca67cf5e5b7d4878e4"
+      "skillPath": "skills/supabase/SKILL.md",
+      "computedHash": "583344c20e90f3654dbb0632f088d89fd9f1dde8ac85e8a644dd12eee59b1380"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "e14e276241805c97dbcfe40dcbea1a3035269cc7293cac4b1832dda41a835e60"
     }
   }
 }

@@ -16,9 +16,10 @@ import DeliverySlotPicker from '../../components/DeliverySlotPicker';
 const SLIDE_THRESHOLD = 0.85;
 const COD_CAP = 2000;
 
+// COD-only MVP (2026-09): Razorpay disabled — no keys. Single option kept as
+// an array so re-enabling online payment is a one-line add.
 const PAYMENT_OPTIONS = [
   { key: 'COD' as const, labelKey: 'checkout.payment.cod', icon: 'cash-outline' as const, comingSoon: false },
-  { key: 'RAZORPAY' as const, labelKey: 'checkout.payment.razorpay', icon: 'card-outline' as const, comingSoon: false },
 ];
 
 const CHECKOUT_STEPS = ['Address', 'Payment', 'Confirm'];
@@ -28,7 +29,7 @@ export default function CheckoutScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { cartItems, subtotal, clearCart } = useStore();
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD'>('COD');
   const [notes, setNotes] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<{ slotConfigId: string; date: string; timeRange: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,19 @@ export default function CheckoutScreen({ navigation }: any) {
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Compute estimated delivery time from vendors in cart
+  const vendorDeliveryMap = new Map<string, { min: number; max: number; label?: string }>();
+  cartItems.forEach((item: any) => {
+    const v = item.product?.vendor;
+    if (v?.id && v?.deliveryTimeMin != null && v?.deliveryTimeMax != null && !vendorDeliveryMap.has(v.id)) {
+      vendorDeliveryMap.set(v.id, { min: v.deliveryTimeMin, max: v.deliveryTimeMax, label: v.deliveryLabel });
+    }
+  });
+  const vendorEntries = Array.from(vendorDeliveryMap.values());
+  const estimatedMin = vendorEntries.length > 0 ? Math.max(...vendorEntries.map((e) => e.min)) : null;
+  const estimatedMax = vendorEntries.length > 0 ? Math.max(...vendorEntries.map((e) => e.max)) : null;
+  const fastestLabel = vendorEntries.length === 1 ? vendorEntries[0].label : undefined;
 
   const discount = appliedCoupon?.discount || 0;
   const deliveryFee = getDeliveryFee(subtotal);
@@ -103,8 +117,8 @@ export default function CheckoutScreen({ navigation }: any) {
       const list = res?.data || res || [];
       const defaultAddr = list.find((a: any) => a.isDefault) || list[0];
       if (defaultAddr) setSelectedAddress(defaultAddr);
-    } catch (err) {
-      console.error('Failed to load addresses:', err);
+    } catch {
+      // Address loading failed silently
     } finally {
       setLoading(false);
     }
@@ -185,31 +199,7 @@ export default function CheckoutScreen({ navigation }: any) {
       const result = await customerApi.createOrder(orderData);
       const orderId = result?.id || result?.data?.id;
 
-      if (paymentMethod === 'RAZORPAY') {
-        try {
-          const razorpayOrder = await customerApi.createRazorpayOrder(orderId);
-          const RazorpayCheckout = require('react-native-razorpay');
-          const paymentResult = await RazorpayCheckout.open({
-            key: razorpayOrder.key,
-            amount: razorpayOrder.amount,
-            currency: razorpayOrder.currency,
-            order_id: razorpayOrder.order_id,
-            name: 'Next360',
-            description: `Order ${razorpayOrder.receipt || orderId.slice(0, 8).toUpperCase()}`,
-            prefill: {},
-            theme: { color: '#5C6B4D' },
-          });
-          await customerApi.verifyPayment({
-            razorpayOrderId: razorpayOrder.order_id,
-            razorpayPaymentId: paymentResult.razorpay_payment_id,
-            razorpaySignature: paymentResult.razorpay_signature,
-          });
-        } catch (razorpayError: any) {
-          const msg = razorpayError?.message || 'Payment was cancelled or failed';
-          Alert.alert('Payment Failed', msg);
-          return false;
-        }
-      }
+      // Razorpay disabled for COD-only MVP — order is already CONFIRMED.
 
       await clearCart();
       navigation.replace('OrderConfirmation', { orderId });
@@ -284,7 +274,7 @@ export default function CheckoutScreen({ navigation }: any) {
           {selectedAddress ? (
             <TouchableOpacity
               style={[styles.addressCard, Shadows.card]}
-              onPress={() => navigation.navigate('AddressList', { onSelect: setSelectedAddress })}
+              onPress={() => navigation.navigate('Profile', { screen: 'AddressList', params: { onSelect: setSelectedAddress } })}
             >
               <View style={styles.addressIconWrap}>
                 <Ionicons name="location" size={18} color={Colors.white} />
@@ -300,7 +290,7 @@ export default function CheckoutScreen({ navigation }: any) {
           ) : (
             <TouchableOpacity
               style={styles.addAddressButton}
-              onPress={() => navigation.navigate('AddressList')}
+              onPress={() => navigation.navigate('Profile', { screen: 'AddressList' })}
             >
               <View style={[styles.addAddressIcon, { backgroundColor: Colors.organicLight }]}>
                 <Ionicons name="add" size={22} color={Colors.organic} />
@@ -309,6 +299,24 @@ export default function CheckoutScreen({ navigation }: any) {
             </TouchableOpacity>
           )}
         </Animated.View>
+
+        {/* Estimated Delivery Time */}
+        {estimatedMin != null && estimatedMax != null && (
+          <Animated.View style={[styles.section, sectionStyle(1)]}>
+            <View style={[styles.deliveryEstimateCard, Shadows.card]}>
+              <View style={styles.deliveryEstimateIconWrap}>
+                <Ionicons name="time" size={18} color={Colors.organic} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.deliveryEstimateTitle}>Estimated Delivery</Text>
+                <Text style={styles.deliveryEstimateTime}>
+                  {estimatedMin}-{estimatedMax} min
+                  {fastestLabel ? ` • ${fastestLabel}` : vendorEntries.length > 1 ? ` • max across ${vendorEntries.length} vendors` : ''}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Delivery Slot */}
         <Animated.View style={[styles.section, sectionStyle(1)]}>
@@ -659,6 +667,35 @@ const styles = StyleSheet.create({
   addressText: {
     ...Typography.caption,
     color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  deliveryEstimateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.organicLight,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.15)',
+  },
+  deliveryEstimateIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deliveryEstimateTitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  deliveryEstimateTime: {
+    ...Typography.bodySmall,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.organic,
     marginTop: 2,
   },
   addAddressButton: {

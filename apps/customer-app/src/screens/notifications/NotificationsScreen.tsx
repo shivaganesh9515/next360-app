@@ -210,6 +210,11 @@ export default function NotificationsScreen() {
     <SafeAreaView style={s.container} edges={['top']}>
       <View style={s.header}>
         <View style={s.headerLeft}>
+          {navigation.canGoBack() && (
+            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
+              <Ionicons name="arrow-back" size={22} color={Colors.text} />
+            </TouchableOpacity>
+          )}
           <Text style={s.headerTitle}>{t('notifications.title')}</Text>
           {unreadCount > 0 && (
             <View style={s.unreadBadge}>
@@ -286,6 +291,15 @@ const s = StyleSheet.create({
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  backBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
   headerTitle: { ...Typography.h3, color: Colors.text },
   unreadBadge: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,

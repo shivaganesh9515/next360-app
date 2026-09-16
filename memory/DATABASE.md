@@ -1,6 +1,6 @@
 # Database
 
-> **Last updated:** 2026-07-20
+> **Last updated:** 2026-08-10
 
 ---
 
@@ -56,6 +56,15 @@ CMS_Page (content pages), Banner (hero banners), Role (with JSON permissions), P
 
 ### Compliance Models
 KYC (Know Your Customer - documents, status, verification)
+
+### Loyalty Models (NEW)
+| Model | Description |
+|-------|-------------|
+| Purchase | Tracks purchases for loyalty points |
+| PointsLedger | Full audit trail of all point transactions |
+| UserMetrics | Points balance, tier, RFM segmentation |
+| Referral | Referral tracking (referrer, referred, status) |
+| LoyaltyConfig | Platform-wide loyalty settings |
 
 ---
 

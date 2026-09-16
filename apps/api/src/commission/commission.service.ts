@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionQueryDto } from './dto/commission.dto';
@@ -72,8 +73,11 @@ export class CommissionService {
       const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
       if (!vendor) throw new NotFoundException('Vendor profile not found');
       where.vendorId = vendor.id;
-    } else if (query.vendorId) {
+    } else if (role === 'ADMIN' && query.vendorId) {
       where.vendorId = query.vendorId;
+    } else if (role !== 'ADMIN') {
+      // Customers and delivery partners have no commission ledger to read.
+      throw new ForbiddenException('Access denied');
     }
 
     if (query.isPaid !== undefined) {
@@ -121,6 +125,8 @@ export class CommissionService {
       const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
       if (!vendor) throw new NotFoundException('Vendor profile not found');
       vendorId = vendor.id;
+    } else if (role !== 'ADMIN') {
+      throw new ForbiddenException('Access denied');
     }
 
     const where = vendorId ? { vendorId } : {};

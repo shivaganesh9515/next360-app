@@ -41,6 +41,9 @@ export default function DisputesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [resolveTarget, setResolveTarget] = useState<{ id: string; status: string } | null>(null);
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [resolveError, setResolveError] = useState('');
 
   useEffect(() => { loadDisputes(); }, []);
 
@@ -56,13 +59,26 @@ export default function DisputesPage() {
     }
   };
 
-  const handleResolve = async (id: string, status: string) => {
-    setUpdatingId(id);
+  const openResolveDialog = (id: string, status: string) => {
+    setResolveTarget({ id, status });
+    setResolutionNote('');
+    setResolveError('');
+  };
+
+  const handleResolve = async () => {
+    if (!resolveTarget) return;
+    if (!resolutionNote.trim()) {
+      setResolveError('Please add a resolution note — it is recorded with the decision.');
+      return;
+    }
+    setUpdatingId(resolveTarget.id);
     try {
-      await adminApi.resolveDispute(id, { status, resolution: 'Resolved by admin' });
+      await adminApi.resolveDispute(resolveTarget.id, { status: resolveTarget.status, resolution: resolutionNote.trim() });
+      setResolveTarget(null);
+      setResolutionNote('');
       loadDisputes();
-    } catch {
-      // ignore
+    } catch (err: any) {
+      setResolveError(err?.message || 'Failed to resolve dispute.');
     } finally {
       setUpdatingId(null);
     }
@@ -168,14 +184,14 @@ export default function DisputesPage() {
                   {isPending && (
                     <div className="flex gap-2 shrink-0">
                       <button
-                        onClick={() => handleResolve(dispute.id, 'RESOLVED')}
+                        onClick={() => openResolveDialog(dispute.id, 'RESOLVED')}
                         disabled={updatingId === dispute.id}
                         className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors duration-150"
                       >
                         Resolve
                       </button>
                       <button
-                        onClick={() => handleResolve(dispute.id, 'REJECTED')}
+                        onClick={() => openResolveDialog(dispute.id, 'REJECTED')}
                         disabled={updatingId === dispute.id}
                         className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 cursor-pointer transition-colors duration-150"
                       >
@@ -187,6 +203,46 @@ export default function DisputesPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Resolution dialog — the note is sent as `resolution` to the resolve API */}
+      {resolveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-label="Add resolution note">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-800 mb-1">
+              {resolveTarget.status === 'RESOLVED' ? 'Resolve dispute' : 'Reject dispute'}
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">Add a note explaining the decision. It will be saved with the resolution.</p>
+            {resolveError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+                {resolveError}
+              </div>
+            )}
+            <textarea
+              value={resolutionNote}
+              onChange={(e) => setResolutionNote(e.target.value)}
+              placeholder="e.g. Refund approved — item arrived damaged, photo evidence attached."
+              rows={4}
+              autoFocus
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <div className="flex gap-3 justify-end mt-4">
+              <button
+                onClick={() => setResolveTarget(null)}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResolve}
+                disabled={updatingId === resolveTarget.id}
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {updatingId === resolveTarget.id ? 'Saving...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

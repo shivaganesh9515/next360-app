@@ -16,6 +16,31 @@ export class UploadService {
     }
   }
 
+  /**
+   * Sniff the real file type from magic bytes. Client-supplied mimetype and
+   * extension are both attacker-controlled and must never be trusted alone.
+   */
+  private sniffImageType(buffer: Buffer): 'jpg' | 'png' | 'webp' | 'gif' | null {
+    if (buffer.length < 12) return null;
+    // JPEG: FF D8 FF
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg';
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (
+      buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e &&
+      buffer[3] === 0x47 && buffer[4] === 0x0d && buffer[5] === 0x0a &&
+      buffer[6] === 0x1a && buffer[7] === 0x0a
+    ) return 'png';
+    // GIF: "GIF87a" / "GIF89a"
+    const header = buffer.subarray(0, 6).toString('ascii');
+    if (header === 'GIF87a' || header === 'GIF89a') return 'gif';
+    // WebP: "RIFF"...."WEBP"
+    if (
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    ) return 'webp';
+    return null;
+  }
+
   async uploadImage(
     file: Express.Multer.File,
     folder: string = 'products',
@@ -24,11 +49,20 @@ export class UploadService {
       throw new BadRequestException('No file provided');
     }
 
-    // Validate file type
+    // Validate file type: allowlist on the claimed mimetype AND verification
+    // against magic bytes. A renamed .svg/.html/.exe must be rejected even
+    // when it claims to be image/png.
     const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedMimes.includes(file.mimetype)) {
       throw new BadRequestException(
         `Invalid file type: ${file.mimetype}. Allowed: ${allowedMimes.join(', ')}`,
+      );
+    }
+
+    const sniffed = this.sniffImageType(file.buffer);
+    if (!sniffed) {
+      throw new BadRequestException(
+        'File content does not match a supported image format (jpeg/png/webp/gif)',
       );
     }
 
@@ -38,13 +72,8 @@ export class UploadService {
       throw new BadRequestException('File too large. Maximum size is 5MB');
     }
 
-    // Generate unique filename
-    const ext = file.originalname.split('.').pop() || 'jpg';
-    const sanitizedName = file.originalname
-      .replace(/[^a-zA-Z0-9.]/g, '_')
-      .toLowerCase()
-      .slice(0, 50);
-    const fileName = `${folder}/${uuidv4()}-${sanitizedName}`;
+    // Filename is derived from the verified type, never the client extension.
+    const fileName = `${folder}/${uuidv4()}.${sniffed}`;
 
     // Upload to Supabase Storage if configured
     if (this.supabase) {
@@ -67,8 +96,14 @@ export class UploadService {
       return { url: urlData.publicUrl };
     }
 
-    // Fallback: return a placeholder (dev mode without Supabase)
-    return { url: `https://via.placeholder.com/400?text=${encodeURIComponent(file.originalname)}` };
+    // Storage unconfigured: fail loudly in production instead of handing
+    // back a fake placeholder URL. Dev keeps the placeholder for offline work.
+    if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException(
+        'Image storage is not configured. Try again later.',
+      );
+    }
+    return { url: `https://via.placeholder.com/400?text=${encodeURIComponent('dev-placeholder')}` };
   }
 
   async uploadMultiple(

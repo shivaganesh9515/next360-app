@@ -1,0 +1,29 @@
+# Never bake secrets into the image
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Version control / agent tooling (the .claude worktrees are huge)
+.git
+.gitignore
+.claude
+.agents
+.easignore
+tasks
+.planning
+*.md
+
+# Dependencies & build output
+node_modules
+dist
+build
+.next
+.turbo
+coverage
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea
+.vscode

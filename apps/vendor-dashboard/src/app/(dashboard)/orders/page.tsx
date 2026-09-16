@@ -35,31 +35,49 @@ export default function OrdersPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectItem, setRejectItem] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
 
-  // Request notification permission on component mount
   useEffect(() => {
     requestNotificationPermission();
   }, []);
 
   const fetchOrders = useCallback(async (isInitial = false) => {
     try {
-      const res = await vendorApi.getOrders({});
-      const raw = res.data || res || [];
-      const normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
-        id: g.id,
-        orderId: g.orderId || g.order?.id,
-        orderNo: g.order?.orderNo || g.id?.slice(0, 8),
-        status: g.status || g.order?.status,
-        subtotal: g.subtotal,
-        totalAmount: g.subtotal,
-        createdAt: g.order?.createdAt || g.createdAt,
-        paymentStatus: g.order?.paymentStatus,
-        paymentMethod: g.order?.paymentMethod,
-        cancellationReason: g.cancellationReason || g.order?.cancellationReason,
-        items: g.items || [],
-      }));
+      const [ordersRes, customersRes] = await Promise.allSettled([
+        vendorApi.getOrders({}),
+        vendorApi.getCustomers(),
+      ]);
 
-      // Detect new orders for pulse animation and browser notification
+      if (customersRes.status === 'fulfilled') {
+        const list = Array.isArray(customersRes.value) ? customersRes.value : [];
+        const map: Record<string, string> = {};
+        for (const c of list) {
+          if (c?.id && c?.name) map[c.id] = c.name;
+        }
+        setCustomerNames(map);
+      }
+
+      let normalized: any[] = [];
+      if (ordersRes.status === 'fulfilled') {
+        const res: any = ordersRes.value;
+        const raw = res.data || res || [];
+        normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
+          id: g.id,
+          orderId: g.orderId || g.order?.id,
+          orderNo: g.order?.orderNo || g.id?.slice(0, 8),
+          status: g.status || g.order?.status,
+          customerUserId: g.order?.userId,
+          customerName: g.order?.user?.name,
+          subtotal: g.subtotal,
+          totalAmount: g.subtotal,
+          createdAt: g.order?.createdAt || g.createdAt,
+          paymentStatus: g.order?.paymentStatus,
+          paymentMethod: g.order?.paymentMethod,
+          cancellationReason: g.cancellationReason || g.order?.cancellationReason,
+          items: g.items || [],
+        }));
+      }
+
       if (!isInitial && previousCountRef.current > 0 && normalized.length > previousCountRef.current) {
         const diff = normalized.length - previousCountRef.current;
         setNewOrderCount(prev => prev + diff);
@@ -83,12 +101,10 @@ export default function OrdersPage() {
     }
   }, []);
 
-  // Initial fetch
   useEffect(() => {
     fetchOrders(true);
   }, [fetchOrders]);
 
-  // 30-second polling interval
   useEffect(() => {
     intervalRef.current = setInterval(() => fetchOrders(false), POLL_INTERVAL_MS);
     return () => {
@@ -109,7 +125,12 @@ export default function OrdersPage() {
 
   const columns = [
     { key: 'orderNo', label: 'Order #', render: (item: any) => <span className="font-mono text-sm font-medium">{item.orderNo}</span> },
-    { key: 'customer', label: 'Customer', render: () => <span className="text-slate-400 text-xs">—</span> },
+    { key: 'customer', label: 'Customer', render: (item: any) => {
+      const name = item.customerName || (item.customerUserId ? customerNames[item.customerUserId] : undefined);
+      return name
+        ? <span className="text-sm text-slate-700">{name}</span>
+        : <span className="text-slate-400 text-xs" title="Customer name not available">—</span>;
+    } },
     { key: 'items', label: 'Items', render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount || 0).toLocaleString()}</span> },
     { key: 'status', label: 'Status', render: (item: any) => (

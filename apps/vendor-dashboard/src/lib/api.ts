@@ -34,12 +34,16 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   try {
     response = await fetch(url, { ...fetchOptions, headers });
   } catch (err: any) {
-    // Network error (API not running, CORS, etc.)
     throw new Error('Unable to connect to server. Please try again later.');
   }
 
   // Handle 401 Unauthorized — session expired or invalid token
   if (response.status === 401) {
+    // Dev-skip: when vendor_dev_skip is in localStorage, return undefined
+    // instead of throwing so the dashboard can render without auth.
+    if (typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
+      return undefined as T;
+    }
     localStorage.removeItem('vendor_token');
     if (onUnauthorized) {
       onUnauthorized();
@@ -61,8 +65,6 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   } catch {
     throw new Error('API returned invalid response. Is the server running?');
   }
-  // apps/api wraps every response in { success, data, meta } (ResponseInterceptor)
-  // — unwrap it here so callers get the payload directly instead of the envelope.
   return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
@@ -94,14 +96,10 @@ export const api = {
   },
 };
 
-// Vendor-specific API methods
 export const vendorApi = {
   // Auth
   login: (email: string, password: string) =>
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
-  // Was posting to /auth/register (doesn't exist — only /auth/signup does) and
-  // never sent a role, which the backend defaults to CUSTOMER — every vendor
-  // signup would've silently created a customer account instead.
   signup: (data: any) => api.post<any>('/auth/signup', { ...data, role: 'VENDOR' }),
   verifyOtp: (email: string, otp: string) =>
     api.post<any>('/auth/verify-otp', { email, otp }),
@@ -109,7 +107,7 @@ export const vendorApi = {
     api.post<any>('/auth/forgot-password', { email }),
   getProfile: () => api.get<any>('/auth/me'),
 
-  // Vendor profile — always uses authenticated identity, never a client-supplied ID
+  // Vendor profile
   getMyProfile: () => api.get<any>('/vendors/my-profile'),
   updateMyProfile: (data: any) => api.patch<any>('/vendors/my-profile', data),
 
@@ -130,9 +128,6 @@ export const vendorApi = {
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
   updateOrderStatus: (id: string, status: string, reason?: string) =>
     api.patch<any>(`/orders/${id}/status`, reason ? { status, cancellationReason: reason } : { status }),
-  // Vendors must update their vendor group's status (not the entire order).
-  // The PATCH /orders/:id/status endpoint requires ADMIN role — vendors
-  // must call PATCH /orders/:id/groups/:groupId/status instead.
   updateVendorGroupStatus: (id: string, groupId: string, status: string) =>
     api.patch<any>(`/orders/${id}/groups/${groupId}/status`, { status }),
 
@@ -163,15 +158,13 @@ export const vendorApi = {
   getTransactions: (params?: any) =>
     api.get<any[]>('/vendors/me/transactions', params),
 
-  // Store — uses authenticated vendor identity (PATCH /vendors/my-profile)
-  // The backend's PATCH /vendors/:id checks ownership via @CurrentUser, so the
-  // authenticated user can only update their own store.
+  // Store
   getStore: (vendorId: string) => api.get<any>(`/vendors/${vendorId}`),
   updateStore: (vendorId: string, data: any) =>
     api.patch<any>(`/vendors/${vendorId}`, data),
 
   // Notifications
-  getNotifications: () => api.get<any>('/notifications'),
+  getNotifications: () => api.get<any[]>('/notifications'),
   getUnreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
   markNotificationRead: (id: string) =>
     api.patch<any>(`/notifications/${id}/read`),
@@ -183,9 +176,7 @@ export const vendorApi = {
   updateReturnStatus: (id: string, status: string, reason?: string) =>
     api.patch<any>(`/returns/${id}`, { status, reason }),
 
-  // Cancel a vendor group within an order (vendor rejects their portion).
-  // This is the correct endpoint for vendors — cancelling the entire order
-  // via POST /orders/:id/cancel would affect other vendors' items.
+  // Cancel a vendor group within an order
   cancelVendorGroup: (orderId: string, groupId: string, reason?: string) =>
     api.post<any>(`/orders/${orderId}/groups/${groupId}/cancel`, { reason }),
 

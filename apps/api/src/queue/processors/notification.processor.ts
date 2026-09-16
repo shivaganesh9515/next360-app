@@ -43,14 +43,14 @@ export class NotificationProcessor extends WorkerHost {
   }
 
   private async handleEmail(data: { to: string; subject: string; body: string }) {
-    // Email provider not configured yet — log for now
-    this.logger.log(`[EMAIL] To: ${data.to}, Subject: ${data.subject}`);
-    this.logger.log(`[EMAIL] Body: ${data.body.substring(0, 200)}...`);
+    // No email provider on the queue path yet — honest warn, never log bodies.
+    this.logger.warn(`[EMAIL] NOT_CONFIGURED — not sent to ${data.to} (${data.subject})`);
   }
 
   private async handleSms(data: { phone: string; message: string }) {
-    // SMS provider not configured yet — log for now
-    // Replace with MSG91 or Twilio API call once credentials are in .env
-    this.logger.log(`[SMS] To: ${data.phone}: ${data.message}`);
+    // No SMS provider on the queue path yet — honest warn, never log content.
+    const digits = data.phone.replace(/\D/g, '');
+    const masked = digits.length > 4 ? `+${digits.slice(0, -2).replace(/\d/g, '*')}${digits.slice(-2)}` : '****';
+    this.logger.warn(`[SMS] NOT_CONFIGURED — not sent to ${masked}`);
   }
 }

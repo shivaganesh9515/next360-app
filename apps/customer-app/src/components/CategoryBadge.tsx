@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Shadows } from '../constants/theme';
+import { Colors, BorderRadius, Shadows } from '../constants/theme';
 
 interface Props {
   label: string;
@@ -13,50 +13,104 @@ interface Props {
   onPress: () => void;
 }
 
-// Circular photo-badge category selector — ring lights up in the active store's
-// accent color, matching the premium reference pattern instead of flat pill chips.
-export default function CategoryBadge({ label, image, icon = 'leaf', accent, accentTint, isActive, onPress }: Props) {
+/**
+ * Circular category selector.
+ * Active = filled accent circle + white icon + bold label + soft ring glow.
+ * Inactive = tinted background + accent icon + regular label.
+ */
+export default function CategoryBadge({
+  label,
+  image,
+  icon = 'leaf',
+  accent,
+  accentTint,
+  isActive,
+  onPress,
+}: Props) {
   return (
-    <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.8}>
-      <View
-        style={[
-          styles.ring,
-          isActive && [styles.ringActive, Shadows.button(accent), { borderColor: accent }],
-        ]}
-      >
-        <View style={[styles.circle, { backgroundColor: accentTint }]}>
+    <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.75}>
+      {/* Outer ring — only visible when active, gives the "selected" glow */}
+      <View style={[styles.ring, isActive && { borderColor: accent }]}>
+        <View
+          style={[
+            styles.circle,
+            isActive
+              ? { backgroundColor: accent }
+              : { backgroundColor: accentTint },
+          ]}
+        >
           {image ? (
-            <Image source={{ uri: image }} style={styles.image} />
+            <Image
+              source={{ uri: image }}
+              style={[
+                styles.image,
+                isActive && { opacity: 0.9 },
+              ]}
+            />
           ) : (
-            <Ionicons name={icon} size={24} color={accent} />
+            <Ionicons
+              name={icon}
+              size={24}
+              color={isActive ? '#FFFFFF' : accent}
+            />
           )}
         </View>
       </View>
-      <Text style={[styles.label, isActive && { color: Colors.text, fontFamily: 'Inter_600SemiBold' }]} numberOfLines={1}>
+
+      <Text
+        style={[
+          styles.label,
+          isActive && styles.labelActive,
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </TouchableOpacity>
   );
 }
 
+const CIRCLE = 58;
+const RING_BORDER = 2.5;
+
 const styles = StyleSheet.create({
-  wrapper: { alignItems: 'center', width: 72, gap: 6 },
-  ring: {
-    width: 64, height: 64, borderRadius: 32,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: 'transparent',
+  wrapper: {
+    alignItems: 'center',
+    width: 68,
+    gap: 7,
   },
-  ringActive: {
-    borderWidth: 2.5,
+  ring: {
+    width: CIRCLE + RING_BORDER * 2,
+    height: CIRCLE + RING_BORDER * 2,
+    borderRadius: (CIRCLE + RING_BORDER * 2) / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: RING_BORDER,
+    borderColor: 'transparent',
   },
   circle: {
-    width: 56, height: 56, borderRadius: 28,
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    width: CIRCLE,
+    height: CIRCLE,
+    borderRadius: CIRCLE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    ...Shadows.card,
   },
-  image: { width: '100%', height: '100%', resizeMode: 'cover' },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
   label: {
-    ...Typography.caption,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 15,
     color: Colors.textSecondary,
     textAlign: 'center',
+  },
+  labelActive: {
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
   },
 });

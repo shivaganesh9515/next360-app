@@ -201,7 +201,7 @@ export default function OrderDetailScreen({ navigation, route }: any) {
         }
       }
       Alert.alert(t('orderDetail.reorderAdded'), t('orderDetail.reorderAddedMessage'));
-      navigation.navigate('Main', { screen: 'Cart' });
+      navigation.navigate('Home', { screen: 'Cart' });
     } catch (err: any) {
       Alert.alert(t('common.error'), err.message || t('common.pleaseTryAgain'));
     }

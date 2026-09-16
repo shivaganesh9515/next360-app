@@ -36,6 +36,15 @@ const EMPTY_DATA: DashboardData = {
   topProducts: [],
 };
 
+// Static color map for quick actions — dynamic `bg-${color}-50` class names
+// are purged by Tailwind in production, so every class must appear literally.
+const QUICK_ACTION_STYLES: Record<string, { bg: string; text: string }> = {
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+  amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+  rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
+};
+
 const STATUS_COLORS: Record<string, string> = {
   PLACED: '#3B82F6',
   CONFIRMED: '#8B5CF6',
@@ -332,7 +341,9 @@ export default function DashboardPage() {
                 { href: '/orders', label: 'View Orders', icon: ShoppingCart, color: 'blue' },
                 { href: '/earnings', label: 'Check Earnings', icon: DollarSign, color: 'amber' },
                 { href: '/inventory/low-stock', label: 'Stock Alerts', icon: AlertTriangle, color: 'rose' },
-              ].map((action) => (
+              ].map((action) => {
+                const style = QUICK_ACTION_STYLES[action.color] || QUICK_ACTION_STYLES.emerald;
+                return (
                 <Link
                   key={action.href}
                   href={action.href}
@@ -340,15 +351,16 @@ export default function DashboardPage() {
                   role="listitem"
                   aria-label={action.label}
                 >
-                  <div className={`p-1.5 bg-${action.color}-50 rounded-md`}>
-                    <action.icon className={`w-4 h-4 text-${action.color}-600`} aria-hidden="true" />
+                  <div className={`p-1.5 ${style.bg} rounded-md`}>
+                    <action.icon className={`w-4 h-4 ${style.text}`} aria-hidden="true" />
                   </div>
                   <span className="text-sm font-medium text-slate-600 group-hover:text-slate-800 flex-1">
                     {action.label}
                   </span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-500 transition-colors duration-150" aria-hidden="true" />
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
 

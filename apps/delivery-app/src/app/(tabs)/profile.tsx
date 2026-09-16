@@ -3,14 +3,21 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, A
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import { useDeliveryStore } from '../../store/deliveryStore';
+import { deliveryApi } from '../../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useStaggeredEntrance, useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuthStore();
+  const { earnings, fetchEarnings } = useDeliveryStore();
   const headerAnim = useSpringEntrance(0);
   const statsAnim = useSpringEntrance(150);
   const menuAnim = useSpringEntrance(250);
+
+  useEffect(() => {
+    fetchEarnings('all');
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -29,13 +36,18 @@ export default function ProfileScreen() {
     { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: null },
     { icon: 'car-outline', label: 'Vehicle Details', color: Colors.warning, route: '/vehicle-setup' as any },
     { icon: 'document-text-outline', label: 'Documents (KYC)', color: Colors.purple, route: '/kyc-documents' as any },
+    { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.blue, route: '/privacy-policy' as any },
+    { icon: 'document-text-outline', label: 'Terms of Service', color: Colors.textSecondary, route: '/terms-of-service' as any },
     { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.blue, route: null, action: () => Linking.openURL('mailto:support@next360.com') },
     { icon: 'information-circle-outline', label: 'About', color: Colors.textSecondary, route: null, action: () => Alert.alert('Next360 Delivery', 'Version 1.0.0\n\nDelivery Partner App') },
   ];
 
-  const totalEarningsFormatted = user?.totalEarnings
-    ? `₹${(user.totalEarnings / 100).toLocaleString('en-IN')}`
-    : '₹0';
+  // Real weekly earnings from the store; '—' until loaded — never a
+  // fabricated number, and never the lifetime delivery count relabeled.
+  const weekEarningsText =
+    earnings == null
+      ? '—'
+      : `₹${((earnings.thisWeek ?? 0) / 100).toLocaleString('en-IN')}`;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -78,7 +90,7 @@ export default function ProfileScreen() {
           <View style={[styles.statIconWrap, { backgroundColor: Colors.primaryLight }]}>
             <Ionicons name="cash" size={20} color={Colors.primary} />
           </View>
-          <Text style={styles.statValue}>{user?.completedDeliveries || 0}</Text>
+          <Text style={styles.statValue}>{weekEarningsText}</Text>
           <Text style={styles.statLabel}>This Week</Text>
         </View>
       </Animated.View>
@@ -111,6 +123,40 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.7}>
         <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
         <Text style={styles.signOutText}>Sign Out</Text>
+      </TouchableOpacity>
+
+      {/* Delete Account */}
+      <TouchableOpacity
+        style={[styles.signOutBtn, { backgroundColor: Colors.dangerLight, borderColor: 'rgba(239, 68, 68, 0.3)', marginTop: 10 }]}
+        onPress={() => {
+          Alert.alert(
+            'Delete Account & Data',
+            'Per Google Play policy, submitting an account deletion request will permanently wipe your profile, vehicle details, KYC documents, and delivery history within 30 days.\n\nAre you sure you want to proceed?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Request Deletion',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await deliveryApi.deleteAccount();
+                    await signOut();
+                    router.replace('/(auth)/login');
+                  } catch {
+                    Alert.alert(
+                      'Something went wrong',
+                      'We could not process your deletion request right now. Please contact support.'
+                    );
+                  }
+                },
+              },
+            ]
+          );
+        }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+        <Text style={[styles.signOutText, { color: '#C62828' }]}>Delete Account & Data</Text>
       </TouchableOpacity>
 
       <Text style={styles.version}>Next360 Delivery v1.0.0</Text>

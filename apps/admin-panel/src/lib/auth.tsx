@@ -23,8 +23,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEV_USER_KEY = 'admin_user';
-const DEV_TOKEN_KEY = 'admin_token';
+const TOKEN_KEY = 'admin_token';
+const USER_KEY = 'admin_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -33,13 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const token = localStorage.getItem(DEV_TOKEN_KEY);
-      const userJson = localStorage.getItem(DEV_USER_KEY);
+      const token = localStorage.getItem(TOKEN_KEY);
+      const userJson = localStorage.getItem(USER_KEY);
 
       if (token && userJson) {
-        // Dev skip: user data is stored directly, no API call needed
         const parsed = JSON.parse(userJson);
-        setUser(parsed);
+        if (token === 'dev-admin-token' || parsed?.id === 'dev-admin-001') {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+        } else {
+          setUser(parsed);
+        }
       }
     } catch {
       // ignore
@@ -49,36 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    try {
-      const { adminApi } = await import('./api');
-      const res = await adminApi.login(email, password);
-      if (res.user && res.user.role !== 'ADMIN') {
-        throw new Error('This account is not registered as an admin');
-      }
-      localStorage.setItem(DEV_TOKEN_KEY, res.access_token);
-      localStorage.setItem(DEV_USER_KEY, JSON.stringify(res.user));
-      setUser(res.user);
-    } catch (err) {
-      // If API is unreachable, create dev session for admin email
-      if (email.includes('admin')) {
-        const devUser: User = {
-          id: 'dev-admin-001',
-          email,
-          name: 'Dev Admin',
-          role: 'ADMIN',
-        };
-        localStorage.setItem(DEV_TOKEN_KEY, 'dev-admin-token');
-        localStorage.setItem(DEV_USER_KEY, JSON.stringify(devUser));
-        setUser(devUser);
-      } else {
-        throw err;
-      }
+    const { adminApi } = await import('./api');
+    const res = await adminApi.login(email, password);
+    if (res.user && res.user.role !== 'ADMIN') {
+      throw new Error('This account is not registered as an admin');
     }
+    localStorage.setItem(TOKEN_KEY, res.access_token);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+    setUser(res.user);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(DEV_TOKEN_KEY);
-    localStorage.removeItem(DEV_USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setUser(null);
     router.push('/login');
   }, [router]);

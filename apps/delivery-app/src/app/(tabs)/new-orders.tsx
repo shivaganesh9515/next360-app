@@ -11,7 +11,6 @@ import EmptyState from '../../components/EmptyState';
 export default function NewOrdersScreen() {
   const { newOrders, fetchNewOrders, isLoading } = useDeliveryStore();
   const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'new'>('all');
 
   useFocusEffect(
     useCallback(() => { fetchNewOrders(); }, [])

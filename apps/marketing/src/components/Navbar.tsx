@@ -1,87 +1,217 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu } from 'lucide-react';
-
-import { Button } from './ui/button';
-import { Navbar as NavbarPrimitive, NavbarLeft, NavbarRight } from './ui/navbar';
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from './ui/sheet';
 
 const navLinks = [
-  { href: '#storefronts', label: 'Storefronts' },
-  { href: '#vendors', label: 'For Vendors' },
-  { href: '#delivery', label: 'For Delivery Partners' },
+  { label: 'For Customers', href: '#how-it-works' },
+  { label: 'For Sellers', href: '/sellers' },
+  { label: 'For Delivery Partners', href: '/partners' },
+  { label: 'Why Next360', href: '#why' },
+  { label: 'FAQ', href: '#faq' },
 ];
 
+function scrollToSection(href: string) {
+  const id = href.replace('#', '');
+  const el = document.getElementById(id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function isHashHref(href: string) {
+  return href.startsWith('#');
+}
+
+const sectionIds = ['how-it-works', 'categories', 'why', 'grow', 'faq'];
+
 export default function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('');
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  // ── IntersectionObserver: track which section is in view ──
+  useEffect(() => {
+    const observers: IntersectionObserver[] = [];
+
+    for (const id of sectionIds) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setActiveSection(id);
+          }
+        },
+        { rootMargin: '-40% 0px -55% 0px' }
+      );
+      observer.observe(el);
+      observers.push(observer);
+    }
+
+    return () => {
+      for (const obs of observers) obs.disconnect();
+    };
+  }, []);
+
+  // ── Determine if a nav item maps to the currently active section ──
+  const isActive = (href: string) => {
+    if (!isHashHref(href)) return false;
+    const id = href.replace('#', '');
+    return activeSection === id;
+  };
+
   return (
-    <header className="bg-background/90 sticky top-0 z-50 border-b border-border backdrop-blur-md">
-      <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
-        <NavbarPrimitive>
-          <NavbarLeft>
-            <Link href="/" className="flex items-center gap-2.5 shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">
-                <span className="text-background font-display font-bold text-sm leading-none">N</span>
-              </div>
-              <span className="font-display font-semibold text-lg text-foreground tracking-tight">Next360</span>
-            </Link>
+    <>
+      <header
+        className={`sticky top-0 left-0 right-0 z-50 transition-all duration-500 ${
+          scrolled
+            ? 'bg-neutral-bg/95 backdrop-blur-lg border-b border-neutral-surface shadow-sm'
+            : 'bg-neutral-bg/70 backdrop-blur-sm'
+        }`}
+      >
+        <div className="max-w-container mx-auto px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 lg:h-20">
+            {/* Logo */}
+            <a href="/" className="flex items-center gap-2.5">
+              <span className="font-display font-semibold text-lg text-brand-primary">
+                Next360
+              </span>
+            </a>
 
-            <nav className="hidden md:flex items-center gap-8">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2.5 py-1.5 -mx-2.5 -my-1.5 transition-colors duration-200"
-                >
-                  {link.label}
-                </a>
-              ))}
-            </nav>
-          </NavbarLeft>
-
-          <NavbarRight>
-            <span className="hidden lg:block font-mono text-[11px] text-muted-foreground tracking-wide uppercase">
-              Serving Hyderabad &amp; Vijayawada
-            </span>
-
-            <Button variant="default" size="default" asChild className="hidden sm:inline-flex">
-              <a href="#download">Download App</a>
-            </Button>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="size-5" />
-                  <span className="sr-only">Toggle menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right">
-                <SheetTitle>Next360</SheetTitle>
-                <nav className="grid gap-1 mt-4">
-                  {navLinks.map((link) => (
+            {/* Desktop nav — crawlable anchors with active indicator */}
+            <nav className="hidden lg:flex items-center gap-1" aria-label="Primary">
+              {navLinks.map((l) => {
+                const active = isActive(l.href);
+                const key = `${l.label}-${l.href}`;
+                const className = `px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                  active
+                    ? 'bg-brand-primary/10 text-brand-primary'
+                    : 'text-text-secondary hover:text-brand-primary hover:bg-brand-primary/5'
+                }`;
+                if (isHashHref(l.href)) {
+                  return (
                     <a
-                      key={link.href}
-                      href={link.href}
-                      className="px-2 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                      key={key}
+                      href={l.href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        scrollToSection(l.href);
+                        setMobileOpen(false);
+                      }}
+                      aria-current={active ? 'true' : undefined}
+                      className={className}
                     >
-                      {link.label}
+                      {l.label}
                     </a>
-                  ))}
-                  <a
-                    href="#download"
-                    className="mt-2 inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-semibold"
-                  >
-                    Download App
-                  </a>
-                  <span className="mt-4 px-2 font-mono text-[11px] text-muted-foreground tracking-wide uppercase">
-                    Serving Hyderabad &amp; Vijayawada
-                  </span>
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </NavbarRight>
-        </NavbarPrimitive>
+                  );
+                }
+                return (
+                  <Link key={key} href={l.href} className={className}>
+                    {l.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Right */}
+            <div className="flex items-center gap-4">
+              <a
+                href="#how-it-works"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('#how-it-works');
+                }}
+                className="hidden sm:inline-flex px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold shadow-btn hover:scale-105 transition-all duration-300"
+              >
+                Get started
+              </a>
+              {/* Hamburger */}
+              <button
+                type="button"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                className="lg:hidden flex flex-col gap-1 p-2"
+                aria-label="Toggle menu"
+              >
+                <span className={`block w-5 h-px bg-brand-primary transition-all duration-300 ${
+                  mobileOpen ? 'rotate-45 translate-y-[3px]' : ''
+                }`} />
+                <span className={`block w-5 h-px bg-brand-primary transition-all duration-300 ${
+                  mobileOpen ? 'opacity-0' : ''
+                }`} />
+                <span className={`block w-5 h-px bg-brand-primary transition-all duration-300 ${
+                  mobileOpen ? '-rotate-45 -translate-y-[3px]' : ''
+                }`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile drawer */}
+      <div
+        className={`fixed inset-0 z-40 bg-neutral-bg transition-all duration-500 ${
+          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ top: '64px' }}
+      >
+        <nav className="flex flex-col gap-4 p-8 pt-12" aria-label="Mobile">
+          {navLinks.map((l) =>
+            isHashHref(l.href) ? (
+              <a
+                key={l.label}
+                href={l.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection(l.href);
+                  setMobileOpen(false);
+                }}
+                className="text-left text-2xl font-display font-medium text-brand-primary hover:text-brand-accent transition-colors"
+              >
+                {l.label}
+              </a>
+            ) : (
+              <Link
+                key={l.label}
+                href={l.href}
+                onClick={() => setMobileOpen(false)}
+                className="text-left text-2xl font-display font-medium text-brand-primary hover:text-brand-accent transition-colors"
+              >
+                {l.label}
+              </Link>
+            )
+          )}
+          <div className="pt-6 border-t border-neutral-surface">
+            <a
+              href="#how-it-works"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToSection('#how-it-works');
+                setMobileOpen(false);
+              }}
+              className="inline-flex px-6 py-3 rounded-full bg-brand-accent text-white text-sm font-semibold shadow-btn"
+            >
+              Get started
+            </a>
+          </div>
+        </nav>
       </div>
-    </header>
+    </>
   );
 }

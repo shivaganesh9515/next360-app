@@ -24,7 +24,6 @@ export async function registerForPushNotifications() {
 
   try {
     const token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Expo push token:', token);
 
     // Register with backend
     await api.registerPushToken(token);

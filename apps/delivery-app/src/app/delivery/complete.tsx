@@ -9,7 +9,10 @@ const AUTO_RETURN_MS = 3000;
 
 export default function DeliveryCompleteScreen() {
   const { earning } = useLocalSearchParams<{ earning?: string }>();
-  const earningValue = earning ? Number(earning) : undefined;
+  const parsed = earning ? Number(earning) : NaN;
+  // Honest state: only show a fee when the backend actually returned one.
+  // Never fall back to a hardcoded number — a missing fee renders as pending.
+  const hasEarning = Number.isFinite(parsed);
 
   // Celebration spring sequence
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -41,8 +44,9 @@ export default function DeliveryCompleteScreen() {
       <Text style={styles.title}>Delivery Complete!</Text>
       <Text style={styles.subtitle}>Great job getting this order there safely.</Text>
 
-      {/* Earnings Card — fades in after icon */}
-      {earningValue !== undefined && (
+      {/* Earnings Card — fades in after icon. Shown only when the real
+          fee is known; otherwise the stats row below shows the pending state. */}
+      {hasEarning && (
         <Animated.View
           style={[styles.earningCard, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}
         >
@@ -50,7 +54,7 @@ export default function DeliveryCompleteScreen() {
             <Ionicons name="cash" size={24} color={Colors.primary} />
           </View>
           <Text style={styles.earningLabel}>You earned</Text>
-          <Text style={styles.earningValue}>{formatDeliveryFee(earningValue)}</Text>
+          <Text style={styles.earningValue}>{formatDeliveryFee(parsed)}</Text>
         </Animated.View>
       )}
 
@@ -66,8 +70,8 @@ export default function DeliveryCompleteScreen() {
         <View style={styles.statDivider} />
         <View style={styles.statBox}>
           <Ionicons name="trending-up-outline" size={18} color={Colors.primary} />
-          <Text style={styles.statLabel}>Today's Total</Text>
-          <Text style={styles.statValue}>{formatDeliveryFee(earningValue || 15000)}</Text>
+          <Text style={styles.statLabel}>Delivery Fee</Text>
+          <Text style={styles.statValue}>{hasEarning ? formatDeliveryFee(parsed) : 'Pending'}</Text>
         </View>
       </Animated.View>
 

@@ -1,247 +1,143 @@
 @import "tailwindcss";
-@import "../styles/utils.css";
 @import "tw-animate-css";
 
-/* ── Next360 Marketing — Design Tokens (CSS-first, Tailwind v4) ───
-   Light-only by design — Next360's background/text/brass accent are
-   fixed across the whole product (see CLAUDE.md baseTokens), so there
-   is no dark-mode variant here, unlike launch-ui's source theme. ─── */
+/* ═══════════════════════════════════════════════════════════
+   NEXT360 — v2 Earthy Theme
+   
+   Blend: Vanguard Estates (palette backbone) + GreenCare (rounded system + reveals) + CareVital (3-audience)
+   
+   • brand-primary (#16241C) — deep pine/forest (Vanguard Estates)
+   • brand-secondary (#4B5E3F) — moss/olive
+   • brand-accent (#B98B4E) — clay/ochre — the ONLY warm note, CTAs only
+   • neutral-bg (#F1EFE4) — parchment/sand warm off-white
+   • neutral-surface (#E7EBD9) — sage-fennel tint
+   • surface-moss (#DCE3CE), surface-clay (#EFE3D0), surface-bark (#E3DCCB)
+   ═══════════════════════════════════════════════════════════ */
+
 @theme inline {
-  /* shadcn/ui-shaped tokens, mapped to Next360's exact palette */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-brand: var(--brand);
-  --color-brand-foreground: var(--brand-foreground);
+  /* ── Brand Palette ─────────────────────────────────────── */
+  --color-brand-primary: #16241C;
+  --color-brand-secondary: #4B5E3F;
+  --color-brand-accent: #B98B4E;
 
-  /* Category accents — Next360-specific, not part of the shadcn base set */
-  --color-organic-accent: #5c6b4d;
-  --color-organic-tint: #edf0e8;
-  --color-natural-accent: #9b6a3f;
-  --color-natural-tint: #f4ece3;
-  --color-eco-accent: #2f5d62;
-  --color-eco-tint: #e7eeee;
+  /* ── Neutral Backgrounds ───────────────────────────────── */
+  --color-neutral-bg: #F1EFE4;
+  --color-neutral-surface: #E7EBD9;
+  --color-surface-moss: #DCE3CE;
+  --color-surface-clay: #EFE3D0;
+  --color-surface-bark: #E3DCCB;
 
-  /* Font families */
+  /* ── Text ──────────────────────────────────────────────── */
+  --color-text-primary: #16241C;
+  --color-text-secondary: #5A6350;
+  --color-text-on-dark: #F1EFE4;
+
+  /* ── Utility Shadows ───────────────────────────────────── */
+  --shadow-card: 0 10px 30px rgba(22, 36, 28, 0.07);
+  --shadow-btn: 0 4px 14px rgba(185, 139, 78, 0.28);
+
+  /* ── Typography ────────────────────────────────────────── */
   --font-display: "Fraunces", "Georgia", serif;
-  --font-body: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display-alt: "Playfair Display", "Georgia", serif;
+  --font-body: "Manrope", "system-ui", sans-serif;
 
-  /* Radius */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-
-  /* Container widths (--container-* generates max-w-*, not --spacing-*) */
+  /* ── Container ─────────────────────────────────────────── */
   --container-container: 1280px;
-  --container-container-lg: 1536px;
+  --container-narrow: 800px;
 
-  /* Spacing */
-  --spacing-18: 4.5rem;
-  --spacing-22: 5.5rem;
-  --spacing-26: 6.5rem;
-  --spacing-30: 7.5rem;
+  /* ── Z-Index ──────────────────────────────────────────── */
+  --z-nav: 50;
+  --z-overlay: 60;
 
-  /* Shadows */
-  --shadow-md: 0 4px 6px -1px var(--shadow), 0 2px 4px -2px var(--shadow);
-  --shadow-xl: 0 20px 25px -5px var(--shadow), 0 8px 10px -6px var(--shadow);
-  --shadow-2xl: 0 25px 50px -12px var(--shadow);
-  --shadow-mockup: -12px 16px 48px var(--shadow-strong);
+  /* ── Motion: Easing Curves ────────────────────────────── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --ease-out-cinematic: cubic-bezier(0.06, 0.7, 0.1, 1);
 
-  /* Separators */
-  --line-width: 1px;
+  /* ── Motion: Duration Tokens ──────────────────────────── */
+  --duration-micro: 150ms;
+  --duration-fast: 300ms;
+  --duration-normal: 500ms;
+  --duration-slow: 800ms;
+  --duration-cinema: 1400ms;
 
-  /* Animations */
-  --animate-appear: appear 0.6s forwards ease-out;
-  --animate-appear-zoom: appear-zoom 0.6s forwards ease-out;
-  --animate-swatch-crossfade: swatch-crossfade 250ms cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* Breakpoints */
-  --breakpoint-xs: 30rem;
-
-  @keyframes appear {
-    0% {
-      opacity: 0;
-      transform: translateY(1rem);
-      filter: blur(0.5rem);
-    }
-    50% {
-      filter: blur(0);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-      filter: blur(0);
-    }
+  /* ── Motion: Keyframes ────────────────────────────────── */
+  @keyframes fade-up {
+    0% { opacity: 0; transform: translateY(24px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
-  @keyframes appear-zoom {
-    0% {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
+  @keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
   }
-  @keyframes swatch-crossfade {
-    from { opacity: 0; transform: scale(0.98); }
-    to { opacity: 1; transform: scale(1); }
+  @keyframes scale-in {
+    0% { opacity: 0; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
   }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes badge-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes ping-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes scroll-cue {
+    0%, 100% { opacity: 0.5; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(4px); }
+  }
+
+  /* ── Motion: Utility Classes ──────────────────────────── */
+  --animate-fade-up: fade-up var(--duration-normal) var(--ease-out-expo) forwards;
+  --animate-fade-in: fade-in var(--duration-normal) var(--ease-out) forwards;
+  --animate-scale-in: scale-in var(--duration-slow) var(--ease-out-cinematic) forwards;
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-badge-float: badge-float 4s ease-in-out infinite;
+  --animate-ping-soft: ping-soft 2s ease-in-out infinite;
+  --animate-scroll-cue: scroll-cue 2.5s ease-in-out infinite;
 }
 
-:root {
-  /* Core Next360 palette — fixed, from CLAUDE.md baseTokens */
-  --background: #ffffff;
-  --foreground: #1c1b17;
-  --card: #ffffff;
-  --card-foreground: #1c1b17;
-  --popover: #ffffff;
-  --popover-foreground: #1c1b17;
-
-  /* Brass — prices, premium accents, primary CTA fill */
-  --brand: #c9a66b;
-  --brand-foreground: #b8954f;
-  --primary: #c9a66b;
-  --primary-foreground: #ffffff;
-
-  --secondary: #f3f4f6;
-  --secondary-foreground: #1c1b17;
-  --muted: #f9fafb;
-  --muted-foreground: #6b7280;
-  --accent: #f3f4f6;
-  --accent-foreground: #1c1b17;
-  --destructive: #ef4444;
-  --destructive-foreground: #ef4444;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #c9a66b;
-  --radius: 0.625rem;
-
-  /* Shadows — subtle, editorial rather than glossy */
-  --shadow: #00000008;
-  --shadow-strong: #00000014;
-}
-
-/* ── Global resets ─────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+/* ── Base ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
-  scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   margin: 0;
-  background-color: var(--background);
-  color: var(--foreground);
+  padding: 0;
+  background: var(--color-neutral-bg);
+  color: var(--color-text-primary);
   font-family: var(--font-body);
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
-@layer base {
-  * {
-    @apply border-border;
+::selection { background: var(--color-brand-secondary); color: var(--color-text-on-dark); }
+
+/* ── Utilities ───────────────────────────────────────────── */
+.font-display { font-family: var(--font-display); }
+.font-display-alt { font-family: var(--font-display-alt); }
+.font-body { font-family: var(--font-body); }
+
+/* ── Reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-/* ── Typography utilities ──────────────────────────────────────── */
-.font-display {
-  font-family: var(--font-display);
-}
-
-.font-body {
-  font-family: var(--font-body);
-}
-
-.font-mono {
-  font-family: var(--font-mono);
-}
-
-/* ── Swatch texture overlays ───────────────────────────────────── */
-.swatch-moss {
-  background:
-    repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 2px,
-      rgba(92, 107, 77, 0.08) 2px,
-      rgba(92, 107, 77, 0.08) 4px
-    ),
-    var(--color-organic-tint);
-}
-
-.swatch-clay {
-  background:
-    radial-gradient(circle at 30% 40%, rgba(155, 106, 63, 0.12) 0%, transparent 60%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      rgba(155, 106, 63, 0.06) 3px,
-      rgba(155, 106, 63, 0.06) 6px
-    ),
-    var(--color-natural-tint);
-}
-
-.swatch-eucalyptus {
-  background:
-    repeating-linear-gradient(
-      -30deg,
-      transparent,
-      transparent 3px,
-      rgba(47, 93, 98, 0.07) 3px,
-      rgba(47, 93, 98, 0.07) 5px
-    ),
-    var(--color-eco-tint);
-}
-
-/* ── Focus ring ────────────────────────────────────────────────── */
-.focus-ring:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-/* ── Smooth crossfade for swatch sections ──────────────────────── */
-.swatch-section {
-  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 250ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ── Scrollbar styling ─────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
-}
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-neutral-surface); border-radius: 2px; }

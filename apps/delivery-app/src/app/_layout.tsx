@@ -52,6 +52,14 @@ export default function RootLayout() {
           name="kyc-documents"
           options={{ title: 'KYC Documents', headerTintColor: '#10B981' }}
         />
+        <Stack.Screen
+          name="privacy-policy"
+          options={{ title: 'Privacy Policy', headerTintColor: '#10B981' }}
+        />
+        <Stack.Screen
+          name="terms-of-service"
+          options={{ title: 'Terms of Service', headerTintColor: '#10B981' }}
+        />
       </Stack>
       {isAuthenticated && <IncomingAssignmentModal />}
     </>

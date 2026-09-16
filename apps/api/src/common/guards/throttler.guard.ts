@@ -3,8 +3,12 @@ import { ThrottlerGuard as NestThrottlerGuard } from '@nestjs/throttler';
 
 @Injectable()
 export class ThrottlerGuard extends NestThrottlerGuard {
+  // Use authenticated user's ID when available, fall back to IP.
+  // This prevents a logged-in user from bypassing rate limits by rotating IPs
+  // (e.g. mobile networks) and ensures per-user fairness.
   protected async getTracker(req: Record<string, any>): Promise<string> {
-    return req.ip;
+    const userId = req.user?.id || req.user?.sub;
+    return userId ? `user:${userId}` : `ip:${req.ip}`;
   }
 
   protected getRequestResponse(context: ExecutionContext) {

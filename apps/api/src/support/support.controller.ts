@@ -25,8 +25,11 @@ export class SupportController {
 
   @Get('tickets/:id')
   @UseGuards(JwtAuthGuard)
-  async findOne(@Param('id') id: string) {
-    return this.supportService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string; role: string },
+  ) {
+    return this.supportService.findOne(id, user.id, user.role);
   }
 
   @Patch('tickets/:id/assign')
@@ -40,10 +43,10 @@ export class SupportController {
   @UseGuards(JwtAuthGuard)
   async addReply(
     @Param('id') id: string,
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: { id: string; role: string },
     @Body('message') message: string,
   ) {
-    return this.supportService.addReply(id, userId, message);
+    return this.supportService.addReply(id, user.id, message, user.role);
   }
 
   @Patch('tickets/:id/status')
