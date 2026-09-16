@@ -278,55 +278,7 @@ export class AdminService {
     };
   }
 
-  /**
-   * Admin analytics — aggregate platform metrics.
-   */
-  async getAnalytics() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const [
-      totalOrders,
-      totalRevenue,
-      totalUsers,
-      totalVendors,
-      newUsers30d,
-      newVendors30d,
-      totalProducts,
-      activeProducts,
-      avgOrderValue,
-    ] = await Promise.all([
-      this.prisma.order.count(),
-      this.prisma.order.aggregate({
-        where: { paymentStatus: 'PAID' },
-        _sum: { totalAmount: true },
-      }),
-      this.prisma.user.count(),
-      this.prisma.vendor.count(),
-      this.prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      this.prisma.vendor.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      this.prisma.product.count(),
-      this.prisma.product.count({ where: { isActive: true, isApproved: true } }),
-      this.prisma.order.aggregate({
-        where: { paymentStatus: 'PAID' },
-        _avg: { totalAmount: true },
-      }),
-    ]);
-
-    return {
-      totalOrders,
-      totalRevenue: Number(totalRevenue._sum.totalAmount || 0),
-      totalUsers,
-      totalVendors,
-      newUsersLast30Days: newUsers30d,
-      newVendorsLast30Days: newVendors30d,
-      totalProducts,
-      activeProducts,
-      averageOrderValue: Number(avgOrderValue._avg.totalAmount?.toFixed(2) || 0),
-    };
-  }
-
-  // ── Platform Settings ──────────────────────────────────────────────
+  // ── Platform Settings ──────────────────────────────────────────
 
   /**
    * Get the current platform settings (single-row table).

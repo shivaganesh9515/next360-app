@@ -158,6 +158,9 @@ export const api = {
 };
 
 export const vendorApi = {
+  // Multipart file upload (product images etc.) — see api.upload for envelope handling
+  upload: <T>(path: string, formData: FormData): Promise<T> => api.upload<T>(path, formData),
+
   // Auth
   login: (email: string, password: string) =>
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),

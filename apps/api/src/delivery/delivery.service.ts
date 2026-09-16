@@ -1410,37 +1410,11 @@ export class DeliveryService {
   }
 
   /**
-   * POST /delivery/process-payouts
-   * Process weekly payouts for all delivery partners with completed deliveries.
+   * POST /delivery/process-payouts — manual trigger of the same weekly payout
+   * run the Monday cron performs (see processWeeklyPayouts above).
    */
-  async processWeeklyPayouts() {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    const assignments = await this.prisma.deliveryAssignment.findMany({
-      where: { deliveredAt: { gte: oneWeekAgo } },
-      include: { deliveryPartner: true },
-    });
-
-    const dpMap = new Map<string, number>();
-    for (const a of assignments) {
-      const current = dpMap.get(a.deliveryPartnerId) || 0;
-      dpMap.set(a.deliveryPartnerId, current + 50); // ₹50 per delivery
-    }
-
-    for (const [dpId, amount] of dpMap) {
-      await this.prisma.payout.create({
-        data: {
-          deliveryPartnerId: dpId,
-          amount,
-          status: 'PENDING',
-          periodStart: oneWeekAgo,
-          periodEnd: new Date(),
-        },
-      });
-    }
-
-    return { processed: dpMap.size, totalDeliveries: assignments.length };
+  async triggerWeeklyPayouts() {
+    return this.processWeeklyPayouts();
   }
 
   /**

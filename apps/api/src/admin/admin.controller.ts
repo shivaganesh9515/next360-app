@@ -30,11 +30,6 @@ export class AdminController {
     return this.adminService.getDashboard();
   }
 
-  @Get('analytics')
-  async getAnalytics() {
-    return this.adminService.getAnalytics();
-  }
-
   // ── Platform Settings ──────────────────────────────────────────────
 
   /**

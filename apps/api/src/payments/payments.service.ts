@@ -34,6 +34,14 @@ export class PaymentsService {
   }
 
   /**
+   * Master switch for the COD-only MVP. RAZORPAY_ENABLED must be explicitly
+   * set to true AND keys configured before any online-payment path runs.
+   */
+  private isRazorpayEnabled(): boolean {
+    return process.env.RAZORPAY_ENABLED === 'true' && this.isConfigured();
+  }
+
+  /**
    * Create a Razorpay order for the given internal order.
    *
    * Uses pg_advisory_xact_lock to serialize concurrent requests for the same
@@ -48,16 +56,17 @@ export class PaymentsService {
    * at scale, consider moving the Razorpay call outside with a Redis lock.
    */
   async createRazorpayOrder(userId: string, dto: CreateRazorpayOrderDto) {
-    // DISABLED (2026-09): COD-only MVP — no Razorpay keys. Returns 503 so the
-    // partner-audit Razorpay findings (idempotency race, order-creation abuse,
-    // webhook replay) are out of scope by design. Settlement implementation
-    // (advisory-lock + orphan cleanup) below is kept for re-enable.
-    throw new HttpException(
-      'Online payments are disabled. Please use Cash on Delivery (COD).',
-      HttpStatus.SERVICE_UNAVAILABLE,
-    );
+    // COD-only MVP (2026-09): Razorpay disabled by default. Flip with
+    // RAZORPAY_ENABLED=true once keys + Route vendor KYC are ready (Risk #1).
+    // Guard is runtime-conditional so the settlement implementation below
+    // stays type-checked and a re-enable is a config change, not a code edit.
+    if (!this.isRazorpayEnabled()) {
+      throw new HttpException(
+        'Online payments are disabled. Please use Cash on Delivery (COD).',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
-    /* eslint-disable-next-line no-unreachable */
     if (!this.isConfigured()) {
       throw new HttpException(
         'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.',
@@ -151,13 +160,13 @@ export class PaymentsService {
    * Verify a Razorpay payment signature after successful payment on the client side.
    */
   async verifyPayment(userId: string, dto: VerifyPaymentDto) {
-    // DISABLED (2026-09): COD-only MVP — see createRazorpayOrder guard.
-    throw new HttpException(
-      'Online payments are disabled. Please use Cash on Delivery (COD).',
-      HttpStatus.SERVICE_UNAVAILABLE,
-    );
+    if (!this.isRazorpayEnabled()) {
+      throw new HttpException(
+        'Online payments are disabled. Please use Cash on Delivery (COD).',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
-    /* eslint-disable-next-line no-unreachable */
     // Verify signature
     const body = dto.razorpayOrderId + '|' + dto.razorpayPaymentId;
 
@@ -217,14 +226,13 @@ export class PaymentsService {
    * Handle Razorpay webhook events (payment captured, failed, etc.)
    */
   async handleWebhook(webhookDto: RazorpayWebhookDto) {
-    // DISABLED (2026-09): COD-only MVP — webhooks not accepted. Handler kept
-    // (capture dedup, refund crash-recovery, Route transfers) for re-enable.
-    throw new HttpException(
-      'Online payments are disabled. Webhooks not accepted.',
-      HttpStatus.SERVICE_UNAVAILABLE,
-    );
+    if (!this.isRazorpayEnabled()) {
+      throw new HttpException(
+        'Online payments are disabled. Webhooks not accepted.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
-    /* eslint-disable-next-line no-unreachable */
     const event = webhookDto.event;
 
     switch (event) {
@@ -1433,14 +1441,13 @@ export class PaymentsService {
    * admin double-click or crash recovery.
    */
   async initiateRefund(orderId: string, reason?: string) {
-    // DISABLED (2026-09): COD-only MVP — no captured online payments exist.
-    // CAS refund flow kept below for re-enable.
-    throw new HttpException(
-      'Online refunds are disabled in COD-only mode.',
-      HttpStatus.SERVICE_UNAVAILABLE,
-    );
+    if (!this.isRazorpayEnabled()) {
+      throw new HttpException(
+        'Online refunds are disabled in COD-only mode.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
-    /* eslint-disable-next-line no-unreachable */
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { payments: true },

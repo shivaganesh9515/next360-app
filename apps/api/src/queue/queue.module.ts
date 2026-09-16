@@ -14,9 +14,10 @@ import { SettlementProcessor } from './processors/settlement.processor';
         defaultJobOptions: {
           attempts: 5,
           backoff: { type: 'exponential', delay: 10000 },
+          // Job retention: keep recent history for debugging without bloating Redis
+          removeOnComplete: { count: 50 },
+          removeOnFail: { count: 100 },
         },
-        removeOnComplete: { count: 50 },
-        removeOnFail: { count: 100 },
       },
     ),
   ],

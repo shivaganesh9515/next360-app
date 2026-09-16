@@ -48,7 +48,7 @@ export class PaymentsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.paymentsService.findAll({
+    return this.paymentsService.listPayments({
       status,
       startDate,
       endDate,
