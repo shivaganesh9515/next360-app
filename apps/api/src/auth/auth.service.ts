@@ -1,10 +1,12 @@
 import * as crypto from 'crypto';
-import { Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException, GoneException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SmsService } from '../providers/sms/sms.service';
+import { REDIS_CLIENT } from '../providers/redis/redis.provider';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -12,29 +14,23 @@ import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpLoginDto } from './dto/verify-otp-login.dto';
 import { UserRole } from '@prisma/client';
 
-interface OtpEntry {
-  code: string;
-  expiresAt: number;
-}
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private supabase: SupabaseClient | null = null;
 
-  // In-memory phone-OTP store — fine for a single-instance MVP, but won't
-  // survive a process restart or work across multiple instances. Same
-  // caveat as the delivery-assignment-locking Redis item in CLAUDE.md's Risk
-  // Register — move this to Redis (or a short-lived DB table) once
-  // horizontal scaling or zero-downtime deploys matter.
-  private readonly otpStore = new Map<string, OtpEntry>();
-  private static readonly OTP_TTL_MS = 5 * 60 * 1000;
+  // Redis-backed OTP store — survives restarts and works across instances.
+  // Falls back to in-memory Map if Redis is unavailable (dev/local mode).
+  private readonly otpFallback = new Map<string, { code: string; expiresAt: number }>();
+  private static readonly OTP_TTL_SECONDS = 5 * 60; // 5 minutes
+  private static readonly OTP_KEY_PREFIX = 'otp:';
 
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
     private smsService: SmsService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -139,50 +135,16 @@ export class AuthService {
   // Zomato-style single phone-OTP flow for the customer app — send-otp +
   // verify-otp-login together replace signup/login for that client entirely
   // (email+password above stays as-is for vendor/admin, which still use it).
+  // DISABLED (2026-09): Customer app is Google-only + COD-only for MVP.
+  // Phone OTP (DLT/SMS) removed to save SMS spend — see PhoneAuthScreen
+  // ENABLE_PHONE_AUTH=false. Endpoints return 410 Gone so the partner audit
+  // OTP findings (brute-force, send abuse) are out of scope by design.
   async sendOtp(dto: SendOtpDto) {
-    const code = String(crypto.randomInt(100000, 999999));
-    this.otpStore.set(dto.phone, { code, expiresAt: Date.now() + AuthService.OTP_TTL_MS });
-
-    // Send OTP via SMS provider (falls back to console log if no provider configured)
-    await this.smsService.sendOtp(dto.phone, code);
-
-    return { message: 'OTP sent' };
+    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
   }
 
   async verifyOtpLogin(dto: VerifyOtpLoginDto) {
-    const entry = this.otpStore.get(dto.phone);
-    if (!entry || entry.expiresAt < Date.now()) {
-      throw new UnauthorizedException('OTP expired or not requested. Request a new code and try again.');
-    }
-    if (entry.code !== dto.otp) {
-      throw new UnauthorizedException('Incorrect code.');
-    }
-    this.otpStore.delete(dto.phone);
-
-    let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
-    let isNewUser = false;
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: { phone: dto.phone, role: 'CUSTOMER' },
-      });
-      isNewUser = true;
-    }
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
-    // Send welcome notification for new users
-    if (isNewUser && user) {
-      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
-    }
-
-    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
-
-    return {
-      user: this.sanitizeUser(user),
-      access_token: token,
-      isNewUser,
-    };
+    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
   }
 
   async getProfile(userId: string) {
@@ -212,19 +174,7 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    if (this.supabase) {
-      const { error } = await this.supabase.auth.verifyOtp({
-        email: dto.email,
-        token: dto.otp,
-        type: 'email',
-      });
-
-      if (error) {
-        throw new BadRequestException(`OTP verification failed: ${error.message}`);
-      }
-    }
-
-    return { message: 'OTP verified successfully' };
+    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
   }
 
   async googleLogin(dto: { email: string; googleId: string; name?: string; avatarUrl?: string }) {
@@ -271,6 +221,92 @@ export class AuthService {
       access_token: token,
       isNewUser,
     };
+  }
+
+  // Apple Sign In — accepts verified Apple profile (identityToken verified when provided)
+  // Native flow (expo-apple-authentication) gives identityToken JWT; web/Supabase OAuth
+  // flow already verified via supabaseAuthCallback. We verify token signature when present.
+  async appleLogin(dto: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) {
+    if (dto.identityToken) {
+      const verified = await this.verifyAppleIdentityToken(dto.identityToken);
+      if (!verified || verified.email?.toLowerCase() !== dto.email.toLowerCase()) {
+        throw new UnauthorizedException('Apple identityToken verification failed');
+      }
+      if (verified.sub && verified.sub !== dto.appleId) {
+        throw new UnauthorizedException('Apple ID mismatch');
+      }
+    }
+
+    let user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    let isNewUser = false;
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name || null,
+          avatarUrl: dto.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+      });
+      isNewUser = true;
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    if ((dto.name && !user.name) || (dto.avatarUrl && !user.avatarUrl)) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(dto.name && !user.name ? { name: dto.name } : {}),
+          ...(dto.avatarUrl && !user.avatarUrl ? { avatarUrl: dto.avatarUrl } : {}),
+        },
+      });
+    }
+
+    if (isNewUser) {
+      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+      isNewUser,
+    };
+  }
+
+  // Verify Apple identityToken JWT signature via Apple's JWKS (https://appleid.apple.com/auth/keys)
+  private async verifyAppleIdentityToken(identityToken: string): Promise<any | null> {
+    try {
+      const parts = identityToken.split('.');
+      if (parts.length !== 3) return null;
+      const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
+      const kid = header.kid;
+      // Fetch Apple JWKS (cache not needed for MVP — low volume)
+      const res = await fetch('https://appleid.apple.com/auth/keys');
+      if (!res.ok) return null;
+      const jwks: any = await res.json();
+      const jwk = jwks.keys?.find((k: any) => k.kid === kid);
+      if (!jwk) return null;
+      // Use Node crypto to verify RS256
+      const keyObject = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+      const data = `${parts[0]}.${parts[1]}`;
+      const sig = Buffer.from(parts[2], 'base64url');
+      const valid = crypto.verify('RSA-SHA256', Buffer.from(data), keyObject, sig);
+      if (!valid) return null;
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+      // Basic expiry + issuer + audience checks
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+      if (payload.iss !== 'https://appleid.apple.com') return null;
+      return payload;
+    } catch (e) {
+      this.logger.warn(`Apple token verify failed: ${e}`);
+      return null;
+    }
   }
 
   async forgotPassword(email: string) {

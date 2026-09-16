@@ -15,7 +15,7 @@ import { useZone } from '../lib/zone';
 import { useStore } from '../lib/store';
 import { useFlyToCart } from '../lib/flyToCart';
 import { useCartSheet } from '../lib/cartSheet';
-import { Colors, Shadows } from '../constants/theme';
+import { Colors, Shadows, getStoreAccent } from '../constants/theme';
 import SplashScreen from '../screens/onboarding/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import PhoneAuthScreen from '../screens/auth/PhoneAuthScreen';
@@ -37,7 +37,7 @@ import SupportScreen from '../screens/profile/SupportScreen';
 import LoyaltyScreen from '../screens/profile/LoyaltyScreen';
 import ReferralScreen from '../screens/profile/ReferralScreen';
 import SubscriptionScreen from '../screens/profile/SubscriptionScreen';
-import WishlistScreen from '../screens/wishlist/WishlistScreen';
+import WalletScreen from '../screens/profile/WalletScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import PromosScreen from '../screens/promos/PromosScreen';
 import VendorStorefrontScreen from '../screens/vendor/VendorStorefrontScreen';
@@ -47,6 +47,8 @@ import AiProductScannerScreen from '../screens/ai/AiProductScannerScreen';
 import AiRecommendationsScreen from '../screens/ai/AiRecommendationsScreen';
 import AiHealthInsightsScreen from '../screens/ai/AiHealthInsightsScreen';
 import AiChatHistoryScreen from '../screens/ai/AiChatHistoryScreen';
+import { PrivacyPolicyScreen, TermsOfServiceScreen } from '../screens/profile/LegalScreens';
+import DeleteAccountScreen from '../screens/profile/DeleteAccountScreen';
 import ExpandingSearchDock from '../components/ExpandingSearchDock';
 import ProfileAvatarPopover from '../components/ProfileAvatarPopover';
 
@@ -154,7 +156,15 @@ function MiniCartBar() {
   };
 
   const renderRightActions = () => (
-    <TouchableOpacity style={miniCart.removeAction} onPress={handleRemove} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={miniCart.removeAction}
+      onPress={handleRemove}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel="Remove last added item from cart"
+      accessibilityHint="Removes the item from the cart"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
       <Ionicons name="trash-outline" size={18} color={Colors.white} />
       <Text style={miniCart.removeActionText}>Remove</Text>
     </TouchableOpacity>
@@ -172,6 +182,10 @@ function MiniCartBar() {
               activeOpacity={0.85}
               style={[miniCart.bar, Shadows.raised]}
               onPress={openCartSheet}
+              accessibilityRole="button"
+              accessibilityLabel={cartCount > 0 ? `View cart, ${cartCount} items` : 'View cart'}
+              accessibilityHint="Opens the cart"
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
               <View ref={iconWrapRef} collapsable={false} style={miniCart.iconWrap}>
                 {lastItem?.product?.images?.[0] ? (
@@ -203,7 +217,8 @@ function MiniCartBar() {
 // ── Floating pill tab bar ─────────────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { wishlistCount } = useStore();
+  const { wishlistCount, storeType } = useStore();
+  const accent = getStoreAccent(storeType);
 
   const handleTabPress = (routeIndex: number, routeName: string) => {
     const isFocused = state.index === routeIndex;
@@ -230,13 +245,18 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           {/* Button 0: Home */}
           <TouchableOpacity
             style={pill.tab}
-            onPress={() => {}}
+            onPress={() => handleTabPress(0, 'Home')}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: state.index === 0 }}
+            accessibilityLabel="Home tab"
+            accessibilityHint="Shows the home storefront"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
               name={state.index === 0 ? 'home' : 'home-outline'}
               size={22}
-              color={state.index === 0 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+              color={state.index === 0 ? accent : 'rgba(255,255,255,0.6)'}
             />
           </TouchableOpacity>
 
@@ -245,42 +265,43 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
             style={pill.tab}
             onPress={() => handleTabPress(1, 'AllProducts')}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: state.index === 1 }}
+            accessibilityLabel="All products tab"
+            accessibilityHint="Shows all products"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <View style={pill.iconWrap}>
               <Ionicons
                 name={state.index === 1 ? 'storefront' : 'storefront-outline'}
                 size={22}
-                color={state.index === 1 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+                color={state.index === 1 ? accent : 'rgba(255,255,255,0.6)'}
               />
             </View>
           </TouchableOpacity>
 
-
-
-          {/* Button 3: Wishlist */}
+          {/* Button 2: Orders (Reorder / History) */}
           <TouchableOpacity
             style={pill.tab}
-            onPress={() => handleTabPress(2, 'Wishlist')}
+            onPress={() => handleTabPress(2, 'Orders')}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: state.index === 2 }}
+            accessibilityLabel="Orders tab"
+            accessibilityHint="Shows order history"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <View style={pill.iconWrap}>
               <Ionicons
-                name={state.index === 2 ? 'heart' : 'heart-outline'}
+                name={state.index === 2 ? 'receipt' : 'receipt-outline'}
                 size={22}
-                color={state.index === 2 ? '#22FF88' : 'rgba(255,255,255,0.6)'}
+                color={state.index === 2 ? accent : 'rgba(255,255,255,0.6)'}
               />
-              {wishlistCount > 0 && (
-                <View style={pill.badge}>
-                  <Text style={pill.badgeText}>{wishlistCount > 99 ? '99+' : wishlistCount}</Text>
-                </View>
-              )}
             </View>
           </TouchableOpacity>
 
-            {/* Profile Avatar Popover — self-contained, no outer wrapper needed */}
-            <View style={pill.profileTab}>
-              <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
-            </View>
+          {/* Profile Avatar Popover */}
+          <ProfileAvatarPopover navigation={navigation} active={state.index === 3} />
         </View>
 
         <ExpandingSearchDock
@@ -353,11 +374,11 @@ function ProfileStackNavigator() {
       }}
     >
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
-      <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders' }} />
+      <ProfileStack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'My Orders', headerShown: false }} />
       <ProfileStack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="OrderTracking" component={OrderTrackingScreen} options={{ headerShown: false }} />
-      <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses' }} />
-      <ProfileStack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address' }} />
+      <ProfileStack.Screen name="AddressList" component={AddressListScreen} options={{ title: 'My Addresses', headerShown: false }} />
+      <ProfileStack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address', headerShown: false }} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Support" component={SupportScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
@@ -365,6 +386,10 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Loyalty" component={LoyaltyScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Referral" component={ReferralScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="Subscription" component={SubscriptionScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ headerShown: false }} />
     </ProfileStack.Navigator>
   );
 }
@@ -377,7 +402,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Home"        component={HomeStackNavigator} />
       <Tab.Screen name="AllProducts" component={ProductListScreen} />
-      <Tab.Screen name="Wishlist"    component={WishlistScreen} />
+      <Tab.Screen name="Orders"      component={OrderHistoryScreen} />
       <Tab.Screen name="Profile"     component={ProfileStackNavigator} />
     </Tab.Navigator>
   );

@@ -13,6 +13,9 @@ export default function ZonesPage() {
   const [editZone, setEditZone] = useState<any>(null);
   const [form, setForm] = useState({ name: '', deliveryRadius: 10, codCap: 2000, isActive: true });
   const [searchQuery, setSearchQuery] = useState('');
+  const [formError, setFormError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filteredZones = zones.filter((z) => {
     if (!searchQuery) return true;
@@ -33,17 +36,25 @@ export default function ZonesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
     try {
       if (editZone) { await adminApi.updateZone(editZone.id, form); }
       else { await adminApi.createZone(form); }
       setShowModal(false); setEditZone(null); setForm({ name: '', deliveryRadius: 10, codCap: 2000, isActive: true }); loadZones();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { setFormError(err.message || 'Failed to save zone'); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this zone?')) return;
-    try { await adminApi.deleteZone(id); loadZones(); }
-    catch (err: any) { alert(err.message); }
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setFormError('');
+    try {
+      await adminApi.deleteZone(deleteTarget.id);
+      setDeleteTarget(null);
+      loadZones();
+    }
+    catch (err: any) { setFormError(err.message || 'Failed to delete zone'); }
+    finally { setDeleting(false); }
   };
 
   const columns = [
@@ -55,7 +66,7 @@ export default function ZonesPage() {
     { key: 'actions', label: 'Actions', render: (z: any) => (
       <div className="flex gap-1">
         <button onClick={(e) => { e.stopPropagation(); setEditZone(z); setForm({ name: z.name, deliveryRadius: z.deliveryRadius || 10, codCap: z.codCap || 2000, isActive: z.isActive }); setShowModal(true); }} className="p-1.5 hover:bg-gray-100 rounded"><Pencil className="w-3.5 h-3.5 text-gray-600" /></button>
-        <button onClick={(e) => { e.stopPropagation(); handleDelete(z.id); }} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
+        <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(z); }} title="Delete zone" className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
       </div>
     )},
   ];
@@ -69,10 +80,21 @@ export default function ZonesPage() {
 
       <DataTable columns={columns} data={filteredZones} loading={loading} searchable searchPlaceholder="Search zones..." onSearch={setSearchQuery} emptyMessage="No zones configured" emptyIcon={<MapPin className="w-10 h-10" />} />
 
+      {formError && !showModal && !deleteTarget && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+          {formError}
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">{editZone ? 'Edit Zone' : 'Add Zone'}</h3>
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+                {formError}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div><label className="text-sm text-gray-600 mb-1 block">Zone Name *</label><input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /></div>
               <div><label className="text-sm text-gray-600 mb-1 block">Delivery Radius (km)</label><input type="number" min="1" value={form.deliveryRadius} onChange={e => setForm({ ...form, deliveryRadius: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /></div>
@@ -83,6 +105,28 @@ export default function ZonesPage() {
                 <button type="submit" className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">{editZone ? 'Update' : 'Create'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-label="Delete zone">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete Zone</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to delete the zone "{deleteTarget.name}"? This cannot be undone.
+            </p>
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+                {formError}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { setDeleteTarget(null); setFormError(''); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+              <button onClick={handleDelete} disabled={deleting} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

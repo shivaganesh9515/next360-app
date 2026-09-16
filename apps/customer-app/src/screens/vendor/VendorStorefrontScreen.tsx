@@ -149,6 +149,14 @@ export default function VendorStorefrontScreen({ navigation, route }: any) {
                   <Text style={s.statText}>{vendor.productCount} items</Text>
                 </View>
               )}
+              {(vendor?.deliveryTimeMin != null && vendor?.deliveryTimeMax != null) && (
+                <View style={[s.statRow, { backgroundColor: `${accent}12`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }]}>                  <Ionicons name="time-outline" size={12} color={accent} />
+                  <Text style={[s.statText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>
+                    {vendor.deliveryTimeMin}-{vendor.deliveryTimeMax} min
+                    {vendor.deliveryLabel ? ` • ${vendor.deliveryLabel}` : ''}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>

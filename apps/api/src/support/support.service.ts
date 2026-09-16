@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SupportService {
@@ -11,71 +11,74 @@ export class SupportService {
         userId,
         subject: dto.subject,
         message: dto.message,
-        category: dto.category || "OTHER",
+        category: dto.category || 'OTHER',
         orderId: dto.orderId || null,
       },
-      include: { user: { select: { id: true, name: true, email: true } } },
     });
   }
 
   async findAll(status?: string, page = 1, limit = 20) {
     const where: any = {};
-    if (status) where.status = status;
+    if (status && status !== 'ALL') where.status = status;
+
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.prisma.supportTicket.findMany({
-        where, skip, take: limit,
+        where,
+        skip,
+        take: limit,
         include: { user: { select: { id: true, name: true, email: true } } },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.supportTicket.count({ where }),
     ]);
+
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string, role: string) {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, name: true, email: true, phone: true } },
         replies: {
           include: { user: { select: { id: true, name: true, role: true } } },
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: 'asc' },
         },
       },
     });
-    if (!ticket) throw new NotFoundException("Ticket not found");
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (role !== 'ADMIN' && ticket.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
     return ticket;
   }
 
   async assign(id: string, assignedToId: string) {
-    const ticket = await this.findOne(id);
     return this.prisma.supportTicket.update({
       where: { id },
-      data: { assignedToId, status: "ASSIGNED" },
+      data: { assignedToId, status: 'ASSIGNED' },
     });
   }
 
-  async addReply(ticketId: string, userId: string, message: string) {
+  async addReply(ticketId: string, userId: string, message: string, role: string) {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, userId: true },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (role !== 'ADMIN' && ticket.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
     return this.prisma.ticketReply.create({
       data: { ticketId, userId, message },
-      include: { user: { select: { id: true, name: true, role: true } } },
     });
   }
 
   async updateStatus(id: string, status: string) {
-    await this.findOne(id);
     return this.prisma.supportTicket.update({
       where: { id },
       data: { status },
-    });
-  }
-
-  async getMyTickets(userId: string) {
-    return this.prisma.supportTicket.findMany({
-      where: { userId },
-      include: { replies: { take: 1, orderBy: { createdAt: "desc" } } },
-      orderBy: { createdAt: "desc" },
     });
   }
 }

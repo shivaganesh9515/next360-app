@@ -5,9 +5,10 @@ import { DeliveryModule } from '../delivery/delivery.module';
 import { CommissionModule } from '../commission/commission.module';
 import { OffersModule } from '../offers/offers.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { LoyaltyModule } from '../loyalty/loyalty.module';
 
 @Module({
-  imports: [DeliveryModule, CommissionModule, OffersModule, NotificationsModule],
+  imports: [DeliveryModule, CommissionModule, OffersModule, NotificationsModule, LoyaltyModule],
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

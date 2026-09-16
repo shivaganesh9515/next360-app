@@ -67,6 +67,8 @@ export default function ProductListScreen() {
   const [priceRange, setPriceRange] = useState<typeof PRICE_RANGES[number] | null>(null);
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [deliveryFilter, setDeliveryFilter] = useState<number | null>(null);
+  const [sortByDelivery, setSortByDelivery] = useState(false);
 
   const accent = getStoreAccent(storeType);
   const accentTint = getStoreAccentLight(storeType);
@@ -113,10 +115,10 @@ export default function ProductListScreen() {
     fetchProducts(1, true);
   }, [fetchProducts]);
 
-  // Price/rating/stock are refined on whatever's already loaded rather than
-  // re-querying — category and sort are the only server-side filters here.
+  // Price/rating/stock/delivery are refined on whatever's already loaded rather
+  // than re-querying — category and sort are the only server-side filters here.
   const visibleProducts = useMemo(() => {
-    return products.filter((p) => {
+    let result = products.filter((p) => {
       if (priceRange) {
         const price = Number(p.price);
         if (price < priceRange.min) return false;
@@ -124,9 +126,20 @@ export default function ProductListScreen() {
       }
       if (minRating && (p.rating || 0) < minRating) return false;
       if (inStockOnly && p.stock <= 0) return false;
+      if (deliveryFilter != null) {
+        if (p.vendor?.deliveryTimeMax == null || p.vendor.deliveryTimeMax > deliveryFilter) return false;
+      }
       return true;
     });
-  }, [products, priceRange, minRating, inStockOnly]);
+    if (sortByDelivery) {
+      result = [...result].sort((a, b) => {
+        const aTime = a.vendor?.deliveryTimeMax ?? 999;
+        const bTime = b.vendor?.deliveryTimeMax ?? 999;
+        return aTime - bTime;
+      });
+    }
+    return result;
+  }, [products, priceRange, minRating, inStockOnly, deliveryFilter, sortByDelivery]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -244,6 +257,23 @@ export default function ProductListScreen() {
                   onPress={() => setInStockOnly((v) => !v)}
                 >
                   <Text style={[styles.chipText, inStockOnly && { color: Colors.white }]}>{t('products.filter.inStock')}</Text>
+                </TouchableOpacity>
+                {[15, 20, 30].map((mins) => (
+                  <TouchableOpacity
+                    key={mins}
+                    style={[styles.chip, deliveryFilter === mins && { backgroundColor: accent, borderColor: accent }]}
+                    onPress={() => setDeliveryFilter(deliveryFilter === mins ? null : mins)}
+                  >
+                    <Ionicons name="flash-outline" size={12} color={deliveryFilter === mins ? Colors.white : Colors.textSecondary} />
+                    <Text style={[styles.chipText, deliveryFilter === mins && { color: Colors.white }]}>Under {mins} min</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[styles.chip, sortByDelivery && { backgroundColor: accent, borderColor: accent }]}
+                  onPress={() => setSortByDelivery((v) => !v)}
+                >
+                  <Ionicons name={sortByDelivery ? 'arrow-down' : 'swap-vertical'} size={12} color={sortByDelivery ? Colors.white : Colors.textSecondary} />
+                  <Text style={[styles.chipText, sortByDelivery && { color: Colors.white }]}>Fastest first</Text>
                 </TouchableOpacity>
               </>
             }

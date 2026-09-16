@@ -34,6 +34,17 @@ export default function CommissionsPage() {
     { key: 'commissionAmount', label: 'Commission', render: (c: any) => <span className="font-mono font-bold">₹{(c.commissionAmount || 0).toLocaleString()}</span> },
     { key: 'status', label: 'Status', render: (c: any) => <StatusBadge status={c.status || 'PENDING'} /> },
     { key: 'createdAt', label: 'Date', render: (c: any) => new Date(c.createdAt).toLocaleDateString() },
+    // No retry endpoint exists for commission records on the backend, so this
+    // stays disabled with an honest tooltip rather than faking a retry.
+    { key: 'actions', label: '', render: () => (
+      <button
+        disabled
+        title="Retry is not supported by the backend for commission records"
+        className="px-3 py-1.5 text-xs bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed"
+      >
+        Retry
+      </button>
+    )},
   ];
 
   return (

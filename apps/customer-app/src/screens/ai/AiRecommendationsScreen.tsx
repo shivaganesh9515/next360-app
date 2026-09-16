@@ -7,12 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { customerApi } from '../../lib/api';
 import { useStore } from '../../lib/store';
+import { useProductSheet } from '../../lib/productSheet';
 import { useTranslation } from 'react-i18next';
 import { getStoreAccent } from '../../constants/theme';
 
 export default function AiRecommendationsScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { storeType } = useStore();
+  const { open: openProduct } = useProductSheet();
   const accent = getStoreAccent(storeType);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,7 @@ export default function AiRecommendationsScreen({ navigation }: any) {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.recommendationCard}
-              onPress={() => navigation.navigate('ProductDetail', { productId: item.productId })}
+              onPress={() => openProduct(item.productId)}
             >
               <View style={styles.cardContent}>
                 <View style={styles.productInfo}>

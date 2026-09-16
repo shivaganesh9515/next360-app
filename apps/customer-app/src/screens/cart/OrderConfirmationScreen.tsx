@@ -1,13 +1,25 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { customerApi } from '../../lib/api';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 
 export default function OrderConfirmationScreen({ navigation, route }: any) {
   const { t } = useTranslation();
   const { orderId } = route.params || {};
+  const [vendorGroups, setVendorGroups] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!orderId) return;
+    customerApi.getOrder(orderId)
+      .then((res: any) => {
+        const order = res?.data || res;
+        setVendorGroups(order?.vendorGroups || []);
+      })
+      .catch(() => {});
+  }, [orderId]);
 
   // Spring entrance animations
   const iconScale = useRef(new Animated.Value(0)).current;
@@ -44,11 +56,50 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
             </View>
           )}
 
-          {/* Estimated Delivery */}
-          <View style={s.deliveryInfo}>
-            <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
-            <Text style={s.deliveryText}>{t('orderConfirm.deliveryEstimate')}</Text>
-          </View>
+          {/* Per-vendor delivery + subtotal */}
+          {vendorGroups.length > 0 ? (
+            <View style={s.deliveryCard}>
+              {vendorGroups.map((group: any) => {
+                const v = group.vendor;
+                const min = v?.deliveryTimeMin;
+                const max = v?.deliveryTimeMax;
+                const label = v?.deliveryLabel;
+                const itemCount = group.items?.length || 0;
+                const vendorSubtotal = (group.items || []).reduce(
+                  (sum: number, item: any) => sum + Number(item.product?.price || 0) * (item.quantity || 1),
+                  0,
+                );
+                return (
+                  <View key={group.id} style={s.deliveryRow}>
+                    <View style={s.deliveryVendorInfo}>
+                      <View style={[s.deliveryDot, { backgroundColor: Colors.organic }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.deliveryVendorName} numberOfLines={1}>{v?.storeName || 'Vendor'}</Text>
+                        <Text style={s.deliveryVendorMeta}>
+                          {itemCount} item{itemCount !== 1 ? 's' : ''} • ₹{vendorSubtotal.toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                    </View>
+                    {min != null && max != null ? (
+                      <View style={s.deliveryTimePill}>
+                        <Ionicons name="time-outline" size={11} color={Colors.organic} />
+                        <Text style={s.deliveryTimeText}>
+                          {min}-{max} min{label ? ` • ${label}` : ''}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={s.deliveryTimeFallback}>Estimating...</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={s.deliveryInfo}>
+              <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
+              <Text style={s.deliveryText}>{t('orderConfirm.deliveryEstimate')}</Text>
+            </View>
+          )}
 
           {/* Eco note */}
           <View style={s.ecoNote}>
@@ -71,7 +122,7 @@ export default function OrderConfirmationScreen({ navigation, route }: any) {
 
         <TouchableOpacity
           style={s.ordersButton}
-          onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { screen: 'OrderHistory' } })}
+          onPress={() => navigation.navigate('Orders')}
           activeOpacity={0.7}
         >
           <Text style={s.ordersButtonText}>{t('orderConfirm.viewOrders')}</Text>
@@ -130,6 +181,63 @@ const s = StyleSheet.create({
   orderIdValue: { ...Typography.h2, color: Colors.organic },
   deliveryInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg },
   deliveryText: { ...Typography.bodySmall, color: Colors.textSecondary, marginLeft: Spacing.sm },
+  deliveryCard: {
+    backgroundColor: Colors.organicLight,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.12)',
+  },
+  deliveryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  deliveryVendorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  deliveryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  deliveryVendorName: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: Colors.text,
+  },
+  deliveryVendorMeta: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  deliveryTimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.white,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.pill,
+  },
+  deliveryTimeText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    color: Colors.organic,
+  },
+  deliveryTimeFallback: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
   ecoNote: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.organicLight,

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useOrderTracking, STEPS, STEP_LABELS, currentStepFor } from '../../lib/useOrderTracking';
 import {
-  TrackingHeader, RiderCard, TimelineStep, OrderItemsSection, OrderSummarySection, s,
+  TrackingHeader, RiderCard, TimelineStep, DeliveryCountdown, OrderItemsSection, OrderSummarySection, s,
 } from './OrderTrackingShared';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 
@@ -148,6 +148,11 @@ export default function OrderTrackingScreen({ navigation, route }: any) {
             <Text style={s.otpValue}>{assignment.otp}</Text>
           </TouchableOpacity>
         )}
+
+        <DeliveryCountdown
+          estimatedAt={order.estimatedDeliveryAt}
+          isDelivered={order.status === 'DELIVERED'}
+        />
 
         <View style={s.timelineSection}>
           <Text style={s.sectionTitle}>{t('orderTracking.section.deliveryStatus')}</Text>

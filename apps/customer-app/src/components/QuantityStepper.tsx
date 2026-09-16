@@ -17,11 +17,27 @@ interface Props {
 export default function QuantityStepper({ value, onIncrement, onDecrement, disabled }: Props) {
   return (
     <View style={styles.stepper}>
-      <TouchableOpacity style={styles.stepBtn} onPress={onDecrement} disabled={disabled} hitSlop={4}>
+      <TouchableOpacity
+        style={styles.stepBtn}
+        onPress={onDecrement}
+        disabled={disabled}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Decrease quantity"
+        accessibilityState={{ disabled: !!disabled }}
+      >
         <Ionicons name="remove" size={20} color={Colors.text} />
       </TouchableOpacity>
-      <Text style={styles.stepValue}>{value}</Text>
-      <TouchableOpacity style={styles.stepBtn} onPress={onIncrement} disabled={disabled} hitSlop={4}>
+      <Text style={styles.stepValue} accessibilityLabel={`Quantity ${value}`}>{value}</Text>
+      <TouchableOpacity
+        style={styles.stepBtn}
+        onPress={onIncrement}
+        disabled={disabled}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Increase quantity"
+        accessibilityState={{ disabled: !!disabled }}
+      >
         <Ionicons name="add" size={20} color={Colors.text} />
       </TouchableOpacity>
     </View>

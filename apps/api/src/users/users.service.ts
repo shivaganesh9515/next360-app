@@ -121,4 +121,54 @@ export class UsersService {
       },
     });
   }
+
+  async deleteAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Google Play account-deletion requirement: wipe all personal data.
+    // Orders/payments keep their FKs (financial records), so we anonymize
+    // the user record instead of hard-deleting it.
+    await this.prisma.$transaction([
+      this.prisma.cartItem.deleteMany({ where: { userId } }),
+      this.prisma.wishlistItem.deleteMany({ where: { userId } }),
+      this.prisma.pushToken.deleteMany({ where: { userId } }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: null,
+          phone: null,
+          name: 'Deleted User',
+          avatarUrl: null,
+          dateOfBirth: null,
+          referralCode: null,
+          referredBy: null,
+          isActive: false,
+        },
+      }),
+    ]);
+
+    return { message: 'Account deleted successfully' };
+  }
+
+  async updateStatus(id: string, dto: { isActive: boolean; reason?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { isActive: dto.isActive },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+      },
+    });
+  }
 }

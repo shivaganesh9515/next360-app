@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, Flag, Trash2 } from 'lucide-react';
+import { Star, MessageSquare, Trash2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatsCard from '@/components/StatsCard';
 import { adminApi } from '@/lib/api';
@@ -14,6 +14,7 @@ export default function ReviewsPage() {
   const [stats, setStats] = useState({ totalReviews: 0, avgRating: 0, flaggedCount: 0 });
   const [ratingFilter, setRatingFilter] = useState<number | ''>('');
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; productName: string } | null>(null);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => { loadReviews(); }, [page, ratingFilter]);
 
@@ -30,21 +31,13 @@ export default function ReviewsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    setActionError('');
     try {
-      await fetch(`/api/reviews/${id}`, { method: 'DELETE' });
+      await adminApi.deleteReview(id);
       setConfirmDelete(null);
       loadReviews();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete review');
-    }
-  };
-
-  const handleFlag = async (id: string) => {
-    try {
-      await fetch(`/api/reviews/${id}/flag`, { method: 'PATCH' });
-      loadReviews();
-    } catch {
-      // gracefully handle if endpoint doesn't exist
+      setActionError(err.message || 'Failed to delete review');
     }
   };
 
@@ -58,7 +51,6 @@ export default function ReviewsPage() {
     { key: 'createdAt', label: 'Date', render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
     { key: 'actions', label: 'Actions', render: (r: any) => (
       <div className="flex gap-1">
-        <button onClick={(e) => { e.stopPropagation(); handleFlag(r.id); }} title="Flag for review" className="p-1.5 hover:bg-amber-100 rounded"><Flag className="w-3.5 h-3.5 text-amber-600" /></button>
         <button onClick={(e) => { e.stopPropagation(); setConfirmDelete({ id: r.id, productName: r.product?.name || 'Unknown' }); }} title="Delete review" className="p-1.5 hover:bg-red-100 rounded"><Trash2 className="w-3.5 h-3.5 text-red-600" /></button>
       </div>
     )},
@@ -67,6 +59,12 @@ export default function ReviewsPage() {
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-gray-800">Reviews</h2><p className="text-sm text-gray-500">Moderate product reviews</p></div>
+
+      {actionError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+          {actionError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatsCard title="Total Reviews" value={stats.totalReviews.toString()} icon={<MessageSquare className="w-5 h-5" />} color="blue" />
@@ -90,7 +88,12 @@ export default function ReviewsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete Review</h3>
-            <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete the review for "{confirmDelete.productName}"? This cannot be undone.</p>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete the review for "{confirmDelete.productName}"? This cannot be undone.</p>
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+                {actionError}
+              </div>
+            )}
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
               <button onClick={() => handleDelete(confirmDelete.id)} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>

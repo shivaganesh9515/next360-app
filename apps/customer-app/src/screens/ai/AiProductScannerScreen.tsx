@@ -6,12 +6,14 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { customerApi } from '../../lib/api';
 import { useStore } from '../../lib/store';
+import { useProductSheet } from '../../lib/productSheet';
 import { useTranslation } from 'react-i18next';
 import { getStoreAccent } from '../../constants/theme';
 
 export default function AiProductScannerScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { storeType } = useStore();
+  const { open: openProduct } = useProductSheet();
   const accent = getStoreAccent(storeType);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
@@ -168,8 +170,9 @@ export default function AiProductScannerScreen({ navigation }: any) {
                 <TouchableOpacity
                   style={[styles.viewButton, { backgroundColor: accent }]}
                   onPress={() => {
+                    const matchedId = result.matchedProductId;
                     setResult(null);
-                    navigation.navigate('ProductDetail', { productId: result.matchedProductId });
+                    openProduct(matchedId);
                   }}
                 >
                   <Text style={styles.viewButtonText}>{t('ai.scanner.viewProduct')}</Text>

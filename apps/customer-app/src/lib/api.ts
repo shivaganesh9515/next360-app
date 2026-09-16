@@ -6,6 +6,16 @@ import { CartItem, Address, Order } from '../types';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+// Validate API URL in production — prevent app shipping with localhost/placeholder
+if (!__DEV__) {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
+  if (!apiUrl) {
+    console.error('[SECURITY] EXPO_PUBLIC_API_URL is not set. App will not function correctly.');
+  } else if (apiUrl.includes('YOUR-') || apiUrl.includes('localhost')) {
+    console.error(`[SECURITY] EXPO_PUBLIC_API_URL looks like a placeholder/localhost (${apiUrl}) — production build will fail Play review.`);
+  }
+}
+
 const TOKEN_KEY = 'auth_token';
 
 // Every demo-data fallback below (products/categories/cart/addresses/orders/
@@ -106,6 +116,11 @@ let demoUsersByPhone: Record<string, { id: string; phone: string; name: string; 
 let demoUserIdCounter = 0;
 
 function demoVerifyOtpLogin(phone: string, otp: string): { access_token: string; user: any; isNewUser: boolean } {
+  // Defense in depth: demo auth must never run in a production build, even
+  // if the demo flag is misconfigured. Production store builds set it false.
+  if (!__DEV__ && process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK !== 'true') {
+    throw new Error('Demo sign-in is not available in production.');
+  }
   if (otp !== DEMO_OTP) throw new Error(`Incorrect code. In demo mode, use ${DEMO_OTP}.`);
   const existing = demoUsersByPhone[phone];
   if (existing) {
@@ -293,11 +308,10 @@ export const customerApi = {
   getProfile: () => api.get<any>('/users/me'),
   updateProfile: (data: { name?: string; email?: string }) =>
     api.patch<any>('/users/me', data),
+  deleteAccount: () => api.delete<{ message: string }>('/users/me'),
 
   // Google Login — sends the verified Google profile to the backend,
   // which creates a new account or logs in an existing one by email.
-  // Falls back to a demo Google sign-in when the real API is unreachable,
-  // same pattern as the phone OTP demo fallback.
   googleAuth: async (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => {
     try {
       return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/google', data);
@@ -309,6 +323,24 @@ export const customerApi = {
           id: `demo-google-user-${Date.now()}`,
           email: data.email,
           name: data.name || 'Google User',
+          avatarUrl: data.avatarUrl || null,
+          role: 'CUSTOMER',
+        },
+        isNewUser: true,
+      };
+    }
+  },
+  appleAuth: async (data: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) => {
+    try {
+      return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/apple', data);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      return {
+        access_token: `demo-apple-token-${Date.now()}`,
+        user: {
+          id: `demo-apple-user-${Date.now()}`,
+          email: data.email,
+          name: data.name || 'Apple User',
           avatarUrl: data.avatarUrl || null,
           role: 'CUSTOMER',
         },
@@ -720,4 +752,27 @@ export const customerApi = {
   getHealthInsights: () => api.get<any>('/ai/health-insights'),
   getChatHistory: (page?: number, limit?: number) =>
     api.get<any>('/ai/chat-history', { page: page || 1, limit: limit || 20 }),
+
+  // Loyalty
+  getLoyaltyMe: () => api.get<any>('/loyalty/me'),
+  getLoyaltyTiers: () => api.get<any>('/loyalty/tiers'),
+  getLoyaltyBalance: () => api.get<any>('/loyalty/balance'),
+  getLoyaltyLedger: (page?: number, limit?: number) =>
+    api.get<any>('/loyalty/ledger', { page: page || 1, limit: limit || 20 }),
+  redeemLoyaltyPoints: (points: number) =>
+    api.post<any>('/loyalty/redeem', { points }),
+  getReferrals: () => api.get<any>('/loyalty/referrals'),
+  validateReferralCode: (referralCode: string) =>
+    api.post<any>('/loyalty/referrals/validate', { referralCode }),
+
+  // Account Deletion — requests account deletion with a 30-day grace period
+  requestAccountDeletion: async (data: { reason?: string }): Promise<{ success: boolean; message: string }> => {
+    try {
+      return await api.post<{ success: boolean; message: string }>('/users/me/delete-request', data);
+    } catch (err) {
+      if (!DEMO_FALLBACK_ENABLED) throw err;
+      // Demo mode: simulate successful deletion request
+      return { success: true, message: 'Account deletion request submitted (demo mode)' };
+    }
+  },
 };

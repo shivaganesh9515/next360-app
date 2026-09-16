@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, MutableRefObject } from 'react';
 import { customerApi, setToken, removeToken } from './api';
 import { registerForPushNotifications, unregisterPushToken } from './notifications';
 import { User } from '../types';
@@ -10,13 +10,22 @@ interface AuthContextType {
   sendOtp: (phone: string) => Promise<void>;
   verifyOtpAndAuth: (phone: string, otp: string) => Promise<{ isNewUser: boolean }>;
   googleSignIn: (data: { email: string; googleId: string; name?: string; avatarUrl?: string }) => Promise<{ isNewUser: boolean }>;
+  appleSignIn: (data: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) => Promise<{ isNewUser: boolean }>;
   signOut: () => Promise<void>;
   skipAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+interface AuthProviderProps {
+  children: React.ReactNode;
+  /** Ref forwarded from App.tsx so the Supabase OAuth deep-link handler
+   *  (which lives outside the React tree) can trigger googleSignIn after
+   *  a successful OAuth callback. */
+  googleSignInRef?: MutableRefObject<((data: any) => Promise<any>) | null>;
+}
+
+export function AuthProvider({ children, googleSignInRef }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -65,6 +74,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { isNewUser: !!res.isNewUser };
   }, []);
 
+  const appleSignIn = useCallback(async (data: { email: string; appleId: string; identityToken?: string; name?: string; avatarUrl?: string }) => {
+    const res = await customerApi.appleAuth(data);
+    await setToken(res.access_token);
+    setUser(res.user);
+    return { isNewUser: !!res.isNewUser };
+  }, []);
+
+  // Wire the ref so App.tsx's Linking listener can call googleSignIn()
+  // after a Supabase OAuth callback, without needing a context hook outside the tree.
+  useEffect(() => {
+    if (googleSignInRef) {
+      googleSignInRef.current = googleSignIn;
+    }
+    return () => {
+      if (googleSignInRef) googleSignInRef.current = null;
+    };
+  }, [googleSignIn, googleSignInRef]);
+
   const signOut = useCallback(async () => {
     await unregisterPushToken().catch(() => {});
     await removeToken();
@@ -72,13 +99,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const skipAuth = useCallback(() => {
+    if (!__DEV__) {
+      console.warn('[auth] skipAuth is dev-only and is disabled in production');
+      return;
+    }
     setUser({ id: 'dev-user-id', phone: '9999999999', name: 'Dev User', role: 'CUSTOMER' });
   }, []);
 
   return (
     <AuthContext.Provider value={{
       user, isLoading, isAuthenticated: !!user,
-      sendOtp, verifyOtpAndAuth, googleSignIn, signOut, skipAuth,
+      sendOtp, verifyOtpAndAuth, googleSignIn, appleSignIn, signOut, skipAuth,
     }}>
       {children}
     </AuthContext.Provider>
@@ -90,3 +121,4 @@ export function useAuth() {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
+

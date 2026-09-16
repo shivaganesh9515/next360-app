@@ -1,3 +1,12 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "b56af9c9-e36e-47d4-a311-34eb18fe596f"
+      }
+    },
+    "android": {
+      "package": "com.next360.app"
+    }
+  }
 }

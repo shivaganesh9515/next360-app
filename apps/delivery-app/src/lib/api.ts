@@ -2,6 +2,14 @@ import { supabase } from './supabase';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+// Guard placeholder/localhost in production (same as customer-app)
+if (!__DEV__) {
+  const u = process.env.EXPO_PUBLIC_API_URL || '';
+  if (u.includes('YOUR-') || u.includes('localhost')) {
+    console.error(`[SECURITY] EXPO_PUBLIC_API_URL is placeholder/localhost (${u}) — Play review will fail.`);
+  }
+}
+
 interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
@@ -71,11 +79,11 @@ export const api = {
   },
 
   // Push token management
-  registerPushToken: (token: string) =>
-    api.post<any>('/notifications/push-token', { token }),
+  registerPushToken: (expoPushToken: string) =>
+    api.post<any>('/notifications/register', { expoPushToken }),
 
   unregisterPushToken: () =>
-    api.delete<any>('/notifications/push-token'),
+    api.delete<any>('/notifications/unregister'),
 };
 
 // Delivery-specific API methods
@@ -95,20 +103,23 @@ export const deliveryApi = {
   // Profile
   getProfile: () => api.get<any>('/users/me'),
 
+  // Account deletion (Google Play policy) — anonymizes the account server-side
+  deleteAccount: () => api.delete<{ message: string }>('/users/me'),
+
   // New Orders
   getNewOrders: (params?: any) =>
-    api.get<any>('/orders', { ...params, status: 'READY_FOR_DELIVERY', assignedTo: null }),
+    api.get<any>('/delivery/new-orders', params),
 
   // Accept/Reject
   acceptOrder: (orderId: string) =>
-    api.patch<any>(`/orders/${orderId}/assign`, {}),
+    api.post<any>(`/orders/${orderId}/assign`, {}),
 
   rejectOrder: (orderId: string) =>
-    api.patch<any>(`/orders/${orderId}/decline`, {}),
+    api.post<any>(`/orders/${orderId}/reject`, {}),
 
   // Active Deliveries
   getActiveDeliveries: (params?: any) =>
-    api.get<any>('/orders', { ...params, status: 'PICKED_UP,IN_TRANSIT' }),
+    api.get<any>('/delivery/active', params),
 
   // Status Updates — uses the DP-scoped deliver endpoint instead of the
   // admin-only PATCH /orders/:id/status, which would throw 403 for a
@@ -123,7 +134,7 @@ export const deliveryApi = {
 
   // Delivery History
   getDeliveryHistory: (params?: any) =>
-    api.get<any>('/orders', { ...params, status: 'DELIVERED' }),
+    api.get<any>('/delivery/history', params),
 
   // Earnings
   getEarnings: (params?: any) =>

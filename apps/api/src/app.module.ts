@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -35,16 +35,17 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
+import { SupportModule } from './support/support.module';
+import { ReportsModule } from './reports/reports.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
 import { SmsModule } from './providers/sms/sms.module';
 import { EmailModule } from './providers/email/email.module';
-import { SupportModule } from './support/support.module';
-import { ReportsModule } from './reports/reports.module';
-import { PayoutsModule } from './payouts/payouts.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ThrottlerGuard } from './common/guards/throttler.guard';
 
 @Module({
   imports: [
@@ -99,14 +100,20 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     AdminModule,
     DeliverySlotModule,
     DeliveryModule,
+    SupportModule,
+    ReportsModule,
+    LoyaltyModule,
     QueueModule,
     SmsModule,
     EmailModule,
-    SupportModule,
-    ReportsModule,
-    PayoutsModule,
   ],
   providers: [
+    // Global rate limiting — ThrottlerModule.forRoot() above only defines the
+    // limits; without this registration no route is actually throttled.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,

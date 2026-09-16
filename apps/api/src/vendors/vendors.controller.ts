@@ -118,6 +118,11 @@ export class VendorsController {
     return this.vendorsService.getCustomers(vendorId);
   }
 
+  @Get(':id/storefront')
+  async getStorefront(@Param('id') id: string) {
+    return this.vendorsService.findOne(id);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.vendorsService.findOne(id);

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,6 +111,125 @@ export function TimelineStep({
     </View>
   );
 }
+
+/** Live countdown to estimated delivery. Ticks every second, pulses when
+ *  under 5 min, shows "Arriving soon" under 1 min, and "Delivered!" once
+ *  the order reaches DELIVERED status. */
+export function DeliveryCountdown({ estimatedAt, isDelivered }: { estimatedAt?: string; isDelivered?: boolean }) {
+  const { t } = useTranslation();
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  const [remaining, setRemaining] = useState(() =>
+    estimatedAt ? Math.max(0, new Date(estimatedAt).getTime() - Date.now()) : 0,
+  );
+
+  // Tick every second
+  useEffect(() => {
+    if (isDelivered || !estimatedAt) return;
+    const id = setInterval(() => {
+      const ms = Math.max(0, new Date(estimatedAt).getTime() - Date.now());
+      setRemaining(ms);
+      if (ms <= 0) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [estimatedAt, isDelivered]);
+
+  // Pulse animation when under 5 min
+  const isUrgent = remaining > 0 && remaining < 5 * 60 * 1000;
+  useEffect(() => {
+    if (!isUrgent || isDelivered) { pulse.setValue(1); return; }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isUrgent, isDelivered]);
+
+  const timeStr = useMemo(() => {
+    if (isDelivered) return null;
+    if (!estimatedAt || remaining <= 0) return null;
+    const totalSec = Math.ceil(remaining / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    if (min === 0) return `${sec}s`;
+    return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
+  }, [remaining, estimatedAt, isDelivered]);
+
+  const label = useMemo(() => {
+    if (isDelivered) return t('orderTracking.countdown.delivered');
+    if (!estimatedAt || remaining <= 0) return t('orderTracking.countdown.arriving');
+    if (remaining < 60 * 1000) return t('orderTracking.countdown.arrivingSoon');
+    if (remaining < 5 * 60 * 1000) return t('orderTracking.countdown.almostThere');
+    return t('orderTracking.countdown.arrivingIn');
+  }, [remaining, estimatedAt, isDelivered]);
+
+  // Don't render if no data and not delivered
+  if (!isDelivered && !estimatedAt) return null;
+
+  return (
+    <Animated.View style={[countdownStyles.card, isUrgent && { opacity: pulse }]}>
+      <View style={countdownStyles.iconWrap}>
+        {isDelivered ? (
+          <View style={countdownStyles.iconDelivered}>
+            <Animated.Text style={{ fontSize: 24 }}>✅</Animated.Text>
+          </View>
+        ) : (
+          <View style={[countdownStyles.iconTimer, isUrgent && countdownStyles.iconTimerUrgent]}>
+            <Animated.Text style={{ fontSize: 22 }}>🕐</Animated.Text>
+          </View>
+        )}
+      </View>
+      <View style={countdownStyles.textWrap}>
+        <Text style={countdownStyles.label}>{label}</Text>
+        {timeStr ? (
+          <Text style={[countdownStyles.time, isUrgent && countdownStyles.timeUrgent]}>
+            {timeStr}
+          </Text>
+        ) : null}
+      </View>
+      {!isDelivered && estimatedAt && (
+        <Text style={countdownStyles.eta}>
+          {new Date(estimatedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+        </Text>
+      )}
+    </Animated.View>
+  );
+}
+
+const countdownStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.organicLight,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.12)',
+  },
+  iconWrap: { marginRight: Spacing.md },
+  iconTimer: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
+  },
+  iconTimerUrgent: { backgroundColor: '#FFF3E0' },
+  iconDelivered: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
+  },
+  textWrap: { flex: 1 },
+  label: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.text },
+  time: {
+    fontFamily: 'JetBrainsMono_400Regular', fontSize: 28, color: Colors.organic,
+    marginTop: 2, letterSpacing: 1,
+  },
+  timeUrgent: { color: '#E65100' },
+  eta: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary },
+});
 
 export function OrderItemsSection({ items }: { items: OrderItem[] }) {
   const { t } = useTranslation();

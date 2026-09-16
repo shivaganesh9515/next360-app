@@ -1,15 +1,59 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Bell, LogOut, Menu, Store } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { vendorApi } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
+// Route path → header title. Falls back to a title-cased last segment.
+const ROUTE_TITLES: Record<string, string> = {
+  '/': 'Dashboard',
+  '/orders': 'Orders',
+  '/products': 'Products',
+  '/inventory': 'Inventory',
+  '/earnings': 'Earnings',
+  '/analytics': 'Analytics',
+  '/customers': 'Customers',
+  '/coupons': 'Coupons',
+  '/offers': 'Offers',
+  '/store': 'Store Profile',
+  '/settings': 'Settings',
+  '/notifications': 'Notifications',
+  '/support': 'Support',
+};
+
+function titleForPath(pathname: string): string {
+  if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
+  // Nested routes (e.g. /orders/123, /inventory/low-stock) → parent title
+  const segments = pathname.split('/').filter(Boolean);
+  while (segments.length > 1) {
+    segments.pop();
+    const parent = '/' + segments.join('/');
+    if (ROUTE_TITLES[parent]) return ROUTE_TITLES[parent];
+  }
+  const last = pathname.split('/').filter(Boolean).pop();
+  return last
+    ? last.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : 'Dashboard';
+}
+
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, vendorProfile, logout } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    vendorApi.getUnreadCount()
+      .then((res) => setUnreadCount(res?.count || 0))
+      .catch(() => setUnreadCount(0));
+  }, [pathname]);
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
@@ -17,12 +61,21 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
           <Menu className="w-5 h-5 text-slate-600" />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
+        <h1 className="text-lg font-semibold text-slate-900">{titleForPath(pathname)}</h1>
       </div>
       <div className="flex items-center gap-3">
-        <button className="p-2 hover:bg-slate-100 rounded-full relative transition-colors">
+        <button
+          onClick={() => router.push('/notifications')}
+          className="p-2 hover:bg-slate-100 rounded-full relative transition-colors"
+          title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+          aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+        >
           <Bell className="w-5 h-5 text-slate-600" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-red-500 rounded-full text-[10px] leading-4 text-white text-center font-medium">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">

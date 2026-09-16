@@ -20,3 +20,15 @@ Thumbs.db
 
 # Persistent project memory (local documentation only, never commit)
 .claude/memory/
+
+# Agent skills (installed locally, not project code)
+.agents/skills/
+
+# Local reference files
+_references/
+loyalty-engine/
+
+# Build artifacts
+build/
+*.apk
+*.aab

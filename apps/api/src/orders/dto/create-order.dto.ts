@@ -4,7 +4,10 @@ export class CreateOrderDto {
   @IsUUID()
   addressId: string;
 
-  @IsIn(['RAZORPAY', 'COD'])
+  // COD-only MVP: Razorpay disabled (no keys). Keep the field so the
+  // client still sends an explicit method, but reject anything but COD
+  // with a clear 400 instead of silently creating a RAZORPAY order.
+  @IsIn(['COD'])
   paymentMethod: string;
 
   @IsOptional()

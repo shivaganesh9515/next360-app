@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -24,12 +25,32 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || '';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async findAll(
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentsService.findAll({
+      status,
+      startDate,
+      endDate,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+    });
+  }
 
   @Post('razorpay/order')
   @UseGuards(JwtAuthGuard)
@@ -42,6 +63,7 @@ export class PaymentsController {
 
   @Post('razorpay/verify')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ payment: { ttl: 60000, limit: 20 } })
   verifyPayment(
     @CurrentUser() user: { id: string },
     @Body() dto: VerifyPaymentDto,
@@ -93,7 +115,7 @@ export class PaymentsController {
     return this.paymentsService.initiateRefund(orderId, dto.reason);
   }
 
-  @Get()
+  @Get('admin/list')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   async listAll() {
@@ -102,7 +124,10 @@ export class PaymentsController {
 
   @Get(':orderId')
   @UseGuards(JwtAuthGuard)
-  getPayments(@Param('orderId') orderId: string) {
-    return this.paymentsService.getPaymentsForOrder(orderId);
+  getPayments(
+    @CurrentUser() user: { id: string; role: string },
+    @Param('orderId') orderId: string,
+  ) {
+    return this.paymentsService.getPaymentsForOrder(orderId, user.id, user.role);
   }
 }

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -63,8 +64,15 @@ export class ReturnsService {
   async findAll(userId: string, role: string) {
     const where: any = {};
 
-    // Customers see only their returns
+    // Customers see only their returns; vendors see returns on orders
+    // containing their groups; admins see all.
     if (role === 'CUSTOMER') {
+      where.userId = userId;
+    } else if (role === 'VENDOR') {
+      const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+      if (!vendor) throw new NotFoundException('Vendor profile not found');
+      where.order = { vendorGroups: { some: { vendorId: vendor.id } } };
+    } else if (role !== 'ADMIN') {
       where.userId = userId;
     }
 
@@ -78,17 +86,35 @@ export class ReturnsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string, role: string) {
     const ret = await this.prisma.returnRequest.findUnique({
       where: { id },
       include: {
         order: {
-          select: { id: true, orderNo: true, totalAmount: true, status: true },
+          select: {
+            id: true,
+            orderNo: true,
+            totalAmount: true,
+            status: true,
+            userId: true,
+            vendorGroups: { select: { vendorId: true } },
+          },
         },
         user: { select: { id: true, name: true, email: true, phone: true } },
       },
     });
     if (!ret) throw new NotFoundException('Return request not found');
+    if (role !== 'ADMIN' && ret.userId !== userId) {
+      if (role === 'VENDOR') {
+        const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+        const member =
+          vendor &&
+          (ret.order as any)?.vendorGroups?.some((g: any) => g.vendorId === vendor.id);
+        if (!member) throw new ForbiddenException('Access denied');
+      } else {
+        throw new ForbiddenException('Access denied');
+      }
+    }
     return ret;
   }
 
@@ -104,7 +130,8 @@ export class ReturnsService {
   }
 
   async process(id: string, dto: ProcessReturnDto) {
-    const ret = await this.findOne(id);
+    // Admin-only caller (controller enforces ADMIN); bypass ownership checks.
+    const ret = await this.findOne(id, '', 'ADMIN');
 
     if (ret.status !== 'PENDING') {
       throw new BadRequestException(`Return is already ${ret.status.toLowerCase()}`);
@@ -143,15 +170,44 @@ export class ReturnsService {
         });
       }
 
-      // Restore product stock
+      // Restore product stock atomically with the return-record update so a
+      // crash between the two can never double-restore or lose the restore.
+      const stockOps = [];
       for (const group of order.vendorGroups) {
         for (const item of group.items || []) {
-          await this.prisma.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.quantity } },
-          });
+          stockOps.push(
+            this.prisma.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            }),
+          );
         }
       }
+
+      const updated = await this.prisma.$transaction([
+        ...stockOps,
+        this.prisma.returnRequest.update({
+          where: { id },
+          data: { status: dto.status, refundAmount },
+        }),
+      ]);
+
+      // Send notifications based on status change
+      try {
+        if (dto.status === 'APPROVED') {
+          await this.notificationsService.sendRefundInitiatedNotification(ret.userId, ret.orderId);
+        } else if (dto.status === 'REFUNDED') {
+          await this.notificationsService.sendRefundCompletedNotification(
+            ret.userId,
+            ret.orderId,
+            Number(refundAmount),
+          );
+        }
+      } catch (error: any) {
+        this.logger.error(`Return status notification failed: ${error.message}`);
+      }
+
+      return updated[updated.length - 1];
     }
 
     const updated = await this.prisma.returnRequest.update({
@@ -162,10 +218,10 @@ export class ReturnsService {
       },
     });
 
-    // Send notifications based on status change
+    // Send notifications based on status change.
+    // Only REJECTED and direct-to-REFUNDED reach here (APPROVED returns above).
     try {
-      if (dto.status === 'APPROVED') {          await this.notificationsService.sendRefundInitiatedNotification(ret.userId, ret.orderId);
-      } else if (dto.status === 'REFUNDED' as string) {
+      if (dto.status === 'REFUNDED') {
         await this.notificationsService.sendRefundCompletedNotification(
           ret.userId,
           ret.orderId,

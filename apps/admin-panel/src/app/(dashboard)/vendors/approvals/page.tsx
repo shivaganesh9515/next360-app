@@ -14,6 +14,11 @@ export default function VendorApprovalsPage() {
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: string; name: string } | null>(null);
   const [processing, setProcessing] = useState(false);
 
+  // Delivery time defaults for approval
+  const [approvalDeliveryMin, setApprovalDeliveryMin] = useState('10');
+  const [approvalDeliveryMax, setApprovalDeliveryMax] = useState('20');
+  const [approvalDeliveryLabel, setApprovalDeliveryLabel] = useState('');
+
   // Rejection reason states
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
@@ -34,8 +39,24 @@ export default function VendorApprovalsPage() {
     setProcessing(true);
     try {
       await adminApi.updateVendorStatus(id, status);
+      // Also set delivery times if approving
+      if (status === 'APPROVED') {
+        const min = parseInt(approvalDeliveryMin, 10);
+        const max = parseInt(approvalDeliveryMax, 10);
+        if (min && max && min < max && min >= 1 && max <= 180) {
+          await adminApi.updateVendor(id, {
+            deliveryTimeMin: min,
+            deliveryTimeMax: max,
+            deliveryLabel: approvalDeliveryLabel || null,
+          });
+        }
+      }
       await loadPendingVendors();
       setConfirmAction(null);
+      // Reset delivery defaults
+      setApprovalDeliveryMin('10');
+      setApprovalDeliveryMax('20');
+      setApprovalDeliveryLabel('');
     } catch (err: any) {
       alert(err.message || 'Failed to update vendor');
     } finally {
@@ -110,9 +131,53 @@ export default function VendorApprovalsPage() {
       {/* Approve Confirmation Dialog */}
       {confirmAction && confirmAction.action === 'APPROVED' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Approve Vendor</h3>
-            <p className="text-sm text-gray-600 mb-6">Approve &quot;{confirmAction.name}&quot;? They will be able to list products.</p>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">Approve Vendor</h3>
+            <p className="text-sm text-gray-600 mb-5">Approve &quot;{confirmAction.name}&quot;? They will be able to list products.</p>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-5">
+              <p className="text-xs font-medium text-slate-700 mb-3 flex items-center gap-1.5">
+                🕐 Delivery Time Estimates
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Min (mins)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={approvalDeliveryMin}
+                    onChange={(e) => setApprovalDeliveryMin(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Max (mins)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={approvalDeliveryMax}
+                    onChange={(e) => setApprovalDeliveryMax(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className="block text-xs text-slate-500 mb-1">Label (optional)</label>
+                <input
+                  type="text"
+                  value={approvalDeliveryLabel}
+                  onChange={(e) => setApprovalDeliveryLabel(e.target.value)}
+                  placeholder="e.g. Farm Direct, Handcrafted"
+                  className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <p className="text-xs text-slate-600 font-medium">
+                Preview: {approvalDeliveryMin || '?'}-{approvalDeliveryMax || '?'} min{approvalDeliveryLabel ? ` • ${approvalDeliveryLabel}` : ''}
+              </p>
+            </div>
+
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmAction(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
               <button

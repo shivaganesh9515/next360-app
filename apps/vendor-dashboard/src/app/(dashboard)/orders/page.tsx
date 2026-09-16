@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { vendorApi } from '@/lib/api';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, X } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 30000; // 30-second auto-refresh per CLAUDE.md spec
 
@@ -14,25 +14,49 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectItem, setRejectItem] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
 
   const fetchOrders = () => {
-    vendorApi.getOrders({}).then((res: any) => {
-      // Backend returns { data: [...vendorGroups], meta: {...} }
-      const raw = res.data || res || [];
-      // Normalize OrderVendorGroup items to have flat fields for DataTable
-      const normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
-        id: g.id,
-        orderId: g.orderId || g.order?.id,
-        orderNo: g.order?.orderNo || g.id?.slice(0, 8),
-        status: g.status || g.order?.status,
-        subtotal: g.subtotal,
-        totalAmount: g.subtotal,
-        createdAt: g.order?.createdAt || g.createdAt,
-        paymentStatus: g.order?.paymentStatus,
-        paymentMethod: g.order?.paymentMethod,
-        items: g.items || [],
-      }));
-      setOrders(normalized);
+    // The vendor orders endpoint returns OrderVendorGroups whose nested order
+    // only carries userId (no customer name). Join with /vendors/me/customers
+    // (keyed by user id) so the Customer column shows real names.
+    Promise.allSettled([vendorApi.getOrders({}), vendorApi.getCustomers()]).then(([ordersRes, customersRes]) => {
+      if (customersRes.status === 'fulfilled') {
+        const list = Array.isArray(customersRes.value) ? customersRes.value : [];
+        const map: Record<string, string> = {};
+        for (const c of list) {
+          if (c?.id && c?.name) map[c.id] = c.name;
+        }
+        setCustomerNames(map);
+      }
+      if (ordersRes.status === 'fulfilled') {
+        const res: any = ordersRes.value;
+        // Backend returns { data: [...vendorGroups], meta: {...} }
+        const raw = res.data || res || [];
+        // Normalize OrderVendorGroup items to have flat fields for DataTable.
+        // NOTE: the nested order select only includes userId — no customer name
+        // (see findVendorOrders). Names are joined from the customers map above.
+        const normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
+          id: g.id,
+          orderId: g.orderId || g.order?.id,
+          orderNo: g.order?.orderNo || g.id?.slice(0, 8),
+          status: g.status || g.order?.status,
+          customerUserId: g.order?.userId,
+          customerName: g.order?.user?.name,
+          subtotal: g.subtotal,
+          totalAmount: g.subtotal,
+          createdAt: g.order?.createdAt || g.createdAt,
+          paymentStatus: g.order?.paymentStatus,
+          paymentMethod: g.order?.paymentMethod,
+          items: g.items || [],
+        }));
+        setOrders(normalized);
+      } else {
+        setOrders([]);
+      }
     }).catch(() => {}).finally(() => setLoading(false));
   };
 
@@ -47,7 +71,12 @@ export default function OrdersPage() {
 
   const columns = [
     { key: 'orderNo', label: 'Order #', render: (item: any) => <span className="font-mono text-sm font-medium">{item.orderNo}</span> },
-    { key: 'customer', label: 'Customer', render: () => <span className="text-slate-400 text-xs">—</span> },
+    { key: 'customer', label: 'Customer', render: (item: any) => {
+      const name = item.customerName || (item.customerUserId ? customerNames[item.customerUserId] : undefined);
+      return name
+        ? <span className="text-sm text-slate-700">{name}</span>
+        : <span className="text-slate-400 text-xs" title="Customer name not available">—</span>;
+    } },
     { key: 'items', label: 'Items', render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount || 0).toLocaleString()}</span> },
     { key: 'status', label: 'Status', render: (item: any) => <StatusBadge status={item.status} /> },
@@ -73,15 +102,7 @@ export default function OrdersPage() {
                 Accept
               </button>
               <button
-                onClick={async () => {
-                  try {
-                    // Cancel the vendor group (not the entire order) since this
-                    // row is an OrderVendorGroup — cancelling the whole order
-                    // would affect other vendors' items.
-                    await vendorApi.cancelVendorGroup(item.orderId || item.id, item.id, 'Vendor rejected');
-                    fetchOrders();
-                  } catch (e) { console.error(e); }
-                }}
+                onClick={() => { setRejectItem(item); setShowRejectModal(true); }}
                 className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100"
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -117,13 +138,45 @@ export default function OrdersPage() {
     router.push(`/orders/${item.orderId || item.id}`);
   };
 
-  // Intentionally empty — the reject button inline-calls vendorApi.cancelVendorGroup
-  // instead of this callback because it needs the group ID, not the order ID.
+  const handleRejectOrder = async () => {
+    if (!rejectItem || !rejectReason.trim()) return;
+    try {
+      await vendorApi.cancelVendorGroup(rejectItem.orderId || rejectItem.id, rejectItem.id, rejectReason);
+      setShowRejectModal(false);
+      setRejectReason('');
+      setRejectItem(null);
+      fetchOrders();
+    } catch (e) { console.error(e); }
+  };
 
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-slate-900">Orders</h2><p className="text-sm text-slate-500">View and manage customer orders</p></div>
       <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+
+      {/* Cancel Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Cancel Order</h3>
+              <button onClick={() => setShowRejectModal(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-3">Why are you rejecting this order?</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason for cancellation..."
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+            <div className="flex gap-3 mt-4 justify-end">
+              <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button onClick={handleRejectOrder} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">Confirm Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

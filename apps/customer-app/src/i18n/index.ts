@@ -26,7 +26,7 @@ export async function loadSavedLanguage() {
     if (saved && (saved === 'en' || saved === 'te')) {
       await i18n.changeLanguage(saved);
     }
-  } catch {}
+  } catch { /* Language load failed — defaults to English */ }
 }
 
 export async function setLanguage(lang: 'en' | 'te') {

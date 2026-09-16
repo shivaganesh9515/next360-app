@@ -1,60 +1,86 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share,
-  Animated,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Animated, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { Colors, Typography, Spacing, BorderRadius, Shadows, SPRING_CONFIG } from '../../constants/theme';
-import StaggerFadeIn from '../../components/StaggerFadeIn';
+import { Colors, BorderRadius, Spacing, Shadows } from '../../constants/theme';
 import AnimatedCounter from '../../components/AnimatedCounter';
+import { customerApi } from '../../lib/api';
 
-const DEMO_REFERRAL_CODE = 'NEXT360-GROW';
-const DEMO_REFERRALS = [
+const DEMO_FALLBACK_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK === 'true';
+const DEMO_REFERRAL_CODE_FALLBACK = 'NEXT360-GROW';
+const DEMO_REFERRALS_FALLBACK = [
   { name: 'Priya S.', date: '12 Jul', reward: 100, status: 'completed' },
   { name: 'Rahul K.', date: '8 Jul', reward: 100, status: 'completed' },
   { name: 'Ananya M.', date: '3 Jul', reward: 100, status: 'pending' },
 ];
 
-// Animated counter for stat numbers — delegates to shared AnimatedCounter
-// with a currency formatter for monetary values.
-
 export default function ReferralScreen({ navigation }: any) {
-  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
-
-  // Copy button spring animation
   const copyScale = useRef(new Animated.Value(1)).current;
-  const heroAnim = useRef(new Animated.Value(0)).current;
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<{ name: string; date: string; reward: number; status: string }[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Animated.spring(heroAnim, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }).start();
+    let mounted = true;
+    (async () => {
+      try {
+        const res: any = await customerApi.getReferrals();
+        if (!mounted) return;
+        // backend returns { referralCode, referrals: [...] } or similar — handle both shapes
+        const code = res?.referralCode || res?.code || null;
+        const list = Array.isArray(res?.referrals) ? res.referrals : Array.isArray(res) ? res : null;
+        if (code || (list && list.length)) {
+          setReferralCode(code);
+          if (list) setReferrals(list.map((r: any) => ({ name: r.name || r.referredName || 'Friend', date: r.date || r.createdAt?.slice(5,10) || '', reward: r.reward || r.points || 100, status: r.status || 'completed' })));
+        } else if (DEMO_FALLBACK_ENABLED) {
+          setReferralCode(DEMO_REFERRAL_CODE_FALLBACK);
+          setReferrals(DEMO_REFERRALS_FALLBACK);
+        } else {
+          setReferralCode(null);
+          setReferrals([]);
+        }
+      } catch {
+        if (DEMO_FALLBACK_ENABLED) {
+          setReferralCode(DEMO_REFERRAL_CODE_FALLBACK);
+          setReferrals(DEMO_REFERRALS_FALLBACK);
+        } else {
+          setReferralCode(null);
+          setReferrals([]);
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const handleShare = async () => {
+    const code = referralCode || DEMO_REFERRAL_CODE_FALLBACK;
     try {
       await Share.share({
-        message: `🌱 Join me on Next360 — the organic marketplace for conscious living! Use my code ${DEMO_REFERRAL_CODE} to get ₹100 off your first order.\n\nDownload: https://next360.app/download`,
-        title: 'Join me on Next360',
+        message: `🌱 Join me on Next360 — the organic marketplace! Use code ${code} to get ₹100 off your first order.\n\nDownload: https://next360.app/download`,
+        title: 'Join Next360',
       });
-    } catch {}
+    } catch { /* Share cancelled or failed */ }
   };
 
   const handleCopyCode = async () => {
-    // Copy to clipboard using expo-clipboard (installed via expo)
+    const code = referralCode || DEMO_REFERRAL_CODE_FALLBACK;
     try {
-      const expoClipboard = require('expo-clipboard');
-      if (expoClipboard?.setStringAsync) {
-        await expoClipboard.setStringAsync(DEMO_REFERRAL_CODE);
+      if (Platform.OS === 'web' && (navigator as any)?.clipboard) {
+        await (navigator as any).clipboard.writeText(code);
+      } else {
+        const expoClipboard = require('expo-clipboard');
+        if (expoClipboard?.setStringAsync) await expoClipboard.setStringAsync(code);
       }
-    } catch {
-      // Clipboard not available — visual feedback still shows below
-    }
+    } catch { /* Clipboard not available */ }
 
     Animated.sequence([
-      Animated.spring(copyScale, { toValue: 0.92, ...SPRING_CONFIG, useNativeDriver: true }),
-      Animated.spring(copyScale, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }),
+      Animated.spring(copyScale, { toValue: 0.92, useNativeDriver: true }),
+      Animated.spring(copyScale, { toValue: 1, useNativeDriver: true }),
     ]).start();
 
     setCopied(true);
@@ -65,140 +91,108 @@ export default function ReferralScreen({ navigation }: any) {
     <SafeAreaView style={s.container}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#1A1A1A" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Refer & Earn</Text>
-        <View style={{ width: 22 }} />
+        <Text style={s.headerTitle}>Refer & Earn Organic</Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={s.content}>
-        {/* Hero reward card — springs into view */}
-        <Animated.View
-          style={[
-            s.heroCard, Shadows.raised,
-            {
-              opacity: heroAnim,
-              transform: [{ translateY: heroAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            },
-          ]}
-        >
-          <View style={s.heroIconRow}>
-            <View style={s.giftIconWrap}>
-              <Ionicons name="gift-outline" size={28} color={Colors.white} />
-            </View>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {/* Dark Hero Card */}
+        <View style={s.heroCard}>
+          <View style={s.giftIconCircle}>
+            <Ionicons name="gift" size={28} color="#0A0A0A" />
           </View>
-          <Text style={s.heroTitle}>Invite friends, earn together</Text>
+          <Text style={s.heroTitle}>Give ₹100, Get ₹100</Text>
           <Text style={s.heroSubtitle}>
-            Share your unique code. You get ₹100, they get ₹100 off their first order.
+            Share your code with friends. They get ₹100 off their first order, and you get ₹100 wallet credit!
           </Text>
 
-          {/* Referral code */}
-          <View style={s.codeRow}>
-            <View style={s.codeDisplay}>
-              <Text style={s.codeText}>{DEMO_REFERRAL_CODE}</Text>
-            </View>
+          {/* Referral Code Box */}
+          <View style={s.codeBox}>
+            <Text style={s.codeText}>{referralCode || (loading ? '...' : DEMO_FALLBACK_ENABLED ? DEMO_REFERRAL_CODE_FALLBACK : '—')}</Text>
             <Animated.View style={{ transform: [{ scale: copyScale }] }}>
-              <TouchableOpacity style={[s.copyBtn, copied && s.copyBtnDone]} onPress={handleCopyCode}>
-                <Ionicons
-                  name={copied ? 'checkmark' : 'copy-outline'}
-                  size={18}
-                  color={copied ? '#FFF' : Colors.organic}
-                />
-                <Text style={[s.copyText, copied && s.copyTextDone]}>
-                  {copied ? 'Copied!' : 'Copy'}
-                </Text>
+              <TouchableOpacity style={[s.copyBtn, copied && s.copyBtnDone]} onPress={handleCopyCode} activeOpacity={0.8}>
+                <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={copied ? '#FFFFFF' : '#0A0A0A'} />
+                <Text style={[s.copyText, copied && s.copyTextDone]}>{copied ? 'Copied' : 'Copy'}</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>
 
-          {/* Share button */}
-          <TouchableOpacity style={[s.shareBtn, Shadows.button(Colors.organic)]} onPress={handleShare}>
-            <Ionicons name="share-outline" size={18} color="#FFF" />
-            <Text style={s.shareText}>Invite Friends</Text>
+          {/* Share CTA */}
+          <TouchableOpacity style={s.shareBtn} onPress={handleShare} activeOpacity={0.85}>
+            <Ionicons name="logo-whatsapp" size={18} color="#0A0A0A" />
+            <Text style={s.shareText}>Invite via WhatsApp / Share</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
-        {/* Stats — animated counters using shared AnimatedCounter */}
+        {/* Quick Stats Grid */}
         <View style={s.statsRow}>
-          <View style={[s.statCard, Shadows.card]}>
+          <View style={s.statCard}>
             <AnimatedCounter to={3} style={s.statValue} />
-            <Text style={s.statLabel}>Total Referrals</Text>
+            <Text style={s.statLabel}>FRIENDS JOINED</Text>
           </View>
-          <View style={[s.statCard, Shadows.card]}>
-            <AnimatedCounter
-              to={300}
-              style={[s.statValue, { color: Colors.organic }]}
-              formatFn={(v) => `₹${v}`}
-            />
-            <Text style={s.statLabel}>Earned</Text>
+          <View style={s.statCard}>
+            <AnimatedCounter to={300} style={[s.statValue, { color: '#2E7D32' }]} formatFn={(v) => `₹${v}`} />
+            <Text style={s.statLabel}>EARNED CASH</Text>
           </View>
-          <View style={[s.statCard, Shadows.card]}>
-            <AnimatedCounter
-              to={100}
-              style={s.statValue}
-              formatFn={(v) => `₹${v}`}
-            />
-            <Text style={s.statLabel}>Pending</Text>
+          <View style={s.statCard}>
+            <AnimatedCounter to={100} style={s.statValue} formatFn={(v) => `₹${v}`} />
+            <Text style={s.statLabel}>PENDING</Text>
           </View>
         </View>
 
-        {/* How it works — staggered steps */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>How it works</Text>
-          <View style={[s.stepsCard, Shadows.card]}>
-            {[
-              { num: 1, text: 'Share your referral code with friends', color: Colors.organic },
-              { num: 2, text: 'They sign up and place their first order', color: Colors.natural },
-              { num: 3, text: 'You both get ₹100 credit instantly!', color: Colors.eco },
-            ].map((step, i) => (
-              <StaggerFadeIn key={i} index={i}>
-                <View>
-                  <View style={s.stepRow}>
-                    <View style={[s.stepDot, { backgroundColor: step.color }]}>
-                      <Text style={s.stepDotText}>{step.num}</Text>
-                    </View>
-                    <Text style={s.stepText}>{step.text}</Text>
-                  </View>
-                  {i < 2 && <View style={s.stepConnector} />}
-                </View>
-              </StaggerFadeIn>
-            ))}
-          </View>
-        </View>
-
-        {/* Recent referrals */}
-        {DEMO_REFERRALS.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Recent Referrals</Text>
-            <View style={[s.referralsCard, Shadows.card]}>
-              {DEMO_REFERRALS.map((ref, i) => (
-                <StaggerFadeIn key={i} index={i}>
-                  <View style={[s.referralRow, i < DEMO_REFERRALS.length - 1 && s.referralBorder]}>
-                    <View style={s.referralAvatar}>
-                      <Text style={s.referralAvatarText}>{ref.name[0]}</Text>
-                    </View>
-                    <View style={s.referralInfo}>
-                      <Text style={s.referralName}>{ref.name}</Text>
-                      <Text style={s.referralDate}>{ref.date}</Text>
-                    </View>
-                    <View style={[
-                      s.referralStatus,
-                      { backgroundColor: ref.status === 'completed' ? '#D1FAE5' : '#FEF3C7' },
-                    ]}>
-                      <Text style={[
-                        s.referralStatusText,
-                        { color: ref.status === 'completed' ? '#059669' : '#D97706' },
-                      ]}>
-                        {ref.status === 'completed' ? `+₹${ref.reward}` : 'Pending'}
-                      </Text>
-                    </View>
-                  </View>
-                </StaggerFadeIn>
-              ))}
+        {/* How It Works */}
+        <Text style={s.sectionHeader}>HOW REFERRAL WORKS</Text>
+        <View style={s.card}>
+          <View style={s.stepRow}>
+            <View style={s.stepNum}><Text style={s.stepNumText}>1</Text></View>
+            <View style={s.stepContent}>
+              <Text style={s.stepTitle}>Share your unique code</Text>
+              <Text style={s.stepSub}>Send your code to friends via WhatsApp or SMS</Text>
             </View>
           </View>
-        )}
+          <View style={s.stepDivider} />
+          <View style={s.stepRow}>
+            <View style={s.stepNum}><Text style={s.stepNumText}>2</Text></View>
+            <View style={s.stepContent}>
+              <Text style={s.stepTitle}>Friend orders fresh groceries</Text>
+              <Text style={s.stepSub}>They get ₹100 discount applied at checkout</Text>
+            </View>
+          </View>
+          <View style={s.stepDivider} />
+          <View style={s.stepRow}>
+            <View style={s.stepNum}><Text style={s.stepNumText}>3</Text></View>
+            <View style={s.stepContent}>
+              <Text style={s.stepTitle}>Get ₹100 in Next360 Wallet</Text>
+              <Text style={s.stepSub}>Wallet credit added automatically upon delivery completion</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Recent Referrals List */}
+        <Text style={s.sectionHeader}>REFERRAL HISTORY</Text>
+        <View style={s.card}>
+          {referrals.length === 0 ? (
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#757575', textAlign: 'center', paddingVertical: 16 }}>{loading ? 'Loading…' : DEMO_FALLBACK_ENABLED ? 'No referrals yet — share your code!' : 'No referrals yet'}</Text>
+          ) : referrals.map((ref, idx) => (
+            <View key={ref.name} style={[s.refRow, idx < referrals.length - 1 && s.refDivider]}>
+              <View style={s.refAvatar}>
+                <Text style={s.refAvatarText}>{ref.name[0]}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.refName}>{ref.name}</Text>
+                <Text style={s.refDate}>{ref.date}</Text>
+              </View>
+              <View style={[s.refBadge, { backgroundColor: ref.status === 'completed' ? '#E8F5E9' : '#FFF8E1' }]}>
+                <Text style={[s.refBadgeText, { color: ref.status === 'completed' ? '#2E7D32' : '#F57F17' }]}>
+                  {ref.status === 'completed' ? `+₹${ref.reward}` : 'Pending'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -206,95 +200,148 @@ export default function ReferralScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
   },
-  headerTitle: { ...Typography.h3, color: Colors.text },
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxxl },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: Colors.text },
+
+  content: { padding: Spacing.lg },
 
   heroCard: {
-    backgroundColor: Colors.white, borderRadius: BorderRadius.xl,
-    padding: Spacing.xl, marginBottom: Spacing.xl, alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.organic + '25',
+    backgroundColor: '#0A0A0A',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+    ...Shadows.raised,
   },
-  heroIconRow: { marginBottom: Spacing.md },
-  giftIconWrap: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.organic,
-    alignItems: 'center', justifyContent: 'center',
+  giftIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#5C6B4D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  heroTitle: { ...Typography.h2, color: Colors.text, textAlign: 'center' },
-  heroSubtitle: {
-    ...Typography.bodySmall, color: Colors.textSecondary, textAlign: 'center',
-    marginTop: Spacing.sm, marginBottom: Spacing.xl,
-  },
+  heroTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#FFFFFF', textAlign: 'center' },
+  heroSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#A0A0A0', textAlign: 'center', marginTop: 4, marginBottom: 16, lineHeight: 18 },
 
-  codeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    marginBottom: Spacing.lg, width: '100%',
+  codeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E24',
+    borderRadius: BorderRadius.md,
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 6,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#333340',
+    marginBottom: 12,
   },
-  codeDisplay: {
-    flex: 1, backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
-    borderWidth: 1.5, borderColor: Colors.border,
-  },
-  codeText: {
-    ...Typography.mono, fontSize: 16, fontFamily: 'JetBrainsMono_600SemiBold',
-    color: Colors.text, textAlign: 'center', letterSpacing: 2,
-  },
+  codeText: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 16, color: '#5C6B4D', letterSpacing: 1.5 },
   copyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md, borderWidth: 1.5, borderColor: Colors.organic,
-    backgroundColor: Colors.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#5C6B4D',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.sm,
   },
-  copyBtnDone: { backgroundColor: '#059669', borderColor: '#059669' },
-  copyText: { ...Typography.button, color: Colors.organic, fontSize: 13 },
-  copyTextDone: { color: '#FFF' },
+  copyBtnDone: { backgroundColor: '#4CAF50' },
+  copyText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#0A0A0A' },
+  copyTextDone: { color: '#FFFFFF' },
 
   shareBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: Spacing.sm, backgroundColor: Colors.organic,
-    borderRadius: BorderRadius.pill, paddingVertical: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#5C6B4D',
+    borderRadius: BorderRadius.lg,
+    height: 48,
     width: '100%',
   },
-  shareText: { ...Typography.button, color: Colors.white },
+  shareText: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#0A0A0A' },
 
-  statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xl },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: Spacing.lg },
   statCard: {
-    flex: 1, backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
-    padding: Spacing.md, alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.md,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
   },
-  statValue: { ...Typography.h2, color: Colors.text },
-  statLabel: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
+  statValue: { fontFamily: 'Inter_700Bold', fontSize: 18, color: Colors.text },
+  statLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, color: '#757575', marginTop: 3, letterSpacing: 0.5 },
 
-  section: { marginBottom: Spacing.xl },
-  sectionTitle: { ...Typography.h3, color: Colors.text, marginBottom: Spacing.md },
-  stepsCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.lg, padding: Spacing.lg },
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  stepDot: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
+  sectionHeader: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    color: '#757575',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  stepDotText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.white },
-  stepText: { ...Typography.bodySmall, color: Colors.text, flex: 1 },
-  stepConnector: { width: 2, height: 16, marginLeft: 13, backgroundColor: Colors.border, marginVertical: 4 },
 
-  referralsCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.lg },
-  referralRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    marginBottom: Spacing.lg,
+    ...Shadows.card,
   },
-  referralBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  referralAvatar: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.organicLight,
-    alignItems: 'center', justifyContent: 'center',
+
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  stepNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  referralAvatarText: { ...Typography.bodySmall, fontFamily: 'Inter_600SemiBold', color: Colors.organic },
-  referralInfo: { flex: 1 },
-  referralName: { ...Typography.bodySmall, color: Colors.text, fontFamily: 'Inter_600SemiBold' },
-  referralDate: { ...Typography.caption, color: Colors.textSecondary },
-  referralStatus: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.sm },
-  referralStatusText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  stepNumText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#2E7D32' },
+  stepContent: { flex: 1 },
+  stepTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.text },
+  stepSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#757575', marginTop: 1 },
+  stepDivider: { height: 1, backgroundColor: '#F5F5F5', marginVertical: 4 },
+
+  refRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  refDivider: { borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  refAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refAvatarText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#2E7D32' },
+  refName: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.text },
+  refDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#757575', marginTop: 1 },
+  refBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: BorderRadius.pill },
+  refBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
 });

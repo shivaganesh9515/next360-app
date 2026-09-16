@@ -9,6 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from '../commission/commission.service';
 import { OffersService } from '../offers/offers.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
@@ -54,6 +56,8 @@ export class OrdersService {
     private readonly commissionService: CommissionService,
     private readonly offersService: OffersService,
     private readonly notificationsService: NotificationsService,
+    private readonly loyaltyService: LoyaltyService,
+    private readonly referralsService: ReferralsService,
   ) {}
 
   /**
@@ -82,8 +86,21 @@ export class OrdersService {
       throw new BadRequestException('Cart is empty');
     }
 
-    // Validate stock for each item
+    // Authoritative revalidation: vendor eligibility + product purchasability.
+    // The cart was built at browse time; approval, active flags, or vendor
+    // status may have changed since. Unapproved/inactive/suspended-vendor
+    // items must never become orders.
     for (const item of cartItems) {
+      if (item.product.vendor.status !== 'APPROVED') {
+        throw new BadRequestException(
+          `"${item.product.vendor.storeName}" is not currently accepting orders. Please remove its items and try again.`,
+        );
+      }
+      if (!item.product.isActive || !item.product.isApproved) {
+        throw new BadRequestException(
+          `"${item.product.name}" is not currently available. Please remove it and try again.`,
+        );
+      }
       if (item.product.stock < item.quantity) {
         throw new BadRequestException(
           `Insufficient stock for "${item.product.name}". Available: ${item.product.stock}, requested: ${item.quantity}`,
@@ -91,7 +108,8 @@ export class OrdersService {
       }
     }
 
-    // COD validation: total must be ≤ ₹2,000
+    // COD pre-check on the undiscounted subtotal (fast fail). The binding
+    // check runs again on the final payable after coupons/offers below.
     const subtotal = cartItems.reduce(
       (sum, item) => sum + Number(item.product.price) * item.quantity,
       0,
@@ -110,6 +128,7 @@ export class OrdersService {
 
     // Validate coupon if provided
     let discountAmount = 0;
+    let appliedCoupon: { id: string; usageLimit: number | null } | null = null;
     if (dto.couponCode) {
       const coupon = await this.prisma.coupon.findUnique({
         where: { code: dto.couponCode.toUpperCase() },
@@ -137,12 +156,7 @@ export class OrdersService {
       } else {
         discountAmount = Number(coupon.value);
       }
-
-      // Increment coupon usage
-      await this.prisma.coupon.update({
-        where: { id: coupon.id },
-        data: { usedCount: { increment: 1 } },
-      });
+      appliedCoupon = { id: coupon.id, usageLimit: coupon.usageLimit };
     }
 
     // Validate offer if provided
@@ -196,11 +210,35 @@ export class OrdersService {
 
     const totalAmount = Math.max(0, subtotal - discountAmount - offerDiscountAmount);
 
+    // Binding COD check on the final payable (post-discount). The earlier
+    // subtotal check is only a fast fail; this is the authoritative gate.
+    if (dto.paymentMethod === 'COD' && totalAmount > COD_MAX_AMOUNT) {
+      throw new BadRequestException(
+        `COD orders are capped at ₹${COD_MAX_AMOUNT} final payable. Please use Razorpay for orders above ₹${COD_MAX_AMOUNT}.`,
+      );
+    }
+
     // For COD, automatically confirm the order
     const initialStatus = dto.paymentMethod === 'COD' ? 'CONFIRMED' : 'PLACED';
 
     // Create order with vendor groups and items in a transaction
     const order = await this.prisma.$transaction(async (tx) => {
+      // Burn coupon usage inside the transaction so a failed order never
+      // consumes it, and concurrent checkouts cannot overshoot the limit.
+      if (appliedCoupon) {
+        const couponWhere: any = { id: appliedCoupon.id };
+        if (appliedCoupon.usageLimit !== null) {
+          couponWhere.usedCount = { lt: appliedCoupon.usageLimit };
+        }
+        const couponBurn = await tx.coupon.updateMany({
+          where: couponWhere,
+          data: { usedCount: { increment: 1 } },
+        });
+        if (couponBurn.count === 0) {
+          throw new BadRequestException('Coupon usage limit reached');
+        }
+      }
+
       const created = await tx.order.create({
         data: {
           orderNo: generateOrderNo(),
@@ -242,12 +280,22 @@ export class OrdersService {
         },
       });
 
-      // Decrement stock for each product
+      // Decrement stock atomically: only when enough stock remains.
+      // The updateMany count check makes concurrent checkouts safe —
+      // a lost race fails here instead of driving stock negative.
       for (const item of cartItems) {
-        await tx.product.update({
-          where: { id: item.product.id },
+        const stockResult = await tx.product.updateMany({
+          where: {
+            id: item.product.id,
+            stock: { gte: item.quantity },
+          },
           data: { stock: { decrement: item.quantity } },
         });
+        if (stockResult.count === 0) {
+          throw new BadRequestException(
+            `Insufficient stock for "${item.product.name}". Please review your cart and try again.`,
+          );
+        }
       }
 
       // Clear cart
@@ -266,6 +314,28 @@ export class OrdersService {
           `Commission calculation failed for COD order ${order.id}: ${error.message}`,
         );
       }
+    }
+
+    // Award loyalty points for this purchase
+    try {
+      await this.loyaltyService.awardPurchasePoints(
+        userId,
+        order.id,
+        Number(order.totalAmount),
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to award loyalty points for order ${order.id}: ${error.message}`,
+      );
+    }
+
+    // Process referral reward if this is the user's first purchase
+    try {
+      await this.referralsService.processReferralReward(userId, order.id);
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to process referral for order ${order.id}: ${error.message}`,
+      );
     }
 
     // Send push notification to the customer about the new order
@@ -326,7 +396,7 @@ export class OrdersService {
         include: {
           vendorGroups: {
             include: {
-              vendor: { select: { id: true, storeName: true } },
+              vendor: { select: { id: true, storeName: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
               items: {
                 include: { product: { select: { id: true, name: true, images: true } } },
               },
@@ -412,7 +482,7 @@ export class OrdersService {
       include: {
         vendorGroups: {
           include: {
-            vendor: { select: { id: true, storeName: true, storeSlug: true } },
+            vendor: { select: { id: true, storeName: true, storeSlug: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
             items: {
               include: { product: { select: { id: true, name: true, images: true } } },
             },
@@ -527,6 +597,19 @@ export class OrdersService {
         throw new ForbiddenException('Only vendors and admins can update order status');
       }
 
+      // Actor authority (FRD §27): vendors own CONFIRM → PACK → READY only.
+      // Assignment and everything downstream is Admin/System + Delivery.
+      const VENDOR_ALLOWED_TARGETS: OrderStatus[] = [
+        OrderStatus.CONFIRMED,
+        OrderStatus.PACKED,
+        OrderStatus.READY_FOR_PICKUP,
+      ];
+      if (role === 'VENDOR' && !VENDOR_ALLOWED_TARGETS.includes(dto.status as OrderStatus)) {
+        throw new ForbiddenException(
+          `Vendors cannot transition to ${dto.status}. Permitted: CONFIRMED, PACKED, READY_FOR_PICKUP.`,
+        );
+      }
+
       // Validate status transition
       if (!VALID_TRANSITIONS[group.status]?.includes(dto.status)) {
         throw new BadRequestException(
@@ -534,7 +617,7 @@ export class OrdersService {
         );
       }
 
-      return this.prisma.orderVendorGroup.update({
+      const updatedGroup = await this.prisma.orderVendorGroup.update({
         where: { id: vendorGroupId },
         data: { status: dto.status as OrderStatus },
         include: {
@@ -542,6 +625,13 @@ export class OrdersService {
           items: true,
         },
       });
+
+      // Parent aggregation: recompute the parent order status from all groups
+      // so mixed states (A DELIVERED, B OUT_FOR_DELIVERY) never leave the
+      // parent stale. Most-advanced-active wins; DELIVERED only when all are.
+      await this.recomputeParentStatus(orderId);
+
+      return updatedGroup;
     }
 
     // Update the main order status
@@ -610,6 +700,63 @@ export class OrdersService {
         },
         address: true,
       },
+    });
+  }
+
+  /**
+   * Recompute the parent order status from its vendor groups (FRD §29).
+   * DELIVERED only when every group is DELIVERED; otherwise the most
+   * advanced active group status wins. Fully-cancelled/refunded parents
+   * resolve to CANCELLED/REFUNDED; mixed active + cancelled stays active.
+   */
+  private async recomputeParentStatus(orderId: string) {
+    const groups = await this.prisma.orderVendorGroup.findMany({
+      where: { orderId },
+      select: { status: true },
+    });
+    if (groups.length === 0) return;
+
+    const rank: Record<string, number> = {
+      [OrderStatus.PLACED]: 0,
+      [OrderStatus.CONFIRMED]: 1,
+      [OrderStatus.PACKED]: 2,
+      [OrderStatus.READY_FOR_PICKUP]: 3,
+      [OrderStatus.ASSIGNED_TO_DELIVERY]: 4,
+      [OrderStatus.PICKED_UP]: 5,
+      [OrderStatus.OUT_FOR_DELIVERY]: 6,
+      [OrderStatus.DELIVERED]: 7,
+      [OrderStatus.CANCELLED]: -1,
+      [OrderStatus.REFUNDED]: -2,
+    };
+
+    const statuses = groups.map((g) => g.status as string);
+    if (statuses.every((s) => s === OrderStatus.DELIVERED)) {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { status: OrderStatus.DELIVERED },
+      });
+      return;
+    }
+
+    const active = statuses.filter(
+      (s) => s !== OrderStatus.CANCELLED && s !== OrderStatus.REFUNDED,
+    );
+    if (active.length === 0) {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: statuses.includes(OrderStatus.REFUNDED)
+            ? OrderStatus.REFUNDED
+            : OrderStatus.CANCELLED,
+        },
+      });
+      return;
+    }
+
+    const top = active.sort((a, b) => (rank[b] ?? 0) - (rank[a] ?? 0))[0];
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: top as OrderStatus },
     });
   }
 
@@ -698,11 +845,12 @@ export class OrdersService {
    * Uses the Order's createdAt and updatedAt fields to infer the timeline.
    * For full accuracy, a separate StatusLog model would be needed.
    */
-  async getOrderStatusTimeline(orderId: string) {
+  async getOrderStatusTimeline(userId: string, role: string, orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
         id: true,
+        userId: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -711,6 +859,7 @@ export class OrdersService {
           select: {
             id: true,
             status: true,
+            vendorId: true,
           },
         },
         payments: {
@@ -721,6 +870,17 @@ export class OrdersService {
     });
 
     if (!order) throw new NotFoundException('Order not found');
+
+    // Ownership: timelines expose order/payment/group states.
+    if (role !== 'ADMIN' && (order as any).userId !== userId) {
+      if (role === 'VENDOR') {
+        const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+        const member = vendor && order.vendorGroups?.some((g: any) => (g as any).vendorId === vendor.id);
+        if (!member) throw new ForbiddenException('Access denied');
+      } else {
+        throw new ForbiddenException('Access denied');
+      }
+    }
 
     const timeline: Array<{ event: string; timestamp: Date; status: string; groupId?: string }> = [
       {

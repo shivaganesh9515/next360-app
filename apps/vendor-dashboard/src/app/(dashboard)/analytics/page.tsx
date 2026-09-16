@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, ShoppingCart, Download, Clock, Zap, TrendingDown } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
 import { vendorApi } from '@/lib/api';
 
@@ -47,15 +47,78 @@ export default function AnalyticsPage() {
     </div>
   );
 
+  const exportCsv = () => {
+    if (!analytics) return;
+    const headers = ['Metric', 'Value'];
+    const rows = [
+      ['Total Revenue', analytics.totalRevenue],
+      ['Total Orders', analytics.totalOrders],
+      ['Avg Order Value', analytics.avgOrderValue],
+      ['Top Product', analytics.topProduct?.name || 'N/A'],
+    ];
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'analytics.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>
+        <button onClick={exportCsv} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard icon={DollarSign} label="Total Revenue" value={analytics ? `₹${Number(analytics.totalRevenue || 0).toLocaleString()}` : '₹0'} accent="emerald" />
         <StatsCard icon={ShoppingCart} label="Total Orders" value={analytics?.totalOrders || 0} accent="blue" />
         <StatsCard icon={TrendingUp} label="Avg Order Value" value={analytics ? `₹${Number(analytics.avgOrderValue || 0).toLocaleString()}` : '₹0'} accent="amber" />
         <StatsCard icon={BarChart3} label="Top Product" value={analytics?.topProduct?.name || 'N/A'} accent="purple" />
       </div>
+      {/* Delivery Performance */}
+      {analytics?.deliveryPerformance && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-emerald-600" /> Delivery Performance
+          </h3>
+          {analytics.deliveryPerformance.totalDelivered > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-slate-50 rounded-lg">
+                <p className="text-xs text-slate-500 mb-1">Avg Delivery</p>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{analytics.deliveryPerformance.avgDeliveryMins} min</p>
+              </div>
+              <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                <p className="text-xs text-emerald-600 mb-1 flex items-center justify-center gap-1"><Zap className="w-3 h-3" /> Fastest</p>
+                <p className="text-xl font-bold text-emerald-700 tabular-nums">{analytics.deliveryPerformance.fastestDelivery} min</p>
+              </div>
+              <div className="text-center p-3 bg-amber-50 rounded-lg">
+                <p className="text-xs text-amber-600 mb-1 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3" /> Slowest</p>
+                <p className="text-xl font-bold text-amber-700 tabular-nums">{analytics.deliveryPerformance.slowestDelivery} min</p>
+              </div>
+              <div className="text-center p-3 bg-slate-50 rounded-lg">
+                <p className="text-xs text-slate-500 mb-1">Delivered</p>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{analytics.deliveryPerformance.totalDelivered}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-slate-400 text-sm">
+              <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <p>No delivered orders yet</p>
+            </div>
+          )}
+          {analytics.deliveryPerformance.configuredMin != null && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs text-slate-500">
+                Your configured delivery time: <span className="font-medium text-slate-700">{analytics.deliveryPerformance.configuredMin}-{analytics.deliveryPerformance.configuredMax} min{analytics.deliveryPerformance.configuredLabel ? ` • ${analytics.deliveryPerformance.configuredLabel}` : ''}</span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h3 className="font-semibold text-slate-900 mb-4">Revenue Over Time</h3>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Pencil, Power, PowerOff } from 'lucide-react';
+import { Plus, Search, Pencil, Power, PowerOff, CheckSquare } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -13,6 +13,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -31,7 +32,20 @@ export default function ProductsPage() {
     catch (e) { console.error(e); }
   };
 
+  const bulkToggle = async (active: boolean) => {
+    for (const id of selectedIds) {
+      try { await vendorApi.updateProduct(id, { isActive: active }); } catch (e) { console.error(e); }
+    }
+    setSelectedIds([]);
+    fetchProducts();
+  };
+
   const columns = [
+    { key: 'checkbox', label: '', render: (item: any) => (
+      <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => {
+        setSelectedIds(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]);
+      }} className="rounded border-slate-300" />
+    )},
     { key: 'name', label: 'Product', render: (item: any) => (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
@@ -67,6 +81,20 @@ export default function ProductsPage() {
           <Plus className="w-4 h-4" /> Add Product
         </Link>
       </div>
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <span className="text-sm font-medium text-emerald-800">{selectedIds.length} selected</span>
+          <button onClick={() => bulkToggle(true)} className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700">
+            Activate All
+          </button>
+          <button onClick={() => bulkToggle(false)} className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-md hover:bg-red-600">
+            Deactivate All
+          </button>
+          <button onClick={() => setSelectedIds([])} className="px-3 py-1.5 text-xs border border-slate-300 rounded-md hover:bg-slate-50">
+            Clear
+          </button>
+        </div>
+      )}
       <DataTable columns={columns} data={products} loading={loading} searchable onSearch={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No products yet. Create your first product!" />
     </div>
   );

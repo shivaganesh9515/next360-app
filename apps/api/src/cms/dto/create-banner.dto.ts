@@ -6,6 +6,18 @@ export class CreateBannerDto {
   @IsString()
   title?: string;
 
+  @IsOptional()
+  @IsString()
+  subtitle?: string;
+
+  @IsOptional()
+  @IsString()
+  offerLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @IsString()
   imageUrl: string;
 

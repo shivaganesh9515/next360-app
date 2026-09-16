@@ -66,7 +66,7 @@ interface Props {
 
 export default function NotificationsPopover({ iconColor = Colors.white }: Props) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const panelWidth = Math.min(400, screenWidth - Spacing.xl * 2);
+  const panelWidth = Math.min(500, screenWidth - Spacing.xl * 2);
   const panelHeight = Math.min(620, screenHeight * 0.85);
 
   const insets = useSafeAreaInsets();
@@ -96,7 +96,7 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
 
   const contentFade = useContentFadeIn(anim);
 
-  // ── Start spring ONLY after Modal is committed ──
+  // ── Start spring immediately when Modal becomes visible ──
   const animationStarted = useRef(false);
   useEffect(() => {
     if (visible && !animationStarted.current) {
@@ -127,15 +127,12 @@ export default function NotificationsPopover({ iconColor = Colors.white }: Props
   const open = useCallback(() => {
     triggerScale.value = withSpring(0.85, PRESS_SPRING_CONFIG);
     dockRef.current?.measureInWindow((x, y, width, height) => {
-      console.log('[DEBUG] NotificationsPopover measured:', { x, y, width, height, OS: Platform.OS });
       originX.value = x;
       const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
       originY.value = y + statusBarOffset;
-      setTimeout(() => {
-        setVisible(true);
-        setExpanded(true);
-        load();
-      }, 50);
+      setVisible(true);
+      setExpanded(true);
+      load();
     });
   }, [load]);
 
@@ -326,10 +323,10 @@ const styles = StyleSheet.create({
   }) as any,
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   headerTitle: { ...Typography.h3, color: Colors.text },

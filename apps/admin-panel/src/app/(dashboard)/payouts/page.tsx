@@ -13,6 +13,8 @@ export default function PayoutsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [summary, setSummary] = useState({ totalPaid: 0, pendingPayouts: 0, failedPayouts: 0 });
+  const [actionError, setActionError] = useState('');
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   useEffect(() => { loadPayouts(); }, [page]);
 
@@ -26,6 +28,21 @@ export default function PayoutsPage() {
     } catch { setPayouts([]); } finally { setLoading(false); }
   };
 
+  // Re-queue a failed payout by moving it back to PENDING via the existing
+  // PATCH /payouts/:id/status route. There is no dedicated retry endpoint.
+  const handleRetry = async (id: string) => {
+    setActionError('');
+    setRetryingId(id);
+    try {
+      await adminApi.updatePayoutStatus(id, 'PENDING');
+      loadPayouts();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to re-queue payout.');
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
   const columns = [
     { key: 'vendor', label: 'Vendor', render: (p: any) => <span className="font-medium text-gray-800">{p.vendor?.storeName || '-'}</span> },
     { key: 'amount', label: 'Amount', render: (p: any) => <span className="font-mono font-bold">₹{(p.amount || 0).toLocaleString()}</span> },
@@ -33,11 +50,31 @@ export default function PayoutsPage() {
     { key: 'status', label: 'Status', render: (p: any) => <StatusBadge status={p.status || 'PENDING'} /> },
     { key: 'razorpayTransferId', label: 'Transfer ID', render: (p: any) => <span className="font-mono text-xs">{p.razorpayTransferId || '-'}</span> },
     { key: 'createdAt', label: 'Date', render: (p: any) => new Date(p.createdAt).toLocaleDateString() },
+    { key: 'actions', label: '', render: (p: any) => (
+      p.status === 'FAILED'
+        ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleRetry(p.id); }}
+            disabled={retryingId === p.id}
+            title="Re-queue this failed payout as PENDING"
+            className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+          >
+            {retryingId === p.id ? 'Retrying...' : 'Retry'}
+          </button>
+        )
+        : null
+    )},
   ];
 
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-gray-800">Vendor Payouts</h2><p className="text-sm text-gray-500">Track Razorpay Route payouts to vendors</p></div>
+
+      {actionError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
+          {actionError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatsCard title="Total Paid" value={`₹${summary.totalPaid.toLocaleString()}`} icon={<DollarSign className="w-5 h-5" />} color="emerald" />

@@ -5,12 +5,13 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
 
 function generateOtp(): string {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 @Injectable()
@@ -248,7 +249,6 @@ export class DeliveryService {
       );
       formatted.deliveryAssignment = {
         id: a.id,
-        otp: a.otp,
         assignedAt: a.assignedAt,
         pickedUpAt: a.pickedUpAt,
         deliveredAt: a.deliveredAt,
@@ -422,6 +422,12 @@ export class DeliveryService {
       throw new NotFoundException('Delivery partner not found');
     }
 
+    if (partner.status !== DeliveryPartnerStatus.AVAILABLE) {
+      throw new BadRequestException(
+        'Delivery partner must be AVAILABLE to receive assignments',
+      );
+    }
+
     // Find the order
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -587,7 +593,7 @@ export class DeliveryService {
 
       await tx.orderVendorGroup.update({
         where: { id: assignment.orderVendorGroupId },
-        data: { status: OrderStatus.CONFIRMED },
+        data: { status: OrderStatus.READY_FOR_PICKUP },
       });
 
       // Check if partner has any other active deliveries
@@ -675,6 +681,75 @@ export class DeliveryService {
   }
 
   /**
+   * POST /orders/:id/start-transit
+   * Move a picked-up delivery onto the road: PICKED_UP -> OUT_FOR_DELIVERY.
+   * This is the leg completeDelivery was skipping; the state machine requires
+   * the partner to explicitly start transit before completing delivery.
+   */
+  async startTransit(userId: string, orderId: string) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { vendorGroups: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const vendorGroupIds = order.vendorGroups.map((g: any) => g.id);
+
+    const assignment = await this.prisma.deliveryAssignment.findFirst({
+      where: {
+        orderVendorGroupId: { in: vendorGroupIds },
+        deliveryPartnerId: partner.id,
+        pickedUpAt: { not: null },
+        deliveredAt: null,
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException(
+        'No picked-up delivery assignment found for this order',
+      );
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const group = await tx.orderVendorGroup.findUnique({
+        where: { id: assignment.orderVendorGroupId },
+      });
+      if (group?.status !== OrderStatus.PICKED_UP) {
+        throw new BadRequestException(
+          `Cannot start transit: vendor group is in ${group?.status} status, expected ${OrderStatus.PICKED_UP}`,
+        );
+      }
+
+      await tx.orderVendorGroup.update({
+        where: { id: assignment.orderVendorGroupId },
+        data: { status: OrderStatus.OUT_FOR_DELIVERY },
+      });
+
+      return assignment;
+    });
+
+    try {
+      await this.notificationsService.sendOrderStatusNotification(
+        orderId,
+        'OUT_FOR_DELIVERY',
+        order.userId,
+      );
+    } catch (error: any) {
+      this.logger.error(`Transit notification failed: ${error.message}`);
+    }
+
+    return {
+      message: 'Delivery out for delivery',
+      orderVendorGroupId: updated.orderVendorGroupId,
+    };
+  }
+
+  /**
    * POST /orders/:id/deliver
    * Mark a delivery as complete. Sets deliveredAt and updates the vendor group status.
    */
@@ -709,13 +784,15 @@ export class DeliveryService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      // Validate vendor group is in PICKED_UP status before marking delivered
+      // Validate vendor group is OUT_FOR_DELIVERY before marking delivered.
+      // startTransit (PICKED_UP -> OUT_FOR_DELIVERY) must run first; the
+      // direct PICKED_UP -> DELIVERED jump bypasses the state machine.
       const group = await tx.orderVendorGroup.findUnique({
         where: { id: assignment.orderVendorGroupId },
       });
-      if (group?.status !== OrderStatus.PICKED_UP) {
+      if (group?.status !== OrderStatus.OUT_FOR_DELIVERY) {
         throw new BadRequestException(
-          `Cannot deliver: vendor group is in ${group?.status} status, expected ${OrderStatus.PICKED_UP}`,
+          `Cannot deliver: vendor group is in ${group?.status} status, expected ${OrderStatus.OUT_FOR_DELIVERY}. Start transit first.`,
         );
       }
 
@@ -730,9 +807,9 @@ export class DeliveryService {
       });
 
       // Check if ALL vendor groups in the order are delivered → update
-      // the order-level status to DELIVERED and paymentStatus to PAID
-      // (for COD).  Razorpay orders already have paymentStatus = PAID
-      // from the payment capture webhook.
+      // the order-level status to DELIVERED. paymentStatus is touched only
+      // for COD (cash collected on delivery); Razorpay orders are already
+      // PAID via webhook, and FAILED/REFUNDED must never be overwritten.
       const allGroups = await tx.orderVendorGroup.findMany({
         where: { orderId },
         select: { status: true },
@@ -741,12 +818,13 @@ export class DeliveryService {
         (g: any) => g.status === OrderStatus.DELIVERED,
       );
       if (allDelivered) {
+        const parentData: any = { status: OrderStatus.DELIVERED };
+        if (order.paymentMethod === 'COD' && order.paymentStatus !== 'REFUNDED') {
+          parentData.paymentStatus = 'PAID';
+        }
         await tx.order.update({
           where: { id: orderId },
-          data: {
-            status: OrderStatus.DELIVERED,
-            paymentStatus: 'PAID',
-          },
+          data: parentData,
         });
       }
 
@@ -997,5 +1075,87 @@ export class DeliveryService {
         zone: { select: { id: true, name: true, city: true } },
       },
     });
+  }
+
+  /**
+   * POST /delivery/process-payouts
+   * Process weekly payouts for all delivery partners with completed deliveries.
+   */
+  async processWeeklyPayouts() {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const assignments = await this.prisma.deliveryAssignment.findMany({
+      where: { deliveredAt: { gte: oneWeekAgo } },
+      include: { deliveryPartner: true },
+    });
+
+    const dpMap = new Map<string, number>();
+    for (const a of assignments) {
+      const current = dpMap.get(a.deliveryPartnerId) || 0;
+      dpMap.set(a.deliveryPartnerId, current + 50); // ₹50 per delivery
+    }
+
+    for (const [dpId, amount] of dpMap) {
+      await this.prisma.payout.create({
+        data: {
+          deliveryPartnerId: dpId,
+          amount,
+          status: 'PENDING',
+          periodStart: oneWeekAgo,
+          periodEnd: new Date(),
+        },
+      });
+    }
+
+    return { processed: dpMap.size, totalDeliveries: assignments.length };
+  }
+
+  /**
+   * POST /delivery/auto-assign/:orderVendorGroupId
+   * Automatically assign a delivery to the nearest available DP in the same zone.
+   */
+  async autoAssignDelivery(orderVendorGroupId: string) {
+    const group = await this.prisma.orderVendorGroup.findUnique({
+      where: { id: orderVendorGroupId },
+      include: { vendor: true },
+    });
+    if (!group) throw new NotFoundException('Order vendor group not found');
+
+    const availableDps = await this.prisma.deliveryPartner.findMany({
+      where: {
+        zoneId: group.vendor.zoneId,
+        status: 'AVAILABLE',
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: 1,
+    });
+
+    if (availableDps.length === 0) {
+      return { message: 'No available delivery partners' };
+    }
+
+    const dp = availableDps[0];
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.deliveryAssignment.create({
+        data: { orderVendorGroupId, deliveryPartnerId: dp.id, otp },
+      });
+
+      await tx.deliveryPartner.update({
+        where: { id: dp.id },
+        data: { status: 'ON_DELIVERY' },
+      });
+
+      await tx.orderVendorGroup.update({
+        where: { id: orderVendorGroupId },
+        data: { status: 'ASSIGNED_TO_DELIVERY' },
+      });
+
+      return created;
+    });
+
+    return assignment;
   }
 }

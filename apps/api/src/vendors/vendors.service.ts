@@ -56,6 +56,10 @@ export class VendorsService {
         storeType: dto.storeType,
         zoneId,
         status: 'PENDING',
+        // FRD §40 default commission. Set explicitly so the rate does not
+        // depend on the DB column default (schema migration to align the
+        // column default is tracked separately).
+        commissionPct: 15,
       },
     });
 
@@ -496,6 +500,32 @@ export class VendorsService {
       ).map((g) => g.order.userId),
     );
 
+    // Delivery performance — average time from order creation to delivery
+    const deliveredGroups = await this.prisma.orderVendorGroup.findMany({
+      where: {
+        vendorId,
+        status: 'DELIVERED',
+        delivery: { isNot: null },
+      },
+      select: {
+        order: { select: { createdAt: true } },
+        delivery: { select: { pickedUpAt: true, deliveredAt: true } },
+      },
+    });
+
+    const deliveryTimes: number[] = [];
+    for (const g of deliveredGroups) {
+      if (g.delivery?.deliveredAt && g.order?.createdAt) {
+        const mins = (g.delivery.deliveredAt.getTime() - g.order.createdAt.getTime()) / 60000;
+        if (mins > 0 && mins < 300) deliveryTimes.push(mins); // skip outliers > 5h
+      }
+    }
+    const avgDeliveryMins = deliveryTimes.length > 0
+      ? Math.round(deliveryTimes.reduce((a, b) => a + b, 0) / deliveryTimes.length)
+      : null;
+    const fastestDelivery = deliveryTimes.length > 0 ? Math.round(Math.min(...deliveryTimes)) : null;
+    const slowestDelivery = deliveryTimes.length > 0 ? Math.round(Math.max(...deliveryTimes)) : null;
+
     return {
       totalOrders,
       totalRevenue,
@@ -514,6 +544,15 @@ export class VendorsService {
       monthlyRevenue: Array.from(monthlyMap.entries())
         .map(([month, data]) => ({ month, ...data }))
         .sort((a, b) => a.month.localeCompare(b.month)),
+      deliveryPerformance: {
+        avgDeliveryMins,
+        fastestDelivery,
+        slowestDelivery,
+        totalDelivered: deliveryTimes.length,
+        configuredMin: (await this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { deliveryTimeMin: true } }))?.deliveryTimeMin,
+        configuredMax: (await this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { deliveryTimeMax: true } }))?.deliveryTimeMax,
+        configuredLabel: (await this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { deliveryLabel: true } }))?.deliveryLabel,
+      },
     };
   }
 

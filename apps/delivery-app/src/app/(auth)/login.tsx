@@ -146,6 +146,17 @@ export default function LoginScreen() {
         >
           <Text style={styles.switchText}>Use phone number instead</Text>
         </TouchableOpacity>
+
+        {/* Legal Links */}
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => router.push('/privacy-policy' as any)}>
+            <Text style={styles.legalText}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDivider}>•</Text>
+          <TouchableOpacity onPress={() => router.push('/terms-of-service' as any)}>
+            <Text style={styles.legalText}>Terms of Service</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </KeyboardAvoidingView>
   );
@@ -281,5 +292,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '500',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    gap: 8,
+  },
+  legalText: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    fontSize: 12,
+    color: Colors.textTertiary,
   },
 });
