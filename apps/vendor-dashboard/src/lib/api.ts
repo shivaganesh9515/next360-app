@@ -118,6 +118,8 @@ export const vendorApi = {
   // Products
   getProducts: (params?: any) =>
     api.get<any>('/products', params),
+  getVendorProducts: (vendorId: string, params?: any) =>
+    api.get<any>(`/vendors/${vendorId}/products`, params),
   getProduct: (id: string) => api.get<any>(`/products/${id}`),
   createProduct: (data: any) => api.post<any>('/products', data),
   updateProduct: (id: string, data: any) => api.patch<any>(`/products/${id}`, data),

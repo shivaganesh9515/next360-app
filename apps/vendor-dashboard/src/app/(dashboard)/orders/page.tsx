@@ -153,7 +153,8 @@ export default function OrdersPage() {
               <button
                 onClick={async () => {
                   try {
-                    await vendorApi.updateOrderStatus(item.orderId || item.id, item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED');
+                    const nextStatus = item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED';
+                    await vendorApi.updateVendorGroupStatus(item.orderId || item.id, item.id, nextStatus);
                     fetchOrders(false);
                   } catch (e) { console.error(e); }
                 }}
@@ -178,7 +179,7 @@ export default function OrdersPage() {
               <button
                 onClick={async () => {
                   try {
-                    await vendorApi.updateOrderStatus(item.orderId || item.id, 'READY_FOR_PICKUP');
+                    await vendorApi.updateVendorGroupStatus(item.orderId || item.id, item.id, 'READY_FOR_PICKUP');
                     fetchOrders(false);
                   } catch (e) { console.error(e); }
                 }}

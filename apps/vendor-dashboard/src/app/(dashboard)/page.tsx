@@ -9,6 +9,7 @@ import {
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { vendorApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area, Legend
@@ -58,17 +59,22 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const { vendorProfile } = useAuth();
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [vendorProfile?.id]);
 
   const loadDashboard = async () => {
     try {
+      const vendorId = vendorProfile?.id;
+      const productsPromise = vendorId
+        ? vendorApi.getVendorProducts(vendorId, { page: '1', limit: '100' })
+        : Promise.resolve(null);
       const [products, orders, earnings, analytics] = await Promise.allSettled([
-        vendorApi.getProducts({}),
+        productsPromise,
         vendorApi.getOrders({}),
         vendorApi.getEarnings(),
         vendorApi.getAnalytics('30d'),
@@ -100,7 +106,7 @@ export default function DashboardPage() {
       ).length;
 
       // Earnings: backend returns { totalEarnings, paidEarnings, pendingEarnings, ... }
-      const pendingPayout = earningsData?.pendingEarnings || earningsData?.pendingPayout || earningsData?.pendingAmount || 0;
+      const pendingPayout = earningsData?.pendingPayout || earningsData?.pendingEarnings || earningsData?.pendingAmount || 0;
 
       // Analytics: backend returns { monthlyRevenue, orderStatusBreakdown, ... }
       // Transform monthlyRevenue [{month, orders, revenue}] → weeklyRevenue [{day, revenue}]

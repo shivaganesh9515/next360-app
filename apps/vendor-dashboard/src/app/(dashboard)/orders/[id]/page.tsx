@@ -54,10 +54,9 @@ export default function OrderDetailPage() {
   const updateStatus = async (newStatus: string, reason?: string) => {
     setUpdating(true);
     try {
-      if (vendorGroupId && newStatus !== 'CANCELLED') {
-        // Vendors update their vendor group's status (not the entire order).
-        // The backend's PATCH /orders/:id/groups/:groupId/status is the
-        // VENDOR-accessible endpoint; PATCH /orders/:id/status requires ADMIN.
+      if (vendorGroupId && newStatus === 'CANCELLED') {
+        await vendorApi.cancelVendorGroup(orderId, vendorGroupId, reason);
+      } else if (vendorGroupId) {
         await vendorApi.updateVendorGroupStatus(orderId, vendorGroupId, newStatus);
       } else {
         await vendorApi.updateOrderStatus(orderId, newStatus, reason);
