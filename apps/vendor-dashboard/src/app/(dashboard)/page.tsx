@@ -85,10 +85,15 @@ export default function DashboardPage() {
       const earningsData = earnings.status === 'fulfilled' ? earnings.value : null;
       const analyticsData = analytics.status === 'fulfilled' ? analytics.value : null;
 
-      // Orders: backend returns { data: [...vendorGroups], meta: {...} }
-      const rawOrders = ordersData?.data || (Array.isArray(ordersData) ? ordersData : []);
+      // Orders: backend interceptor double-nests → { data: { data: [...], meta } }
+      // Unwrap to get the actual array of vendor groups
+      const rawOrders = Array.isArray(ordersData?.data) ? ordersData.data
+        : Array.isArray(ordersData?.data?.data) ? ordersData.data.data
+        : Array.isArray(ordersData) ? ordersData : [];
       const orderList = Array.isArray(rawOrders) ? rawOrders : [];
-      const rawProducts = productsData?.data || productsData || [];
+      const rawProducts = Array.isArray(productsData?.data) ? productsData.data
+        : Array.isArray(productsData?.data?.data) ? productsData.data.data
+        : Array.isArray(productsData) ? productsData : [];
       const productList = Array.isArray(rawProducts) ? rawProducts : [];
 
       // Today-scoped revenue — use group subtotal and order.createdAt

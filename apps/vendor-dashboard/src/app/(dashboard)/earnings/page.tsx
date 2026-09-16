@@ -14,20 +14,17 @@ export default function EarningsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // NOTE: GET /vendors/me/earnings returns { totalEarnings, paid, pending,
-    // pendingPayout, ... } — no paidEarnings/pendingEarnings keys and no
-    // commissionRate/totalOrders. Commission rate comes from the vendor
-    // profile (commissionPct) and order count from the transactions meta.
+    // GET /vendors/me/earnings returns { totalEarnings, paid, pending, pendingPayout, ... }
+    // after interceptor unwrap. Commission rate comes from vendor profile (commissionPct).
     Promise.allSettled([
       vendorApi.getEarnings(),
       vendorApi.getMyProfile(),
-      vendorApi.getTransactions({ page: 1, limit: 1 }),
+      vendorApi.getTransactionsWithMeta({ page: 1, limit: 1 }),
     ]).then(([earningsRes, profileRes, txRes]) => {
       const res: any = earningsRes.status === 'fulfilled' ? earningsRes.value : {};
       const profile: any = profileRes.status === 'fulfilled' ? profileRes.value : {};
       const tx: any = txRes.status === 'fulfilled' ? txRes.value : {};
-      // getTransactions unwraps to { data, meta } (service returns
-      // { success, data, meta }); fall back to array length otherwise.
+      // getTransactionsWithMeta returns { data, meta } — meta.total has order count
       const totalOrders = tx?.meta?.total ?? (Array.isArray(tx?.data) ? tx.data.length : Array.isArray(tx) ? tx.length : 0);
       setEarnings({
         totalEarnings: res.totalEarnings || 0,

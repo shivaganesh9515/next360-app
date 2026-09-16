@@ -38,8 +38,13 @@ export default function InventoryPage() {
     setLoading(true);
     try {
       const res = await vendorApi.getProducts({ search: debouncedSearch || undefined, page, limit: PAGE_LIMIT });
-      setProducts((Array.isArray(res) ? res : (res as any)?.data) || []);
-      setTotalPages((res as any)?.meta?.totalPages || 1);
+      // Backend double-nests: { data: { data: [...], meta: {...} } }
+      const list = Array.isArray(res) ? res
+        : Array.isArray((res as any)?.data) ? (res as any).data
+        : Array.isArray((res as any)?.data?.data) ? (res as any).data.data : [];
+      setProducts(list);
+      const meta = (res as any)?.meta || (res as any)?.data?.meta;
+      setTotalPages(meta?.totalPages || 1);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

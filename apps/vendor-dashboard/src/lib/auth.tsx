@@ -109,8 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userData.role === 'VENDOR') {
           vendorApi.getMyProfile().then(setVendorProfile).catch(() => {});
         }
-      } catch {
-        localStorage.removeItem('vendor_token');
+      } catch (err: any) {
+        // Only clear token on auth errors (401/403), not network errors
+        const msg = err?.message || '';
+        const isNetworkError = msg.includes('Unable to connect') || msg.includes('invalid response');
+        if (!isNetworkError) {
+          localStorage.removeItem('vendor_token');
+        }
       } finally {
         setLoading(false);
       }

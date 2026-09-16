@@ -44,7 +44,7 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async (isInitial = false) => {
     try {
       const [ordersRes, customersRes] = await Promise.allSettled([
-        vendorApi.getOrders({}),
+        vendorApi.getOrdersWithMeta({}),
         vendorApi.getCustomers(),
       ]);
 
@@ -60,8 +60,12 @@ export default function OrdersPage() {
       let normalized: any[] = [];
       if (ordersRes.status === 'fulfilled') {
         const res: any = ordersRes.value;
-        const raw = res.data || res || [];
-        normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
+        // getOrdersWithMeta returns { data: [...], meta: {...} }
+        // The data array may itself be double-nested from the backend interceptor
+        const raw = Array.isArray(res?.data) ? res.data
+          : Array.isArray(res?.data?.data) ? res.data.data
+          : Array.isArray(res) ? res : [];
+        normalized = raw.map((g: any) => ({
           id: g.id,
           orderId: g.orderId || g.order?.id,
           orderNo: g.order?.orderNo || g.id?.slice(0, 8),

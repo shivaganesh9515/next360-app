@@ -68,9 +68,70 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
 }
 
+// Like request() but preserves pagination meta from the response envelope.
+// Returns { data, meta } for paginated endpoints, or just the data for non-paginated.
+async function requestWithMeta<T>(path: string, options: ApiOptions = {}): Promise<{ data: T; meta?: any }> {
+  let url = `${API_BASE}${path}`;
+  if (options.params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(options.params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, String(value));
+    });
+    const qs = searchParams.toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  const { params, ...fetchOptions } = options;
+
+  const token = localStorage.getItem('vendor_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { ...fetchOptions, headers });
+  } catch (err: any) {
+    throw new Error('Unable to connect to server. Please try again later.');
+  }
+
+  if (response.status === 401) {
+    if (typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
+      return { data: undefined as T };
+    }
+    localStorage.removeItem('vendor_token');
+    if (onUnauthorized) onUnauthorized();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || error.error || `HTTP ${response.status}`);
+  }
+
+  if (response.status === 204) return { data: undefined as T };
+
+  const text = await response.text();
+  let body: any;
+  try { body = JSON.parse(text); } catch {
+    throw new Error('API returned invalid response. Is the server running?');
+  }
+
+  // Unwrap the { success, data, meta } envelope, preserving meta
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    return { data: body.data, meta: body.meta };
+  }
+  return { data: body };
+}
+
 export const api = {
   get: <T>(path: string, params?: Record<string, any>) =>
     request<T>(path, { method: 'GET', params }),
+
+  getWithMeta: <T>(path: string, params?: Record<string, any>) =>
+    requestWithMeta<T>(path, { method: 'GET', params }),
 
   post: <T>(path: string, body?: any) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
@@ -127,6 +188,7 @@ export const vendorApi = {
 
   // Orders
   getOrders: (params?: any) => api.get<any>('/orders/vendor', params),
+  getOrdersWithMeta: (params?: any) => api.getWithMeta<any[]>('/orders/vendor', params),
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
   updateOrderStatus: (id: string, status: string, reason?: string) =>
     api.patch<any>(`/orders/${id}/status`, reason ? { status, cancellationReason: reason } : { status }),
@@ -159,6 +221,8 @@ export const vendorApi = {
   getPayouts: (params?: any) => api.get<any[]>('/vendors/me/payouts', params),
   getTransactions: (params?: any) =>
     api.get<any[]>('/vendors/me/transactions', params),
+  getTransactionsWithMeta: (params?: any) =>
+    api.getWithMeta<any[]>('/vendors/me/transactions', params),
 
   // Store
   getStore: (vendorId: string) => api.get<any>(`/vendors/${vendorId}`),
