@@ -167,29 +167,31 @@ export default function OrderDetailPage() {
 
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h3 className="font-semibold text-slate-900 mb-4">Items</h3>
-          <table className="w-full">
-            <thead><tr className="border-b border-slate-100">
-              <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Item</th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-slate-500 uppercase">Qty</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">Price</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">Total</th>
-            </tr></thead>
-            <tbody>
-              {items.map((item: any) => (
-                <tr key={item.id} className="border-b border-slate-50">
-                  <td className="px-4 py-3 text-sm text-slate-700">{item.name || item.product?.name}</td>
-                  <td className="px-4 py-3 text-sm text-center text-slate-700">{item.quantity}</td>
-                  <td className="px-4 py-3 text-sm text-right text-slate-700">₹{Number(item.priceAtPurchase || item.price).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-right font-medium">₹{(Number(item.priceAtPurchase || item.price) * item.quantity).toLocaleString()}</td>
+          <div className="overflow-x-auto -mx-6 px-6">
+            <table className="w-full min-w-[480px]">
+              <thead><tr className="border-b border-slate-100">
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Item</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-slate-500 uppercase">Qty</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">Price</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">Total</th>
+              </tr></thead>
+              <tbody>
+                {items.map((item: any) => (
+                  <tr key={item.id} className="border-b border-slate-50">
+                    <td className="px-4 py-3 text-sm text-slate-700">{item.name || item.product?.name}</td>
+                    <td className="px-4 py-3 text-sm text-center text-slate-700">{item.quantity}</td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-700">₹{Number(item.priceAtPurchase || item.price).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right font-medium">₹{(Number(item.priceAtPurchase || item.price) * item.quantity).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr><td colSpan={3} className="px-4 py-3 text-sm text-right text-slate-500">Total</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold">₹{Number(order.totalAmount).toLocaleString()}</td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr><td colSpan={3} className="px-4 py-3 text-sm text-right text-slate-500">Total</td>
-                <td className="px-4 py-3 text-sm text-right font-bold">₹{Number(order.totalAmount).toLocaleString()}</td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          </div>
         </div>
       </div>
 

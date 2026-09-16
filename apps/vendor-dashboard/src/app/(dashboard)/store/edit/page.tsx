@@ -45,7 +45,13 @@ export default function EditStorePage() {
     finally { setSaving(false); }
   };
 
-  if (loading) return <div className="text-center py-12 text-slate-500">Loading...</div>;
+  if (loading) return (
+    <div className="space-y-4" role="status" aria-label="Loading store">
+      <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
+      <div className="h-64 bg-slate-100 rounded-xl animate-pulse" />
+      <span className="sr-only">Loading store...</span>
+    </div>
+  );
 
   return (
     <div className="max-w-2xl">
