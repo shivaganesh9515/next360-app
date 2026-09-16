@@ -1,29 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import DataTable from '@/components/DataTable';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
+import { useApiData } from '@/hooks/useApiData';
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: res, loading, error, retry } = useApiData<any>(() => vendorApi.getCustomers());
 
-  useEffect(() => {
-    vendorApi.getCustomers().then((res: any) => {
-      // Backend returns array of { id, name, email, phone, totalOrders, totalSpent, lastOrderDate }
-      const raw = Array.isArray(res) ? res : res?.data || [];
-      const mapped = raw.map((c: any) => ({
-        id: c.id,
-        name: c.name || c.user?.name || '—',
-        email: c.email || c.user?.email || '—',
-        phone: c.phone || c.user?.phone || '-',
-        ordersCount: c.totalOrders || c.ordersCount || 0,
-        totalSpent: c.totalSpent || 0,
-        lastOrderAt: c.lastOrderDate || c.lastOrderAt,
-      }));
-      setCustomers(mapped);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  // Backend returns array of { id, name, email, phone, totalOrders, totalSpent, lastOrderDate }
+  const raw = Array.isArray(res) ? res : (res as any)?.data || [];
+  const customers = raw.map((c: any) => ({
+    id: c.id,
+    name: c.name || c.user?.name || '—',
+    email: c.email || c.user?.email || '—',
+    phone: c.phone || c.user?.phone || '-',
+    ordersCount: c.totalOrders || c.ordersCount || 0,
+    totalSpent: c.totalSpent || 0,
+    lastOrderAt: c.lastOrderDate || c.lastOrderAt,
+  }));
 
   const columns = [
     { key: 'name', label: 'Name', render: (item: any) => <span className="font-medium">{item.name}</span> },
@@ -37,7 +32,11 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-slate-900">Customers</h2><p className="text-sm text-slate-500">Your customer base</p></div>
-      <DataTable columns={columns} data={customers} loading={loading} searchable emptyMessage="No customers yet" />
+      {error ? (
+        <ErrorState message={error.message} onRetry={retry} />
+      ) : (
+        <DataTable columns={columns} data={customers} loading={loading} searchable emptyMessage="No customers yet" />
+      )}
     </div>
   );
 }

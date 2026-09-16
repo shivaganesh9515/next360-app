@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
 import { Bell, BellRing, CheckCircle, XCircle, X } from 'lucide-react';
 
@@ -28,6 +29,7 @@ export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialError, setInitialError] = useState<Error | null>(null);
   const [newOrderCount, setNewOrderCount] = useState(0);
   const previousCountRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -41,46 +43,50 @@ export default function OrdersPage() {
     requestNotificationPermission();
   }, []);
 
-  const fetchOrders = useCallback(async (isInitial = false) => {
-    try {
-      const [ordersRes, customersRes] = await Promise.allSettled([
-        vendorApi.getOrdersWithMeta({}),
-        vendorApi.getCustomers(),
-      ]);
-
-      if (customersRes.status === 'fulfilled') {
-        const list = Array.isArray(customersRes.value) ? customersRes.value : [];
+  // Customer names are fetched once on mount, not on every poll tick — the
+  // customer list rarely changes and refetching it every 30s was the bulk of
+  // the orders page's request volume (audit Bug 3).
+  useEffect(() => {
+    vendorApi.getCustomers()
+      .then((list: any) => {
+        const arr = Array.isArray(list) ? list : [];
         const map: Record<string, string> = {};
-        for (const c of list) {
+        for (const c of arr) {
           if (c?.id && c?.name) map[c.id] = c.name;
         }
         setCustomerNames(map);
-      }
+      })
+      .catch(() => {
+        // Names fall back to order.user?.name in the row renderer
+      });
+  }, []);
+
+  const fetchOrders = useCallback(async (isInitial = false) => {
+    try {
+      const ordersRes = await vendorApi.getOrdersWithMeta({});
 
       let normalized: any[] = [];
-      if (ordersRes.status === 'fulfilled') {
-        const res: any = ordersRes.value;
-        // getOrdersWithMeta returns { data: [...], meta: {...} }
-        // The data array may itself be double-nested from the backend interceptor
-        const raw = Array.isArray(res?.data) ? res.data
-          : Array.isArray(res?.data?.data) ? res.data.data
-          : Array.isArray(res) ? res : [];
-        normalized = raw.map((g: any) => ({
-          id: g.id,
-          orderId: g.orderId || g.order?.id,
-          orderNo: g.order?.orderNo || g.id?.slice(0, 8),
-          status: g.status || g.order?.status,
-          customerUserId: g.order?.userId,
-          customerName: g.order?.user?.name,
-          subtotal: g.subtotal,
-          totalAmount: g.subtotal,
-          createdAt: g.order?.createdAt || g.createdAt,
-          paymentStatus: g.order?.paymentStatus,
-          paymentMethod: g.order?.paymentMethod,
-          cancellationReason: g.cancellationReason || g.order?.cancellationReason,
-          items: g.items || [],
-        }));
-      }
+      const res: any = ordersRes;
+      // getOrdersWithMeta returns { data: [...], meta: {...} }
+      // The data array may itself be double-nested from the backend interceptor
+      const raw = Array.isArray(res?.data) ? res.data
+        : Array.isArray(res?.data?.data) ? res.data.data
+        : Array.isArray(res) ? res : [];
+      normalized = raw.map((g: any) => ({
+        id: g.id,
+        orderId: g.orderId || g.order?.id,
+        orderNo: g.order?.orderNo || g.id?.slice(0, 8),
+        status: g.status || g.order?.status,
+        customerUserId: g.order?.userId,
+        customerName: g.order?.user?.name,
+        subtotal: g.subtotal,
+        totalAmount: g.subtotal,
+        createdAt: g.order?.createdAt || g.createdAt,
+        paymentStatus: g.order?.paymentStatus,
+        paymentMethod: g.order?.paymentMethod,
+        cancellationReason: g.cancellationReason || g.order?.cancellationReason,
+        items: g.items || [],
+      }));
 
       if (!isInitial && previousCountRef.current > 0 && normalized.length > previousCountRef.current) {
         const diff = normalized.length - previousCountRef.current;
@@ -98,8 +104,12 @@ export default function OrdersPage() {
 
       previousCountRef.current = normalized.length;
       setOrders(normalized);
+      setInitialError(null);
     } catch (e) {
-      console.error(e);
+      // Poll failure after a successful load keeps the stale list on screen;
+      // initial failure surfaces the error state instead of a fake "no orders".
+      if (isInitial) setInitialError(e instanceof Error ? e : new Error(String(e)));
+      else console.error(e);
     } finally {
       if (isInitial) setLoading(false);
     }
@@ -252,7 +262,14 @@ export default function OrdersPage() {
           )}
         </div>
       </div>
-      <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+      {initialError ? (
+        <ErrorState
+          message={initialError.message}
+          onRetry={() => { setLoading(true); setInitialError(null); fetchOrders(true); }}
+        />
+      ) : (
+        <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+      )}
 
       {/* Cancel Reason Modal */}
       {showRejectModal && (

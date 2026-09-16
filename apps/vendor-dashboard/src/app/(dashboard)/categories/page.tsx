@@ -1,18 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { vendorApi } from '@/lib/api';
 import DataTable from '@/components/DataTable';
+import ErrorState from '@/components/ErrorState';
+import { vendorApi } from '@/lib/api';
+import { useApiData } from '@/hooks/useApiData';
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    vendorApi.getCategories({}).then((res: any) => {
-      setCategories(Array.isArray(res) ? res : res.data || []);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  // Distinguishes "no categories" (empty state) from "request failed" (error
+  // state). The old .catch(() => {}) rendered empty for both, which is how
+  // navigating from an empty page made data pages look empty too (audit Bug 4).
+  const { data: res, loading, error, retry } = useApiData<any>(() => vendorApi.getCategories({}));
+  const categories = Array.isArray(res) ? res : (res as any)?.data || [];
 
   const columns = [
     { key: 'name', label: 'Category' },
@@ -24,7 +22,11 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-slate-900">Categories</h2><p className="text-sm text-slate-500">Categories available in your store type</p></div>
-      <DataTable columns={columns} data={categories} loading={loading} emptyMessage="No categories found" />
+      {error ? (
+        <ErrorState message={error.message} onRetry={retry} />
+      ) : (
+        <DataTable columns={columns} data={categories} loading={loading} emptyMessage="No categories found" />
+      )}
     </div>
   );
 }

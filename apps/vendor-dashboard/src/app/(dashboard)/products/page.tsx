@@ -1,20 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Plus, Pencil, Power, PowerOff, Check, X, DollarSign, AlertTriangle } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 
+const SEARCH_DEBOUNCE_MS = 400;
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce the search input so typing doesn't fire a request per keystroke
+  // (same pattern as inventory; audit Bug 3 called this out for products).
+  const handleSearch = (q: string) => {
+    setSearch(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(q);
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   // Bulk action state
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -25,7 +46,7 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await vendorApi.getProducts({ search, page, limit: 20 });
+      const res = await vendorApi.getProducts({ search: debouncedSearch, page, limit: 20 });
       // Backend double-nests: { data: { data: [...], meta: {...} } }
       const list = Array.isArray(res) ? res
         : Array.isArray((res as any)?.data) ? (res as any).data
@@ -37,13 +58,13 @@ export default function ProductsPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchProducts(); }, [page, search]);
+  useEffect(() => { fetchProducts(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [page, debouncedSearch]);
 
   // Reset selection when page changes or products list changes
   useEffect(() => {
     setSelectedIds(new Set());
     setSelectAll(false);
-  }, [page, search]);
+  }, [page, debouncedSearch]);
 
   const toggleProductSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -253,7 +274,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <DataTable columns={columns} data={products} loading={loading} searchable onSearch={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No products yet. Create your first product!" />
+      <DataTable columns={columns} data={products} loading={loading} searchable onSearch={handleSearch} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No products yet. Create your first product!" />
 
       {/* Price Update Modal */}
       {showPriceModal && (
