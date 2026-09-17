@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Send, HelpCircle, MessageSquare } from 'lucide-react';
+import { vendorApi } from '@/lib/api';
 
 const faqs = [
   { q: 'How do I add a new product?', a: 'Go to Products → Add Product. Fill in the product details, upload images, set price and stock, then save. Products require admin approval before going live.' },
@@ -28,11 +29,10 @@ export default function SupportPage() {
     }
     setSending(true);
     try {
-      // Submit support ticket — endpoint may not exist yet, so catch gracefully
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/support/tickets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('vendor_token') || ''}` },
-        body: JSON.stringify({ subject: form.subject, category: form.category, message: form.message }),
+      await vendorApi.post('/support/tickets', {
+        subject: form.subject,
+        category: form.category,
+        message: form.message,
       });
       setSent(true);
     } catch {
@@ -59,7 +59,7 @@ export default function SupportPage() {
         <div className="space-y-2">
           {faqs.map((faq, idx) => (
             <div key={idx} className="border border-slate-100 rounded-lg overflow-hidden">
-              <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-sm text-left hover:bg-slate-50 transition-colors">
+              <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-sm text-left hover:bg-slate-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
                 <span className="font-medium text-slate-700">{faq.q}</span>
                 {openFaq === idx ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
               </button>
@@ -82,14 +82,14 @@ export default function SupportPage() {
             </div>
             <p className="text-sm font-medium text-emerald-700">Message sent successfully!</p>
             <p className="text-xs text-emerald-600 mt-1">We&apos;ll get back to you within 24 hours.</p>
-            <button onClick={() => { setSent(false); setForm({ subject: '', category: 'general', message: '' }); }} className="mt-4 text-sm text-emerald-600 font-medium hover:text-emerald-700">Send another message</button>
+            <button onClick={() => { setSent(false); setForm({ subject: '', category: 'general', message: '' }); }} className="mt-4 text-sm text-emerald-600 font-medium hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">Send another message</button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm">
+              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                 <option value="general">General Inquiry</option>
                 <option value="orders">Order Issues</option>
                 <option value="payments">Payment & Payouts</option>
@@ -105,7 +105,7 @@ export default function SupportPage() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
               <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} rows={4} required className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none" placeholder="Describe your issue in detail..." />
             </div>
-            <button type="submit" disabled={sending} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={sending} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
               <Send className="w-4 h-4" /> {sending ? 'Sending...' : 'Send Message'}
             </button>
           </form>

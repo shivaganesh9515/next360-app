@@ -274,9 +274,9 @@ export default function DashboardPage() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">          {/* Revenue Chart */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900">{data.revenueLabel}</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{data.revenueLabel}</h3>
             <Link
               href="/analytics"
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
@@ -311,9 +311,9 @@ export default function DashboardPage() {
             </div>
           )}
         </div>          {/* Orders by Status */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900">Orders by Status</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Orders by Status</h3>
             <Link
               href="/orders"
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
@@ -356,9 +356,9 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 card-hover">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900">Recent Orders</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Recent Orders</h3>
             <Link
               href="/orders"
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
@@ -414,8 +414,8 @@ export default function DashboardPage() {
         {/* Quick Actions + Top Products */}
         <div className="space-y-6">
           {/* Quick Actions */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
-            <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Quick Actions</h3>
             <div className="space-y-1" role="list" aria-label="Quick actions">
               {[
                 { href: '/products/add', label: 'Add Product', icon: Package, color: 'emerald' },
@@ -446,9 +446,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Products */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 card-hover">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900">Top Products</h3>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">Top Products</h3>
               <Link
                 href="/products"
                 className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"

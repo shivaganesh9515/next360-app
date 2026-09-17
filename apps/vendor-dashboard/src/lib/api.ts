@@ -158,6 +158,10 @@ export const api = {
 };
 
 export const vendorApi = {
+  // Generic methods (delegated to base api)
+  post: <T>(path: string, body?: any): Promise<T> => api.post<T>(path, body),
+  get: <T>(path: string, params?: any): Promise<T> => api.get<T>(path, params),
+
   // Multipart file upload (product images etc.) — see api.upload for envelope handling
   upload: <T>(path: string, formData: FormData): Promise<T> => api.upload<T>(path, formData),
 

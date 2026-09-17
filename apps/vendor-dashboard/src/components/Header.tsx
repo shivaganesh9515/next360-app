@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, LogOut, Menu, Store } from 'lucide-react';
+import { Bell, LogOut, Menu, Store, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useTheme } from '@/lib/theme';
 import { vendorApi } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
@@ -44,6 +45,7 @@ function titleForPath(pathname: string): string {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, vendorProfile, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,12 +65,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
   }, []);
 
   return (
-    <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+    <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
           <Menu className="w-5 h-5 text-slate-600" />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900">{titleForPath(pathname)}</h1>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{titleForPath(pathname)}</h1>
       </div>
       <div className="flex items-center gap-3">
         <button
@@ -95,13 +97,21 @@ export default function Header({ onMenuClick }: HeaderProps) {
             )}
           </Avatar>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
               {vendorProfile?.storeName || user?.name || 'Vendor'}
               {vendorProfile && <Store className="w-3 h-3 text-slate-400" />}
             </p>
-            <p className="text-xs text-slate-500">{user?.email || ''}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email || ''}</p>
           </div>
         </div>
+        <button
+          onClick={toggleTheme}
+          className="p-2 hover:bg-slate-100 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4 text-slate-500" /> : <Moon className="w-4 h-4 text-slate-500" />}
+        </button>
         <button onClick={logout} className="p-2 hover:bg-slate-100 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500" title="Logout">
           <LogOut className="w-4 h-4 text-slate-500" />
         </button>

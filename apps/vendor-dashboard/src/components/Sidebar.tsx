@@ -73,13 +73,13 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 min-h-screen flex flex-col">
+    <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 min-h-screen flex flex-col">
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">N</span>
           </div>
-          <span className="font-semibold text-slate-900">Next360 Vendor</span>
+          <span className="font-semibold text-slate-900 dark:text-slate-100">Next360 Vendor</span>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -90,7 +90,7 @@ export default function Sidebar() {
                 <button
                   onClick={() => toggleExpand(item.label)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
-                    isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                    isActive(item.href) ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
@@ -104,7 +104,7 @@ export default function Sidebar() {
                         key={sub.href}
                         href={sub.href}
                         className={`block px-3 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
-                          pathname === sub.href ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-500 hover:text-slate-700'
+                          pathname === sub.href ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                         }`}
                       >
                         {sub.label}
@@ -117,7 +117,7 @@ export default function Sidebar() {
               <Link
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
-                  isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                  isActive(item.href) ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
