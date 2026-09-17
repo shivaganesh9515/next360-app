@@ -89,7 +89,7 @@ export default function Sidebar() {
               <>
                 <button
                   onClick={() => toggleExpand(item.label)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
                     isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -103,7 +103,7 @@ export default function Sidebar() {
                       <Link
                         key={sub.href}
                         href={sub.href}
-                        className={`block px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                        className={`block px-3 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
                           pathname === sub.href ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
@@ -116,7 +116,7 @@ export default function Sidebar() {
             ) : (
               <Link
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
                   isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >

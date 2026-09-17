@@ -65,7 +65,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+        <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
           <Menu className="w-5 h-5 text-slate-600" />
         </button>
         <h1 className="text-lg font-semibold text-slate-900">{titleForPath(pathname)}</h1>
@@ -73,7 +73,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push('/notifications')}
-          className="p-2 hover:bg-slate-100 rounded-full relative transition-colors"
+          className="p-2 hover:bg-slate-100 rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
           title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
           aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
         >
@@ -102,7 +102,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <p className="text-xs text-slate-500">{user?.email || ''}</p>
           </div>
         </div>
-        <button onClick={logout} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="Logout">
+        <button onClick={logout} className="p-2 hover:bg-slate-100 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500" title="Logout">
           <LogOut className="w-4 h-4 text-slate-500" />
         </button>
       </div>

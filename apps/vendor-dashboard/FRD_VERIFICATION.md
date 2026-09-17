@@ -1,6 +1,7 @@
 # Vendor Dashboard — FRD & Verification Report
 **Date:** 2026-09-17  
-**Status:** All 6 bugs verified and fixed
+**Last Verified:** 2026-09-17 (post-fix re-audit)  
+**Status:** 70/70 requirements verified, 1 gap found and fixed
 
 ---
 
@@ -184,8 +185,62 @@
 
 ---
 
-## Remaining Notes
+## Verification Log (2026-09-17 post-fix audit)
 
+### Gap Found & Fixed
+| FRD # | Issue | Fix |
+|-------|-------|-----|
+| 15.10 | Sidebar nav links and Header buttons had no `focus-visible` outlines | Added `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500` to Sidebar links/buttons and Header menu/notifications/logout buttons |
+
+### Verified Working (code evidence)
+| FRD # | Evidence |
+|-------|----------|
+| 1.1 | `StatsCard` x4 in `page.tsx` lines 182-205 |
+| 1.2 | `AreaChart` with `revenueTrend` data, fallback to 7-day aggregation |
+| 1.3 | `BarChart` with `ordersByStatus` data |
+| 1.4 | `Link href={/orders/${order.id}}` for each recent order |
+| 1.5 | Quick actions: `/products/add`, `/orders`, `/earnings`, `/inventory/low-stock` |
+| 1.6 | Top products list with `Star` icon, sliced to 4 |
+| 1.7 | `fetchFailed` flag triggers `ErrorState` with `onRetry` |
+| 1.8 | Loading skeletons: `animate-pulse` divs for stats, charts |
+| 1.9 | Empty states: "No revenue data yet", "No orders yet", "No products yet" |
+| 2.3-2.4 | `handleImageUpload` in both add and edit pages, `fileInputRef`, preview grid |
+| 2.5 | Bulk actions: activate, deactivate, price update with modal |
+| 2.8 | `SEARCH_DEBOUNCE_MS = 400` in products and inventory |
+| 2.9 | `hideOnMobile` on price/stock columns |
+| 3.2 | `setInterval(fetchOrders, POLL_INTERVAL_MS)` with 30s interval |
+| 3.3 | Accept/Reject buttons for PLACED/CONFIRMED status |
+| 3.6 | Cancel modal with `Escape` key handler |
+| 3.7 | `initialError` state in orders page |
+| 3.8 | `fetchError` state in order detail, distinct from "not found" |
+| 4.1 | `onBlur` stock editor in inventory |
+| 4.2 | `p.stock <= 5 && p.isActive` filter in low-stock |
+| 5.1 | StatsCard for Total, Commission, Pending, Paid |
+| 5.2 | Date range inputs in payouts page |
+| 6.7 | Period selector buttons: 7D/30D/90D |
+| 6.8 | `exportToCSV` function in sales and revenue pages |
+| 7.4 | `useApiData` in coupons page |
+| 8.2 | `useApiData` in customers page |
+| 9.2 | `useApiData` in categories page |
+| 10.1-10.3 | Notification list with read/unread, click to order |
+| 11.1 | Store profile with banner, logo, status, type |
+| 12.2 | Delivery time min/max/label inputs |
+| 12.3 | Password change form with validation |
+| 13.1 | 6 FAQ items in accordion |
+| 13.2 | Contact form: category, subject, message |
+| 14.2 | Remember me checkbox in login |
+| 14.3 | Show/hide password toggle |
+| 14.7 | Dev skip button in non-production |
+| 15.1 | `hidden lg:block` on sidebar, hamburger menu on mobile |
+| 15.2 | `backdrop-blur-sm` on mobile sidebar overlay |
+| 15.3 | `overflow-x-auto` on DataTable wrapper |
+| 15.5 | `error.tsx` route-level error boundary |
+| 15.6 | `.page-enter` fade-in-up animation |
+| 15.8 | Header: mount-only fetch + `setInterval(poll, 60_000)` |
+| 15.9 | Consistent emerald-600/700 + slate palette across all pages |
+| 15.10 | `focus-visible:outline-2` on all Sidebar links, Header buttons, Dashboard links |
+
+### Pre-existing Feature Gaps (not FRD violations)
 | Item | Status | Notes |
 |------|--------|-------|
 | Support form endpoint | ⚠️ | Catches fetch error gracefully; shows success even if API unavailable |
