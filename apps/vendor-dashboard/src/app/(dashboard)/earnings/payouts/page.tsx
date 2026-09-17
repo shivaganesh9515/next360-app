@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import DataTable from '@/components/DataTable';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
 
 export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
   const fetchPayouts = () => {
     setLoading(true);
+    setError(null);
     const params: Record<string, string> = {};
     if (dateFrom) params.periodStart = dateFrom;
     if (dateTo) params.periodEnd = dateTo;
@@ -29,7 +32,7 @@ export default function PayoutsPage() {
         initiatedAt: p.initiatedAt || p.createdAt,
       }));
       setPayouts(mapped);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch((err) => setError(err instanceof Error ? err : new Error(String(err)))).finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchPayouts(); }, [dateFrom, dateTo]);
@@ -83,7 +86,11 @@ export default function PayoutsPage() {
           </button>
         )}
       </div>
-      <DataTable columns={columns} data={payouts} loading={loading} emptyMessage="No payouts yet" />
+      {error ? (
+        <ErrorState message={error.message} onRetry={fetchPayouts} />
+      ) : (
+        <DataTable columns={columns} data={payouts} loading={loading} emptyMessage="No payouts yet" />
+      )}
     </div>
   );
 }

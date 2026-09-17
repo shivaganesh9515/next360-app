@@ -22,7 +22,9 @@ export default function SettingsPage() {
           deliveryLabel: profile.deliveryLabel ?? '',
         });
       }
-    }).catch(() => {});
+    }).catch(() => {
+      // Non-critical: delivery defaults are already set in state
+    });
   }, []);
 
   const handlePasswordChange = async (e: React.FormEvent) => {

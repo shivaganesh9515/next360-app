@@ -24,6 +24,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [fetchError, setFetchError] = useState<Error | null>(null);
 
   // Cancel modal state
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -31,9 +32,16 @@ export default function OrderDetailPage() {
   const [customReason, setCustomReason] = useState('');
 
   const fetchOrder = async () => {
-    try { const res = await vendorApi.getOrder(String(params.id)); setOrder(res); }
-    catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const res = await vendorApi.getOrder(String(params.id));
+      setOrder(res);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchOrder(); }, [params.id]);
@@ -89,6 +97,28 @@ export default function OrderDetailPage() {
         ))}
       </div>
       <span className="sr-only">Loading order details...</span>
+    </div>
+  );
+  if (fetchError && !order) return (
+    <div className="max-w-4xl">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/orders" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"><ArrowLeft className="w-5 h-5 text-slate-600" /></Link>
+        <div><h2 className="text-xl font-bold text-slate-900">Order</h2></div>
+      </div>
+      <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200" role="alert">
+        <div className="w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center mb-3">
+          <AlertTriangle className="w-5 h-5 text-rose-500" aria-hidden="true" />
+        </div>
+        <p className="text-sm font-medium text-slate-700">Couldn&apos;t load order</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-xs">{fetchError.message}</p>
+        <button
+          type="button"
+          onClick={fetchOrder}
+          className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors duration-150"
+        >
+          Retry
+        </button>
+      </div>
     </div>
   );
   if (!order) return (

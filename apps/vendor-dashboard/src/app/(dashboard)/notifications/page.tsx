@@ -2,21 +2,35 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, CheckCheck } from 'lucide-react';
+import { Bell, CheckCheck, RotateCcw } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
 
 export default function NotificationsPage() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     vendorApi.getNotifications().then((res: any) => {
       // Backend returns { notifications: [...], total, unreadCount } or an array
       const items = res?.notifications || (Array.isArray(res) ? res : []);
-      setNotifications(Array.isArray(items) ? items : []);
-    }).catch(() => {}).finally(() => setLoading(false));
+      if (!cancelled) setNotifications(Array.isArray(items) ? items : []);
+    }).catch((err) => {
+      if (!cancelled) setError(err instanceof Error ? err : new Error(String(err)));
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  const retry = () => {
+    setLoading(true);
+    setError(null);
+    vendorApi.getNotifications().then((res: any) => {
+      const items = res?.notifications || (Array.isArray(res) ? res : []);
+      setNotifications(Array.isArray(items) ? items : []);
+    }).catch((err) => setError(err instanceof Error ? err : new Error(String(err)))).finally(() => setLoading(false));
+  };
 
   const handleClick = async (n: any) => {
     // Mark as read first
@@ -50,6 +64,31 @@ export default function NotificationsPage() {
       <span className="sr-only">Loading notifications...</span>
     </div>
   );
+
+  if (error) {
+    return (
+      <div className="max-w-3xl">
+        <div className="flex items-center justify-between mb-6">
+          <div><h2 className="text-xl font-bold text-slate-900">Notifications</h2></div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16 text-center" role="alert">
+          <div className="w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center mb-3">
+            <Bell className="w-5 h-5 text-rose-500" aria-hidden="true" />
+          </div>
+          <p className="text-sm font-medium text-slate-700">Couldn&apos;t load notifications</p>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs">{error.message}</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors duration-150"
+          >
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl">

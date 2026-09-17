@@ -17,6 +17,8 @@ interface Column<T> {
   label: React.ReactNode;
   sortable?: boolean;
   render?: (item: T) => React.ReactNode;
+  /** Hide on screens smaller than this breakpoint. 'sm' = hide below 640px */
+  hideOnMobile?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -56,7 +58,7 @@ export default function DataTable<T extends Record<string, any>>({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       {searchable && (
         <div className="p-4 border-b border-slate-100">
           <div className="relative max-w-sm">
@@ -71,12 +73,15 @@ export default function DataTable<T extends Record<string, any>>({
           </div>
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-px">
         <Table>
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
-                <TableHead key={col.key} className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <TableHead
+                  key={col.key}
+                  className={`text-xs font-medium text-slate-500 uppercase tracking-wider ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}`}
+                >
                   {col.label}
                 </TableHead>
               ))}
@@ -100,7 +105,10 @@ export default function DataTable<T extends Record<string, any>>({
                   className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : ''}
                 >
                   {columns.map((col) => (
-                    <TableCell key={col.key} className="text-sm text-slate-700">
+                    <TableCell
+                      key={col.key}
+                      className={`text-sm text-slate-700 ${col.hideOnMobile ? 'hidden sm:table-cell' : ''}`}
+                    >
                       {col.render ? col.render(item) : item[col.key]}
                     </TableCell>
                   ))}

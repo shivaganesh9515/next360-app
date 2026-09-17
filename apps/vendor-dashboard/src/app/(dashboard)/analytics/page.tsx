@@ -3,13 +3,17 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, DollarSign, ShoppingCart, Download, Clock, Zap, TrendingDown } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  const loadAnalytics = () => {
+    setLoading(true);
+    setError(null);
     vendorApi.getAnalytics('30d').then((res: any) => {
       // Backend returns { totalOrders, totalRevenue, avgOrderValue, orderStatusBreakdown, monthlyRevenue, recentOrders, ... }
       // Transform to what the frontend expects
@@ -31,9 +35,12 @@ export default function AnalyticsPage() {
         ordersByStatus: data.orderStatusBreakdown
           ? Object.entries(data.orderStatusBreakdown).map(([status, count]: [string, any]) => ({ status, count: Number(count) }))
           : [],
+        deliveryPerformance: data.deliveryPerformance || null,
       });
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    }).catch((err) => setError(err instanceof Error ? err : new Error(String(err)))).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadAnalytics(); }, []);
 
   if (loading) return (
     <div className="space-y-4" role="status" aria-label="Loading analytics">
@@ -46,6 +53,15 @@ export default function AnalyticsPage() {
       <span className="sr-only">Loading analytics...</span>
     </div>
   );
+
+  if (error && !analytics) {
+    return (
+      <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>
+        <ErrorState message={error.message} onRetry={loadAnalytics} />
+      </div>
+    );
+  }
 
   const exportCsv = () => {
     if (!analytics) return;

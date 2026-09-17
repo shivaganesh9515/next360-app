@@ -29,7 +29,9 @@ export default function EditProductPage() {
         });
         setImageUrls(p.images || []);
       }),
-    ]).catch(() => {}).finally(() => setFetching(false));
+    ]).catch((err) => {
+      setError(err instanceof Error ? err.message : 'Failed to load product');
+    }).finally(() => setFetching(false));
   }, [params.id]);
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });

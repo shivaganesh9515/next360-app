@@ -139,13 +139,13 @@ export default function OrdersPage() {
 
   const columns = [
     { key: 'orderNo', label: 'Order #', render: (item: any) => <span className="font-mono text-sm font-medium">{item.orderNo}</span> },
-    { key: 'customer', label: 'Customer', render: (item: any) => {
+    { key: 'customer', label: 'Customer', hideOnMobile: true, render: (item: any) => {
       const name = item.customerName || (item.customerUserId ? customerNames[item.customerUserId] : undefined);
       return name
         ? <span className="text-sm text-slate-700">{name}</span>
         : <span className="text-slate-400 text-xs" title="Customer name not available">—</span>;
     } },
-    { key: 'items', label: 'Items', render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
+    { key: 'items', label: 'Items', hideOnMobile: true, render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount || 0).toLocaleString()}</span> },
     { key: 'status', label: 'Status', render: (item: any) => (
       <div className="flex items-center gap-1.5">
@@ -157,8 +157,8 @@ export default function OrdersPage() {
         )}
       </div>
     ) },
-    { key: 'paymentMethod', label: 'Payment', render: (item: any) => <span className="text-xs text-slate-500">{item.paymentMethod || '—'}</span> },
-    { key: 'createdAt', label: 'Date', render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
+    { key: 'paymentMethod', label: 'Payment', hideOnMobile: true, render: (item: any) => <span className="text-xs text-slate-500">{item.paymentMethod || '—'}</span> },
+    { key: 'createdAt', label: 'Date', hideOnMobile: true, render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
     {
       key: 'actions', label: 'Actions', render: (item: any) => {
         if (item.status === 'PLACED' || item.status === 'CONFIRMED') {

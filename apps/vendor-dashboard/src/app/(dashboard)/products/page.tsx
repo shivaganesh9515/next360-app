@@ -188,8 +188,8 @@ export default function ProductsPage() {
         </div>
       </div>
     )},
-    { key: 'price', label: 'Price', render: (item: any) => <span>₹{Number(item.price).toLocaleString()}</span> },
-    { key: 'stock', label: 'Stock' },
+    { key: 'price', label: 'Price', hideOnMobile: true, render: (item: any) => <span>₹{Number(item.price).toLocaleString()}</span> },
+    { key: 'stock', label: 'Stock', hideOnMobile: true },
     { key: 'isActive', label: 'Status', render: (item: any) => <StatusBadge status={item.isActive ? 'ACTIVE' : 'INACTIVE'} /> },
     { key: 'actions', label: '', render: (item: any) => (
       <div className="flex gap-2 justify-end">

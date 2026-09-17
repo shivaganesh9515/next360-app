@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Clock, CheckCircle, TrendingUp } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
 
 // Platform spec default commission rate (CLAUDE.md) when the backend
@@ -12,15 +13,19 @@ const SPEC_DEFAULT_COMMISSION_RATE = 15;
 export default function EarningsPage() {
   const [earnings, setEarnings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    // GET /vendors/me/earnings returns { totalEarnings, paid, pending, pendingPayout, ... }
-    // after interceptor unwrap. Commission rate comes from vendor profile (commissionPct).
-    Promise.allSettled([
-      vendorApi.getEarnings(),
-      vendorApi.getMyProfile(),
-      vendorApi.getTransactionsWithMeta({ page: 1, limit: 1 }),
-    ]).then(([earningsRes, profileRes, txRes]) => {
+  const loadEarnings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // GET /vendors/me/earnings returns { totalEarnings, paid, pending, pendingPayout, ... }
+      // after interceptor unwrap. Commission rate comes from vendor profile (commissionPct).
+      const [earningsRes, profileRes, txRes] = await Promise.allSettled([
+        vendorApi.getEarnings(),
+        vendorApi.getMyProfile(),
+        vendorApi.getTransactionsWithMeta({ page: 1, limit: 1 }),
+      ]);
       const res: any = earningsRes.status === 'fulfilled' ? earningsRes.value : {};
       const profile: any = profileRes.status === 'fulfilled' ? profileRes.value : {};
       const tx: any = txRes.status === 'fulfilled' ? txRes.value : {};
@@ -33,8 +38,27 @@ export default function EarningsPage() {
         commissionRate: res.commissionRate ?? profile?.commissionPct ?? SPEC_DEFAULT_COMMISSION_RATE,
         totalOrders,
       });
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+      // Only surface error when ALL three failed (partial data is still useful)
+      if (earningsRes.status === 'rejected' && profileRes.status === 'rejected' && txRes.status === 'rejected') {
+        throw earningsRes.reason;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadEarnings(); }, []);
+
+  if (error && !earnings) {
+    return (
+      <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-slate-900">Earnings</h2><p className="text-sm text-slate-500">Track your revenue and payouts</p></div>
+        <ErrorState message={error.message} onRetry={loadEarnings} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

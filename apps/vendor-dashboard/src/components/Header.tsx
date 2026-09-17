@@ -48,11 +48,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Fetch once on mount, then every 60s — no longer re-fires on every
+  // navigation (was the main contributor to Bug 3's excessive requests).
   useEffect(() => {
-    vendorApi.getUnreadCount()
-      .then((res) => setUnreadCount(res?.count || 0))
-      .catch(() => setUnreadCount(0));
-  }, [pathname]);
+    let cancelled = false;
+    const poll = () => {
+      vendorApi.getUnreadCount()
+        .then((res) => { if (!cancelled) setUnreadCount(res?.count || 0); })
+        .catch(() => {}); // silent — unread count is non-critical
+    };
+    poll();
+    const id = setInterval(poll, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">

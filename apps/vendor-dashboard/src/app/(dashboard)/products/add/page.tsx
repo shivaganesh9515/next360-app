@@ -18,7 +18,9 @@ export default function AddProductPage() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    vendorApi.getCategories().then(res => setCategories(Array.isArray(res) ? res : res.data || [])).catch(() => {});
+    vendorApi.getCategories().then(res => setCategories(Array.isArray(res) ? res : res.data || [])).catch(() => {
+      // Non-critical: category dropdown will be empty but form still works
+    });
   }, []);
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });

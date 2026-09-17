@@ -5,20 +5,36 @@ import Link from 'next/link';
 import { Edit3, Store } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
+import ErrorState from '@/components/ErrorState';
 
 export default function StoreProfilePage() {
   const [vendor, setVendor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    vendorApi.getMyProfile().then((res: any) => setVendor(res)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const loadProfile = () => {
+    setLoading(true);
+    setError(null);
+    vendorApi.getMyProfile().then((res: any) => setVendor(res)).catch((err) => {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadProfile(); }, []);
 
   if (loading) return (
     <div className="space-y-4" role="status" aria-label="Loading store profile">
       <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
       <div className="h-64 bg-slate-100 rounded-xl animate-pulse" />
       <span className="sr-only">Loading store profile...</span>
+    </div>
+  );
+  if (error) return (
+    <div className="max-w-2xl">
+      <div className="flex items-center justify-between mb-6">
+        <div><h2 className="text-xl font-bold text-slate-900">Store Profile</h2></div>
+      </div>
+      <ErrorState message={error.message} onRetry={loadProfile} />
     </div>
   );
   if (!vendor) return (

@@ -21,7 +21,8 @@ export default function EditStorePage() {
       description: res.description || '',
       razorpayAccountId: res.razorpayAccountId || '',
     }))
-      .catch(() => {}).finally(() => setLoading(false));
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load store profile'))
+      .finally(() => setLoading(false));
   }, []);
 
   const validateRazorpayId = (id: string): string => {

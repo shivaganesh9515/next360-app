@@ -36,8 +36,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 h-full">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute left-0 top-0 h-full animate-in slide-in-from-left duration-200">
             <Sidebar />
           </div>
         </div>
