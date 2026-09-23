@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { deliveryApi } from '../lib/api';
+import { deliveryApi, API_BASE } from '../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../constants/theme';
 import { useSpringEntrance } from '../hooks/useDeliveryAnimation';
 
@@ -105,7 +105,7 @@ export default function KycDocumentsScreen() {
         uri: asset.uri, name: asset.fileName || 'document.jpg', type: asset.mimeType || 'image/jpeg',
       } as any);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api'}/upload/image`,
+        `${API_BASE}/upload/image`,
         { method: 'POST', body: formData, headers: { 'Content-Type': 'multipart/form-data' } },
       );
       const data = await response.json();

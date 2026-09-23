@@ -168,14 +168,14 @@ export default function DataTable<T extends Record<string, any>>({
             <button
               onClick={() => onPageChange?.(page - 1)}
               disabled={page <= 1}
-              className="p-1 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => onPageChange?.(page + 1)}
               disabled={page >= totalPages}
-              className="p-1 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

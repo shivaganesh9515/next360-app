@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { formatDeliveryFee } from '../../lib/pricing';
@@ -21,6 +22,7 @@ export default function DashboardScreen() {
   } = useDeliveryStore();
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const insets = useSafeAreaInsets();
 
   const headerAnim = useSpringEntrance(0);
   const availAnim = useSpringEntrance(100);
@@ -50,7 +52,7 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + Spacing.lg }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />}
         showsVerticalScrollIndicator={false}
       >
@@ -261,7 +263,9 @@ function OrderCard({ order, type, index = 0 }: { order: any; type: 'new' | 'acti
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scrollContent: { padding: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: 100 },
+  // paddingTop is overridden inline with useSafeAreaInsets() — see render() — to clear
+  // the status bar/notch since this tab renders with headerShown: false.
+  scrollContent: { padding: Spacing.lg, paddingBottom: 100 },
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xxl },
   headerLeft: {},

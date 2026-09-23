@@ -2,9 +2,40 @@ import { Injectable, NotFoundException, ConflictException, ForbiddenException, B
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../audit/audit.service';
+import { UploadService } from '../upload/upload.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
-import { StoreType } from '@prisma/client';
+import { StoreType, SellerType, VendorKycDocumentType, VendorKycDocumentStatus } from '@prisma/client';
+
+// Documents every seller type must submit, plus store-type-specific
+// certifications. Individual sellers have one logical bank-proof requirement;
+// business sellers must submit the two separate banking documents below.
+const DOCUMENT_LABELS: Record<VendorKycDocumentType, string> = {
+  PAN: 'PAN Card',
+  AADHAAR: 'Aadhaar Card',
+  GST_CERTIFICATE: 'GST Certificate',
+  FSSAI_LICENSE: 'FSSAI License',
+  NPOP_CERTIFICATE: 'NPOP Certificate',
+  BANK_STATEMENT: 'Bank Statement',
+  CANCELLED_CHEQUE: 'Cancelled Cheque',
+  BANK_PASSBOOK: 'Bank Passbook',
+};
+
+const INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES: VendorKycDocumentType[] = [
+  'CANCELLED_CHEQUE',
+  'BANK_PASSBOOK',
+];
+
+function getRequiredDocumentTypes(sellerType: SellerType, storeType: StoreType): VendorKycDocumentType[] {
+  const docs: VendorKycDocumentType[] = ['PAN'];
+  docs.push(sellerType === 'BUSINESS' ? 'GST_CERTIFICATE' : 'AADHAAR');
+  // FSSAI applies to every seller classification. NPOP is required only for
+  // Organic classification, and must not block Natural or Eco-Friendly sellers.
+  docs.push('FSSAI_LICENSE');
+  if (storeType === 'ORGANIC') docs.push('NPOP_CERTIFICATE');
+  if (sellerType === 'BUSINESS') docs.push('BANK_STATEMENT', 'CANCELLED_CHEQUE');
+  return docs;
+}
 
 @Injectable()
 export class VendorsService {
@@ -14,6 +45,7 @@ export class VendorsService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private auditService: AuditService,
+    private uploadService: UploadService,
   ) {}
 
   async register(userId: string, dto: CreateVendorDto) {
@@ -78,15 +110,21 @@ export class VendorsService {
     if (storeType) where.storeType = storeType;
     if (isApproved !== undefined) where.status = isApproved ? 'APPROVED' : 'PENDING';
 
-    return this.prisma.vendor.findMany({
+    const vendors = await this.prisma.vendor.findMany({
       where,
       include: {
         user: { select: { id: true, email: true, name: true } },
         zone: { select: { name: true, city: true } },
         _count: { select: { products: true } },
+        kycDocuments: { select: { documentType: true, status: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return vendors.map(({ kycDocuments, ...vendor }) => ({
+      ...vendor,
+      kycStatus: this.deriveKycStatus(vendor.sellerType, getRequiredDocumentTypes(vendor.sellerType, vendor.storeType), kycDocuments),
+    }));
   }
 
   async findOne(id: string) {
@@ -116,6 +154,301 @@ export class VendorsService {
     return this.prisma.vendor.update({ where: { id }, data: dto });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  VENDOR KYC + STORE PROFILE COMPLETION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Derives the vendor's overall KYC status from its individual document
+   * reviews. Document-level statuses are the source of truth — there is no
+   * separate stored "vendor KYC status" field to drift out of sync.
+   */
+  private deriveKycStatus(
+    sellerType: SellerType,
+    requiredTypes: VendorKycDocumentType[],
+    documents: { documentType: VendorKycDocumentType; status: VendorKycDocumentStatus }[],
+  ): 'INCOMPLETE' | 'PENDING_REVIEW' | 'REJECTED' | 'VERIFIED' {
+    const byType = new Map(documents.map((d) => [d.documentType, d.status]));
+    const bankProofDocuments = documents.filter((d) => INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES.includes(d.documentType));
+
+    const missing = requiredTypes.some((t) => !byType.has(t)) || (sellerType === 'INDIVIDUAL' && bankProofDocuments.length === 0);
+    if (missing) return 'INCOMPLETE';
+
+    const relevantStatuses = [
+      ...requiredTypes.map((t) => byType.get(t)!),
+    ];
+    // A single approved proof satisfies an individual seller's logical bank
+    // requirement. If no proof is approved, a pending/expired proof remains
+    // in review; it is rejected only when every uploaded option was rejected.
+    if (sellerType === 'INDIVIDUAL') {
+      if (bankProofDocuments.some((d) => d.status === 'APPROVED')) relevantStatuses.push('APPROVED');
+      else if (bankProofDocuments.some((d) => d.status === 'PENDING' || d.status === 'EXPIRED')) relevantStatuses.push('PENDING');
+      else relevantStatuses.push('REJECTED');
+    }
+
+    if (relevantStatuses.some((s) => s === 'REJECTED')) return 'REJECTED';
+    if (relevantStatuses.some((s) => s === 'PENDING' || s === 'EXPIRED')) return 'PENDING_REVIEW';
+    return 'VERIFIED';
+  }
+
+  /**
+   * Dynamic profile completion % — recomputed on every read from the
+   * vendor's current fields and documents rather than stored, so it can
+   * never go stale.
+   */
+  private computeProfileCompletion(
+    vendor: { storeName: string; description: string | null; ownerName: string | null; address: string | null; city: string | null; state: string | null; pincode: string | null; bankAccountName: string | null; bankAccountNumber: string | null; bankIfsc: string | null; bankName: string | null; sellerType: SellerType; storeType: StoreType },
+    documents: { documentType: VendorKycDocumentType; status: VendorKycDocumentStatus }[],
+  ) {
+    const requiredTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+    const uploadedTypes = new Set(documents.map((d) => d.documentType));
+    const hasBankProof = documents.some((d) => INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES.includes(d.documentType));
+
+    const items = [
+      { key: 'storeBasics', label: 'Store name & description', done: !!(vendor.storeName && vendor.description) },
+      { key: 'ownerName', label: 'Owner / contact name', done: !!vendor.ownerName },
+      { key: 'address', label: 'Business address', done: !!(vendor.address && vendor.city && vendor.state && vendor.pincode) },
+      { key: 'bankDetails', label: 'Bank account details', done: !!(vendor.bankAccountName && vendor.bankAccountNumber && vendor.bankIfsc && vendor.bankName) },
+      ...requiredTypes.map((t) => ({ key: `doc_${t}`, label: DOCUMENT_LABELS[t], done: uploadedTypes.has(t) })),
+      ...(vendor.sellerType === 'INDIVIDUAL'
+        ? [{ key: 'bankProof', label: 'Bank account proof', done: hasBankProof }]
+        : []),
+    ];
+
+    const doneCount = items.filter((i) => i.done).length;
+    return {
+      percent: Math.round((doneCount / items.length) * 100),
+      items,
+    };
+  }
+
+  /**
+   * Full KYC + profile overview for the vendor's own dashboard: uploaded
+   * documents, dynamic completion %, and the derived overall KYC status.
+   */
+  async getMyKycOverview(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const documents = await this.prisma.vendorKycDocument.findMany({
+      where: { vendorId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const requiredTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+    const kycStatus = this.deriveKycStatus(vendor.sellerType, requiredTypes, documents);
+    const completion = this.computeProfileCompletion(vendor as any, documents);
+
+    return {
+      kycStatus,
+      kycSubmittedAt: vendor.kycSubmittedAt,
+      requiredDocumentTypes: requiredTypes,
+      bankProofDocumentTypes: vendor.sellerType === 'INDIVIDUAL' ? INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES : [],
+      documentLabels: DOCUMENT_LABELS,
+      documents: documents.map((d) => ({
+        id: d.id,
+        documentType: d.documentType,
+        label: DOCUMENT_LABELS[d.documentType],
+        fileName: d.fileName,
+        mimeType: d.mimeType,
+        fileSize: d.fileSize,
+        status: d.status,
+        rejectionReason: d.rejectionReason,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+      })),
+      profileCompletion: completion,
+    };
+  }
+
+  async uploadKycDocument(vendorId: string, documentType: VendorKycDocumentType, file: Express.Multer.File) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const requiredTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+    const allowedTypes = vendor.sellerType === 'INDIVIDUAL'
+      ? [...requiredTypes, ...INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES]
+      : requiredTypes;
+    if (!allowedTypes.includes(documentType)) {
+      throw new BadRequestException(`${DOCUMENT_LABELS[documentType]} is not required for this seller type and store type`);
+    }
+
+    if (vendor.sellerType === 'INDIVIDUAL' && INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES.includes(documentType)) {
+      const otherProof = await this.prisma.vendorKycDocument.findFirst({
+        where: {
+          vendorId,
+          documentType: { in: INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES.filter((type) => type !== documentType) },
+          status: { not: 'REJECTED' },
+        },
+      });
+      if (otherProof) {
+        throw new ConflictException(`Bank Account Proof is already uploaded as ${DOCUMENT_LABELS[otherProof.documentType]}. Replace that document instead.`);
+      }
+    }
+
+    const existing = await this.prisma.vendorKycDocument.findUnique({
+      where: { vendorId_documentType: { vendorId, documentType } },
+    });
+    if (existing && existing.status === 'APPROVED') {
+      throw new ConflictException(`${DOCUMENT_LABELS[documentType]} is already verified and cannot be re-uploaded`);
+    }
+
+    const uploaded = await this.uploadService.uploadVendorKycDocument(file, vendorId);
+
+    const document = await this.prisma.vendorKycDocument.upsert({
+      where: { vendorId_documentType: { vendorId, documentType } },
+      create: {
+        vendorId,
+        documentType,
+        storageKey: uploaded.storageKey,
+        fileName: uploaded.fileName,
+        mimeType: uploaded.mimeType,
+        fileSize: uploaded.fileSize,
+        status: 'PENDING',
+      },
+      update: {
+        storageKey: uploaded.storageKey,
+        fileName: uploaded.fileName,
+        mimeType: uploaded.mimeType,
+        fileSize: uploaded.fileSize,
+        status: 'PENDING',
+        rejectionReason: null,
+        reviewedBy: null,
+        reviewedAt: null,
+      },
+    });
+
+    // Best-effort cleanup of the previous file so storage doesn't leak.
+    if (existing && existing.storageKey !== document.storageKey) {
+      this.uploadService.deleteVendorKycDocument(existing.storageKey).catch(() => {});
+    }
+
+    return document;
+  }
+
+  async getKycDocumentSignedUrl(vendorId: string, documentId: string) {
+    const document = await this.prisma.vendorKycDocument.findFirst({
+      where: { id: documentId, vendorId },
+    });
+    if (!document) throw new NotFoundException('Document not found');
+    return { url: await this.uploadService.getSignedKycDocumentUrl(document.storageKey) };
+  }
+
+  async submitForVerification(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const documents = await this.prisma.vendorKycDocument.findMany({ where: { vendorId } });
+    const requiredTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+    const hasBankProof = documents.some((d) => INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES.includes(d.documentType));
+    const missingTypes = requiredTypes.filter((t) => !documents.some((d) => d.documentType === t));
+
+    if (missingTypes.length > 0 || (vendor.sellerType === 'INDIVIDUAL' && !hasBankProof)) {
+      const missingLabels = [
+        ...missingTypes.map((t) => DOCUMENT_LABELS[t]),
+        ...(vendor.sellerType === 'INDIVIDUAL' && !hasBankProof ? ['Bank Account Proof (Cancelled Cheque or Bank Passbook)'] : []),
+      ];
+      throw new BadRequestException(`Please upload all required documents before submitting: ${missingLabels.join(', ')}`);
+    }
+
+    const updated = await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: { kycSubmittedAt: new Date() },
+    });
+
+    try {
+      await this.notificationsService.sendAdminKycPendingAlert(vendor.storeName, 'KYC documents');
+      await this.notificationsService.sendVendorKycSubmittedNotification(vendor.userId);
+    } catch (error: any) {
+      this.logger.error(`KYC submission notification failed: ${error.message}`);
+    }
+
+    return updated;
+  }
+
+  /**
+   * Admin: list a vendor's KYC documents for review.
+   */
+  async getVendorKycDocumentsForAdmin(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const documents = await this.prisma.vendorKycDocument.findMany({
+      where: { vendorId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const requiredTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+
+    return {
+      kycStatus: this.deriveKycStatus(vendor.sellerType, requiredTypes, documents),
+      kycSubmittedAt: vendor.kycSubmittedAt,
+      requiredDocumentTypes: requiredTypes,
+      bankProofDocumentTypes: vendor.sellerType === 'INDIVIDUAL' ? INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES : [],
+      documentLabels: DOCUMENT_LABELS,
+      documents: documents.map((d) => ({ ...d, label: DOCUMENT_LABELS[d.documentType] })),
+    };
+  }
+
+  async adminGetKycDocumentSignedUrl(vendorId: string, documentId: string) {
+    return this.getKycDocumentSignedUrl(vendorId, documentId);
+  }
+
+  async adminReviewKycDocument(
+    vendorId: string,
+    documentId: string,
+    adminId: string,
+    status: VendorKycDocumentStatus,
+    rejectionReason?: string,
+  ) {
+    const document = await this.prisma.vendorKycDocument.findFirst({ where: { id: documentId, vendorId } });
+    if (!document) throw new NotFoundException('Document not found');
+
+    if (status === 'REJECTED' && !rejectionReason) {
+      throw new BadRequestException('Rejection reason is required when rejecting a document');
+    }
+
+    const updated = await this.prisma.vendorKycDocument.update({
+      where: { id: documentId },
+      data: {
+        status,
+        rejectionReason: status === 'REJECTED' ? rejectionReason : null,
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      },
+    });
+
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+
+    await this.auditService.log({
+      adminId,
+      action: status === 'APPROVED' ? 'APPROVE_VENDOR_KYC_DOCUMENT' : 'REJECT_VENDOR_KYC_DOCUMENT',
+      resource: 'VendorKycDocument',
+      resourceId: documentId,
+      details: { vendorId, documentType: document.documentType, rejectionReason },
+    });
+
+    if (vendor) {
+      try {
+        if (status === 'APPROVED') {
+          await this.notificationsService.sendVendorKycDocumentApprovedNotification(
+            vendor.userId,
+            DOCUMENT_LABELS[document.documentType],
+          );
+        } else if (status === 'REJECTED') {
+          await this.notificationsService.sendVendorKycDocumentRejectedNotification(
+            vendor.userId,
+            DOCUMENT_LABELS[document.documentType],
+            rejectionReason,
+          );
+        }
+      } catch (error: any) {
+        this.logger.error(`Vendor KYC document notification failed: ${error.message}`);
+      }
+    }
+
+    return updated;
+  }
+
   async updateStatus(id: string, status: string, adminId?: string) {
     const vendor = await this.findOne(id);
     const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'];
@@ -124,6 +457,11 @@ export class VendorsService {
     }
 
     const newStatus = status.toUpperCase();
+
+    if (newStatus === 'APPROVED' && vendor.status !== 'APPROVED') {
+      await this.assertKycVerifiedForApproval(id);
+    }
+
     const updated = await this.prisma.vendor.update({
       where: { id },
       data: { status: newStatus as any },
@@ -185,10 +523,20 @@ export class VendorsService {
     });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
-    // Fetch KYC records associated with the vendor's user
-    const kyc = await this.prisma.kYC.findUnique({
-      where: { userId: vendor.userId },
+    const kycDocuments = await this.prisma.vendorKycDocument.findMany({
+      where: { vendorId: id },
+      orderBy: { createdAt: 'desc' },
     });
+    const requiredDocumentTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+    const vendorKyc = {
+      kycStatus: this.deriveKycStatus(vendor.sellerType, requiredDocumentTypes, kycDocuments),
+      kycSubmittedAt: vendor.kycSubmittedAt,
+      requiredDocumentTypes,
+      bankProofDocumentTypes: vendor.sellerType === 'INDIVIDUAL' ? INDIVIDUAL_BANK_PROOF_DOCUMENT_TYPES : [],
+      documentLabels: DOCUMENT_LABELS,
+      documents: kycDocuments.map((d) => ({ ...d, label: DOCUMENT_LABELS[d.documentType] })),
+    };
+    const completion = this.computeProfileCompletion(vendor as any, kycDocuments);
 
     const [orderAgg, productAgg, commissionAgg, recentOrders, payoutAgg, monthlyRevenue] =
       await Promise.all([
@@ -286,9 +634,19 @@ export class VendorsService {
         storeName: vendor.storeName,
         storeSlug: vendor.storeSlug,
         storeType: vendor.storeType,
+        sellerType: vendor.sellerType,
         description: vendor.description,
         logoUrl: vendor.logoUrl,
         bannerUrl: vendor.bannerUrl,
+        ownerName: vendor.ownerName,
+        address: vendor.address,
+        city: vendor.city,
+        state: vendor.state,
+        pincode: vendor.pincode,
+        bankAccountName: vendor.bankAccountName,
+        bankAccountNumber: vendor.bankAccountNumber,
+        bankIfsc: vendor.bankIfsc,
+        bankName: vendor.bankName,
         status: vendor.status,
         commissionPct: vendor.commissionPct,
         razorpayAccountId: vendor.razorpayAccountId,
@@ -296,7 +654,8 @@ export class VendorsService {
         createdAt: vendor.createdAt,
       },
       owner: vendor.user,
-      kyc: kyc || null,
+      vendorKyc,
+      profileCompletion: completion,
       performance: {
         totalOrders,
         totalRevenue,
@@ -325,21 +684,39 @@ export class VendorsService {
     };
   }
 
+  /**
+   * Gate for both approve() and updateStatus('APPROVED', ...): a vendor's
+   * KYC documents (VendorKycDocument — separate from the shared KYC model
+   * used by Delivery Partners) must all be APPROVED before the store can go
+   * live.
+   */
+  private async assertKycVerifiedForApproval(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const documents = await this.prisma.vendorKycDocument.findMany({ where: { vendorId } });
+    const requiredTypes = getRequiredDocumentTypes(vendor.sellerType, vendor.storeType);
+    const kycStatus = this.deriveKycStatus(vendor.sellerType, requiredTypes, documents);
+
+    if (kycStatus !== 'VERIFIED') {
+      const reasons: Record<string, string> = {
+        INCOMPLETE: 'the vendor has not uploaded all required KYC documents',
+        PENDING_REVIEW: 'one or more KYC documents are still pending review',
+        REJECTED: 'one or more KYC documents were rejected and need resubmission',
+      };
+      throw new BadRequestException(
+        `Cannot approve vendor: ${reasons[kycStatus]}. KYC must be fully verified before approval.`,
+      );
+    }
+  }
+
   async approve(id: string, adminId?: string) {
     const vendor = await this.findOne(id);
     if (vendor.status === 'APPROVED') {
       throw new ConflictException('Vendor is already approved');
     }
 
-    const kyc = await this.prisma.kYC.findUnique({
-      where: { userId: vendor.userId },
-    });
-
-    if (!kyc || kyc.status !== 'VERIFIED') {
-      throw new BadRequestException(
-        `Cannot approve vendor: KYC is ${kyc?.status?.toLowerCase() || 'not submitted'}. KYC must be VERIFIED before approval.`,
-      );
-    }
+    await this.assertKycVerifiedForApproval(id);
 
     const updated = await this.prisma.vendor.update({
       where: { id },
@@ -380,21 +757,25 @@ export class VendorsService {
     });
   }
 
-  async getVendorProducts(vendorId: string, page = 1, limit = 20) {
+  async getVendorProducts(vendorId: string, page = 1, limit = 20, search?: string) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
     const skip = (page - 1) * limit;
+    const where = {
+      vendorId,
+      ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
+    };
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
-        where: { vendorId },
+        where,
         skip,
         take: limit,
         include: { category: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.product.count({ where: { vendorId } }),
+      this.prisma.product.count({ where }),
     ]);
 
     return {

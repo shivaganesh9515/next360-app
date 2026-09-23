@@ -3,17 +3,23 @@
 import { useState, useEffect } from 'react';
 import { Package, RefreshCw, RotateCcw } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 export default function LowStockPage() {
+  const { vendorProfile } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchProducts = async () => {
+    const vendorId = vendorProfile?.id;
+    if (!vendorId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await vendorApi.getProducts({ limit: 100 });
+      // Scoped to this vendor's own products — /products (unscoped) returns
+      // the whole platform catalog, showing every vendor's low-stock items.
+      const res = await vendorApi.getVendorProducts(vendorId, { limit: 100 });
       // Backend double-nests: { data: { data: [...], meta: {...} } }
       const all = Array.isArray(res) ? res
         : Array.isArray((res as any)?.data) ? (res as any).data
@@ -26,7 +32,7 @@ export default function LowStockPage() {
     }
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => { fetchProducts(); }, [vendorProfile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const restock = async (id: string, currentStock: number) => {
     try { await vendorApi.updateProduct(id, { stock: currentStock + 50 }); fetchProducts(); }

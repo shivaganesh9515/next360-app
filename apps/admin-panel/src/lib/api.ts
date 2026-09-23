@@ -137,6 +137,13 @@ export const adminApi = {
   updateVendor: (vendorId: string, data: any) =>
     api.patch<any>(`/vendors/${vendorId}`, data),
 
+  // Vendor KYC documents (admin review)
+  getVendorKycDocuments: (vendorId: string) => api.get<any>(`/vendors/${vendorId}/kyc/documents`),
+  getVendorKycDocumentUrl: (vendorId: string, documentId: string) =>
+    api.get<{ url: string }>(`/vendors/${vendorId}/kyc/documents/${documentId}/url`),
+  reviewVendorKycDocument: (vendorId: string, documentId: string, status: string, rejectionReason?: string) =>
+    api.patch<any>(`/vendors/${vendorId}/kyc/documents/${documentId}/review`, { status, rejectionReason }),
+
   // Delivery Partners
   getDeliveryPartners: (params?: any) => api.get<any>('/delivery-partners', params),
   getDeliveryPartner: (id: string) => api.get<any>(`/delivery-partners/${id}`),

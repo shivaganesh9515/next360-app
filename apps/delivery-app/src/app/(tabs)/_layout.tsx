@@ -2,18 +2,23 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../../constants/theme';
 
 export default function TabLayout() {
   const { newOrders } = useDeliveryStore();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.white,
         tabBarInactiveTintColor: Colors.textTertiary,
-        tabBarStyle: styles.tabBar,
+        // Floating tab bar uses position: 'absolute', which opts it out of React
+        // Navigation's automatic bottom-inset handling — add insets.bottom manually
+        // so it doesn't sit under the home indicator.
+        tabBarStyle: [styles.tabBar, { bottom: insets.bottom + 16 }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarShowLabel: true,

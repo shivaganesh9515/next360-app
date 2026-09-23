@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StoreType, CartItem } from '../types';
+import { StoreType, CartItem, Product } from '../types';
 import { customerApi } from './api';
 
 const STORE_KEY = 'selected_store_type';
@@ -15,10 +15,12 @@ interface StoreContextType {
   lastAddedProductId: string | null;
   fetchCart: () => Promise<void>;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
-  updateCartItem: (itemId: string, quantity: number) => Promise<void>;
-  removeCartItem: (itemId: string) => Promise<void>;
+  // Keyed by productId, not the CartItem row's own id — matches the real
+  // PATCH/DELETE /cart/items/:productId routes (see api.ts).
+  updateCartItem: (productId: string, quantity: number) => Promise<void>;
+  removeCartItem: (productId: string) => Promise<void>;
   clearCart: () => Promise<void>;
-  incrementCart: () => void;
+  incrementCart: (product: Product) => void;
 
   wishlistCount: number;
   fetchWishlistCount: () => Promise<void>;
@@ -26,8 +28,18 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
+// CartService.findAll() (apps/api/src/cart/cart.service.ts) returns
+// `{ items, total }`, not a bare array or `{ data: [...] }` — the previous
+// `res?.data ?? []` fallback never matched that shape, so every successful
+// fetchCart() silently wiped the cart back to empty right after the optimistic
+// placeholder was added, leaving that placeholder's blank "Product"/₹0 row as
+// the only thing ever shown. The demo-cart fallback (api.ts) returns a bare
+// array, which Array.isArray already covers.
 function unwrap<T>(res: any): T[] {
-  return Array.isArray(res) ? res : (res?.data ?? []);
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -69,13 +81,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await fetchCart();
   }, [fetchCart]);
 
-  const updateCartItem = useCallback(async (itemId: string, quantity: number) => {
-    await customerApi.updateCartItem(itemId, quantity);
+  const updateCartItem = useCallback(async (productId: string, quantity: number) => {
+    await customerApi.updateCartItem(productId, quantity);
     await fetchCart();
   }, [fetchCart]);
 
-  const removeCartItem = useCallback(async (itemId: string) => {
-    await customerApi.removeCartItem(itemId);
+  const removeCartItem = useCallback(async (productId: string) => {
+    await customerApi.removeCartItem(productId);
     await fetchCart();
   }, [fetchCart]);
 
@@ -85,9 +97,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Optimistic bump for the inline "+" quick-add on product cards — a real fetchCart
-  // follow-up (via addToCart) reconciles the true count shortly after.
-  const incrementCart = useCallback(() => {
-    setCartItems((prev) => [...prev, { id: `optimistic-${Date.now()}` } as CartItem]);
+  // follow-up (via addToCart) reconciles the true state shortly after. Carries the
+  // real product so the cart sheet never shows a blank "Product"/₹0 row during that
+  // brief window; bumps quantity on the existing row if it's already in the cart
+  // instead of adding a second one.
+  const incrementCart = useCallback((product: Product) => {
+    setCartItems((prev) => {
+      const existing = prev.find((item) => item.productId === product.id);
+      if (existing) {
+        return prev.map((item) => (
+          item.productId === product.id ? { ...item, quantity: (item.quantity || 1) + 1 } : item
+        ));
+      }
+      return [...prev, {
+        id: `optimistic-${Date.now()}`,
+        productId: product.id,
+        product,
+        quantity: 1,
+        createdAt: new Date().toISOString(),
+      }];
+    });
   }, []);
 
   const fetchWishlistCount = useCallback(async () => {

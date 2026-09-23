@@ -1,13 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Easing, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 import { useShimmer } from '../hooks/useDeliveryAnimation';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 function ShimmerBlock({ width, height, borderRadius = BorderRadius.sm, style }: { width: number | string; height: number; borderRadius?: number; style?: any }) {
-  const resolvedWidth = typeof width === 'number' ? width : SCREEN_WIDTH * 0.7;
+  const { width: screenWidth } = useWindowDimensions();
+  const resolvedWidth = typeof width === 'number' ? width : screenWidth * 0.7;
   const { translateX } = useShimmer(resolvedWidth);
 
   return (

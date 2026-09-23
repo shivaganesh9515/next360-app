@@ -5,10 +5,12 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Trash2, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { vendorApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
+  const { vendorProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -19,8 +21,10 @@ export default function EditProductPage() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
+    if (!vendorProfile?.storeType) return;
     Promise.all([
-      vendorApi.getCategories().then(res => setCategories(Array.isArray(res) ? res : res.data || [])),
+      // Only offer categories that belong to this vendor's own store type.
+      vendorApi.getCategories({ storeType: vendorProfile.storeType }).then(res => setCategories(Array.isArray(res) ? res : res.data || [])),
       vendorApi.getProduct(String(params.id)).then((p: any) => {
         setForm({
           name: p.name, description: p.description || '', categoryId: p.categoryId || '',
@@ -32,7 +36,7 @@ export default function EditProductPage() {
     ]).catch((err) => {
       setError(err instanceof Error ? err.message : 'Failed to load product');
     }).finally(() => setFetching(false));
-  }, [params.id]);
+  }, [params.id, vendorProfile?.storeType]);
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });
 
@@ -65,7 +69,7 @@ export default function EditProductPage() {
       await vendorApi.updateProduct(String(params.id), {
         name: form.name, description: form.description || undefined, categoryId: form.categoryId || undefined,
         price: parseFloat(form.price), compareAtPrice: form.compareAtPrice ? parseFloat(form.compareAtPrice) : undefined,
-        unit: form.unit, stock: parseInt(form.stock), sku: form.sku || undefined, isActive: form.isActive,
+        unit: form.unit, stock: parseInt(form.stock), isActive: form.isActive,
         images: imageUrls,
       });
       router.push('/products');

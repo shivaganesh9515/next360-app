@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, X, Plus, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { vendorApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 export default function AddProductPage() {
   const router = useRouter();
+  const { vendorProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -18,10 +20,14 @@ export default function AddProductPage() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    vendorApi.getCategories().then(res => setCategories(Array.isArray(res) ? res : res.data || [])).catch(() => {
+    // Only offer categories that belong to this vendor's own store type —
+    // a NATURAL vendor shouldn't be able to list a product under an
+    // ORGANIC or ECO_FRIENDLY category.
+    if (!vendorProfile?.storeType) return;
+    vendorApi.getCategories({ storeType: vendorProfile.storeType }).then(res => setCategories(Array.isArray(res) ? res : res.data || [])).catch(() => {
       // Non-critical: category dropdown will be empty but form still works
     });
-  }, []);
+  }, [vendorProfile?.storeType]);
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });
 
@@ -67,7 +73,6 @@ export default function AddProductPage() {
         compareAtPrice: form.compareAtPrice ? parseFloat(form.compareAtPrice) : undefined,
         unit: form.unit,
         stock: parseInt(form.stock),
-        sku: form.sku || undefined,
         isActive: form.isActive,
         images: imageUrls.length > 0 ? imageUrls : undefined,
         variants: variants.filter(v => v.name).map(v => ({ name: v.name, price: parseFloat(v.price) || 0, stock: parseInt(v.stock) || 0, sku: v.sku || undefined })),
@@ -79,7 +84,7 @@ export default function AddProductPage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/products" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"><ArrowLeft className="w-5 h-5 text-slate-600" /></Link>
         <div><h2 className="text-xl font-bold text-slate-900">Add Product</h2><p className="text-sm text-slate-500">Create a new product listing</p></div>

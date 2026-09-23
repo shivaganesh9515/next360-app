@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, Loader2, CheckCheck, X } from 'lucide-react';
+import { Store, Loader2, CheckCheck, ShieldCheck, X } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
@@ -184,10 +184,18 @@ export default function VendorsPage() {
       );
     }},
     { key: 'status', label: 'Status', render: (v: any) => <StatusBadge status={v.status} /> },
+    { key: 'kycStatus', label: 'KYC', render: (v: any) => <StatusBadge status={v.kycStatus || 'INCOMPLETE'} /> },
     { key: 'productsCount', label: 'Products', render: (v: any) => v._count?.products || v.productsCount || 0 },
     { key: 'createdAt', label: 'Joined', render: (v: any) => new Date(v.createdAt).toLocaleDateString() },
     { key: 'actions', label: 'Actions', render: (v: any) => (
       <div className="flex gap-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); router.push(`/vendors/${v.id}`); }}
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+          title="Review uploaded KYC documents"
+        >
+          <ShieldCheck className="w-3 h-3" /> Review KYC
+        </button>
         {v.status === 'PENDING' && (
           <>
             <button

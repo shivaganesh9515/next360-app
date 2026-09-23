@@ -15,9 +15,14 @@ import BigButton from '../../components/BigButton';
 
 const GOOGLE_LOGO = require('../../../assets/images/google-logo.png');
 
-// Cost-saving auth: phone OTP (DLT) removed for Customer App to save SMS spend.
-// Only Google remains as primary login (Apple removed for now). Phone flow hidden behind
-// ENABLE_PHONE_AUTH flag — Delivery App still uses phone OTP.
+// Reverted: the backend deliberately disables these endpoints (410 Gone —
+// see auth.service.ts sendOtp/verifyOtpLogin, "Customer app is Google-only +
+// COD-only for MVP... SMS spend... partner audit OTP findings out of scope
+// by design"). Turning this frontend flag on without a matching backend
+// meant every login silently fell through to a fake client-only demo token
+// that the real API always rejects — every guarded call 401'd right after
+// "logging in". Do not re-enable without first shipping the backend OTP
+// support this depends on.
 const ENABLE_PHONE_AUTH = false;
 const COUNTRY_CODE = '+91';
 
@@ -174,7 +179,11 @@ export default function PhoneAuthScreen({ navigation }: any) {
                     onSubmitEditing={handleContinue}
                   />
                 </View>
-                {!!error && <Text style={s.error} accessibilityLiveRegion="polite">{error}</Text>}
+                {!!error ? (
+                  <Text style={s.error} accessibilityLiveRegion="polite">{error}</Text>
+                ) : (
+                  <Text style={s.fieldHint}>We&rsquo;ll text you a 6-digit code to verify.</Text>
+                )}
 
                 <BigButton
                   label={t('common.continue')}
@@ -303,8 +312,15 @@ const s = StyleSheet.create({
   fieldError: { borderColor: Colors.error },
   prefix: { ...Typography.body, color: Colors.text, fontFamily: 'Inter_600SemiBold' },
   prefixDivider: { width: 1, height: 20, backgroundColor: '#E2E8F0', marginHorizontal: 12 },
-  input: { flex: 1, ...Typography.body, color: Colors.text, padding: 0 },
+  input: {
+    flex: 1, ...Typography.body, color: Colors.text, padding: 0,
+    // react-native-web renders TextInput as a real <input>, which shows its
+    // own native border/focus box by default — same fix already applied to
+    // VerificationCodeScreen's OTP boxes.
+    ...Platform.select({ web: { borderWidth: 0, outlineStyle: 'none' as any, outlineWidth: 0 } }),
+  },
   error: { ...Typography.caption, color: Colors.error, marginTop: 8, marginLeft: 4 },
+  fieldHint: { ...Typography.caption, color: Colors.textSecondary, marginTop: 8, marginLeft: 4 },
 
   terms: {
     ...Typography.caption,

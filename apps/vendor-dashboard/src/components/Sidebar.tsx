@@ -14,11 +14,11 @@ const navItems = [
   { href: '/products', label: 'Products', icon: Package, subItems: [
     { href: '/products', label: 'All Products' },
     { href: '/products/add', label: 'Add Product' },
-    { href: '/categories', label: 'Categories' },
   ]},
   { href: '/inventory', label: 'Inventory', icon: ClipboardList, subItems: [
     { href: '/inventory', label: 'Stock Management' },
     { href: '/inventory/low-stock', label: 'Low Stock Alerts' },
+    { href: '/inventory/categories', label: 'Categories' },
   ]},
   { href: '/orders', label: 'Orders', icon: ShoppingCart, subItems: [
     { href: '/orders', label: 'All Orders' },
@@ -73,10 +73,10 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 min-h-screen flex flex-col">
-      <div className="p-4 border-b border-slate-200">
+    <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky top-0 h-screen flex flex-col shrink-0">
+      <div className="h-16 px-4 border-b border-slate-200 dark:border-slate-700 flex items-center shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-sm">N</span>
           </div>
           <span className="font-semibold text-slate-900 dark:text-slate-100">Next360 Vendor</span>

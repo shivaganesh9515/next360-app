@@ -102,8 +102,9 @@ export class OrdersController {
   cancel(
     @CurrentUser() user: { id: string; role: string },
     @Param('id') id: string,
+    @Body('reason') reason?: string,
   ) {
-    return this.ordersService.cancel(user.id, user.role, id);
+    return this.ordersService.cancel(user.id, user.role, id, undefined, reason);
   }
 
   @Post(':id/groups/:groupId/cancel')
@@ -112,8 +113,9 @@ export class OrdersController {
     @CurrentUser() user: { id: string; role: string },
     @Param('id') id: string,
     @Param('groupId') groupId: string,
+    @Body('reason') reason?: string,
   ) {
-    return this.ordersService.cancel(user.id, user.role, id, groupId);
+    return this.ordersService.cancel(user.id, user.role, id, groupId, reason);
   }
 
   @Post(':id/assign')

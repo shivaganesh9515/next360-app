@@ -13,7 +13,7 @@ import { vendorApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, AreaChart, Area, Legend
+  ResponsiveContainer, AreaChart, Area, Legend, Cell
 } from 'recharts';
 
 interface DashboardData {
@@ -22,23 +22,83 @@ interface DashboardData {
   lowStockCount: number;
   pendingPayout: number;
   recentOrders: any[];
-  revenueTrend: { period: string; revenue: number }[];
-  revenueLabel: string;
+  orderList: any[];
   ordersByStatus: { status: string; count: number }[];
   topProducts: any[];
   fetchFailed: boolean;
 }
 
-const EMPTY_DATA: Omit<DashboardData, 'revenueTrend' | 'revenueLabel'> = {
+const EMPTY_DATA: DashboardData = {
   newOrders: 0,
   revenueToday: 0,
   lowStockCount: 0,
   pendingPayout: 0,
   recentOrders: [],
+  orderList: [],
   ordersByStatus: [],
   topProducts: [],
   fetchFailed: false,
 };
+
+type RevenuePeriod = 'today' | '7d' | '30d';
+
+const REVENUE_PERIOD_OPTIONS: { value: RevenuePeriod; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: '7 Days' },
+  { value: '30d', label: '30 Days' },
+];
+
+// Aggregates the raw vendor-group order list into chart buckets for the
+// selected period — computed client-side from real order timestamps rather
+// than trusting a separately-shaped analytics endpoint (which previously
+// mislabeled its own bucket granularity).
+function computeRevenueTrend(orderList: any[], period: RevenuePeriod): { period: string; revenue: number }[] {
+  const isRevenueEligible = (o: any) => o.status !== 'CANCELLED' && o.status !== 'REFUNDED';
+  const getDate = (o: any) => {
+    const d = o.order?.createdAt || o.createdAt;
+    return d ? new Date(d) : null;
+  };
+
+  if (period === 'today') {
+    const buckets: { period: string; revenue: number }[] = [];
+    for (let hour = 0; hour < 24; hour += 2) {
+      const label = new Date(2000, 0, 1, hour).toLocaleTimeString('en-IN', { hour: 'numeric', hour12: true });
+      buckets.push({ period: label, revenue: 0 });
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    orderList.forEach((o) => {
+      if (!isRevenueEligible(o)) return;
+      const d = getDate(o);
+      if (!d || d < today) return;
+      const bucketIndex = Math.floor(d.getHours() / 2);
+      buckets[bucketIndex].revenue += Number(o.subtotal || 0);
+    });
+    return buckets;
+  }
+
+  const days = period === '7d' ? 7 : 30;
+  const result: { period: string; revenue: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const dayStart = new Date();
+    dayStart.setDate(dayStart.getDate() - i);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const dayRevenue = orderList
+      .filter((o) => {
+        if (!isRevenueEligible(o)) return false;
+        const d = getDate(o);
+        return d && d >= dayStart && d < dayEnd;
+      })
+      .reduce((sum, o) => sum + Number(o.subtotal || 0), 0);
+    result.push({
+      period: dayStart.toLocaleDateString('en-IN', days === 7 ? { weekday: 'short' } : { day: '2-digit', month: 'short' }),
+      revenue: dayRevenue,
+    });
+  }
+  return result;
+}
 
 // Static color map for quick actions — dynamic `bg-${color}-50` class names
 // are purged by Tailwind in production, so every class must appear literally.
@@ -65,8 +125,10 @@ const READY_FOR_PICKUP_COLOR = '#0EA5E9';
 
 export default function DashboardPage() {
   const { vendorProfile } = useAuth();
-  const [data, setData] = useState<DashboardData>({ ...EMPTY_DATA, revenueTrend: [], revenueLabel: '' });
+  const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
+  const [revenuePeriod, setRevenuePeriod] = useState<RevenuePeriod>('7d');
+  const revenueTrend = computeRevenueTrend(data.orderList, revenuePeriod);
 
   useEffect(() => {
     loadDashboard();
@@ -123,43 +185,6 @@ export default function DashboardPage() {
       // Earnings: backend returns { pendingPayout, ... } (₹)
       const pendingPayout = Number(earningsData?.pendingPayout || earningsData?.pendingEarnings || 0);
 
-      // Revenue trend. The analytics endpoint returns monthlyRevenue buckets,
-      // so label the chart honestly as months (audit Bug 1: the chart claimed
-      // "days" while plotting months). Falls back to the vendor-group list
-      // when analytics didn't load.
-      const monthly = analyticsData?.monthlyRevenue;
-      let revenueTrend: { period: string; revenue: number }[] = [];
-      let revenueLabel = 'Revenue (Last 7 Days)';
-      if (Array.isArray(monthly) && monthly.length > 0) {
-        revenueTrend = monthly.slice(-7).map((m: any) => ({
-          period: m.month ? new Date(m.month + '-01').toLocaleDateString('en-IN', { month: 'short' }) : '',
-          revenue: Number(m.revenue || 0),
-        }));
-        revenueLabel = 'Revenue by Month';
-      } else {
-        // Fallback: aggregate the vendor-group list we already have, last 7 days
-        const days: { period: string; revenue: number }[] = [];
-        for (let i = 6; i >= 0; i--) {
-          const dayStart = new Date();
-          dayStart.setDate(dayStart.getDate() - i);
-          dayStart.setHours(0, 0, 0, 0);
-          const dayEnd = new Date(dayStart);
-          dayEnd.setDate(dayEnd.getDate() + 1);
-          const dayRevenue = orderList
-            .filter((o: any) => {
-              const d = o.order?.createdAt || o.createdAt;
-              const cancelled = o.status === 'CANCELLED' || o.status === 'REFUNDED';
-              return d && !cancelled && new Date(d) >= dayStart && new Date(d) < dayEnd;
-            })
-            .reduce((sum: number, o: any) => sum + Number(o.subtotal || 0), 0);
-          days.push({
-            period: dayStart.toLocaleDateString('en-IN', { weekday: 'short' }),
-            revenue: dayRevenue,
-          });
-        }
-        revenueTrend = days;
-      }
-
       // Status breakdown from analytics, fallback: tally the visible order list
       const ordersByStatus = analyticsData?.orderStatusBreakdown
         ? Object.entries(analyticsData.orderStatusBreakdown).map(([status, count]: [string, any]) => ({ status, count }))
@@ -185,8 +210,7 @@ export default function DashboardPage() {
         lowStockCount: productList.filter((p: any) => p.stock !== undefined && p.stock <= 5).length,
         pendingPayout,
         recentOrders: orderList.slice(0, 5),
-        revenueTrend,
-        revenueLabel,
+        orderList,
         ordersByStatus,
         topProducts,
         fetchFailed,
@@ -228,7 +252,7 @@ export default function DashboardPage() {
           message="The server didn't respond. Your store data hasn't changed — this is a connection issue."
           onRetry={() => {
             setLoading(true);
-            setData({ ...EMPTY_DATA, revenueTrend: [], revenueLabel: '' });
+            setData(EMPTY_DATA);
             loadDashboard();
           }}
         />
@@ -263,6 +287,7 @@ export default function DashboardPage() {
           label="Low Stock"
           value={data.lowStockCount}
           accent="rose"
+          href="/inventory/low-stock"
         />
         <StatsCard
           icon={TrendingUp}
@@ -275,18 +300,37 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">          {/* Revenue Chart */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{data.revenueLabel}</h3>
-            <Link
-              href="/analytics"
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press"
-            >
-              View details
-            </Link>
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Revenue</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1" role="group" aria-label="Revenue period">
+                {REVENUE_PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRevenuePeriod(opt.value)}
+                    aria-pressed={revenuePeriod === opt.value}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors duration-150 cursor-pointer ${
+                      revenuePeriod === opt.value
+                        ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <Link
+                href="/analytics"
+                className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors duration-150 btn-press whitespace-nowrap"
+              >
+                View details
+              </Link>
+            </div>
           </div>
-          {data.revenueTrend.length > 0 ? (
+          {revenueTrend.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={data.revenueTrend} aria-label={`Area chart showing ${data.revenueLabel.toLowerCase()}`}>
+              <AreaChart data={revenueTrend} aria-label={`Area chart showing revenue for ${revenuePeriod === 'today' ? 'today' : revenuePeriod === '7d' ? 'the last 7 days' : 'the last 30 days'}`}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
@@ -325,7 +369,13 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.ordersByStatus} layout="vertical" aria-label="Horizontal bar chart showing orders by status">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="#E2E8F0" />
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  domain={[0, (max: number) => Math.max(5, Math.ceil(max))]}
+                  tick={{ fontSize: 11, fill: '#94A3B8' }}
+                  stroke="#E2E8F0"
+                />
                 <YAxis
                   type="category"
                   dataKey="status"
@@ -339,7 +389,7 @@ export default function DashboardPage() {
                 />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                   {data.ordersByStatus.map((entry, index) => (
-                    <rect key={`cell-${index}`} fill={STATUS_COLORS[entry.status] || READY_FOR_PICKUP_COLOR} />
+                    <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.status] || READY_FOR_PICKUP_COLOR} />
                   ))}
                 </Bar>
               </BarChart>
@@ -356,7 +406,7 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 card-hover flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">Recent Orders</h3>
             <Link
@@ -368,13 +418,17 @@ export default function DashboardPage() {
           </div>
           {data.recentOrders.length > 0 ? (
             <div className="space-y-1" role="list" aria-label="Recent orders">
-              {data.recentOrders.map((order: any) => (
+              {data.recentOrders.map((order: any) => {
+                const orderNo = order.order?.orderNo || order.orderNo || order.id?.slice(0, 8);
+                const customerName = order.order?.user?.name || order.customer?.name || order.user?.name || 'Customer';
+                const createdAt = order.order?.createdAt || order.createdAt;
+                return (
                 <Link
                   key={order.id}
                   href={`/orders/${order.id}`}
                   className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
                   role="listitem"
-                  aria-label={`Order ${order.orderNo || order.id?.slice(0, 8)} - ₹${Number(order.subtotal || 0).toLocaleString('en-IN')}`}
+                  aria-label={`Order ${orderNo} - ₹${Number(order.subtotal || 0).toLocaleString('en-IN')}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -382,10 +436,10 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-slate-700">
-                        #{order.orderNo || order.id?.slice(0, 8)}
+                        #{orderNo}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {order.customer?.name || order.user?.name || 'Customer'}
+                        {customerName}
                       </p>
                     </div>
                   </div>
@@ -395,18 +449,27 @@ export default function DashboardPage() {
                         ₹{Number(order.subtotal || 0).toLocaleString('en-IN')}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                        {createdAt ? new Date(createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
                       </p>
                     </div>
                     <StatusBadge status={order.status} />
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <div className="text-center py-10 text-slate-400">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-10">
               <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-40" aria-hidden="true" />
               <p className="text-sm">No orders yet</p>
+            </div>
+          )}
+          {data.orderList.length > data.recentOrders.length && (
+            <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-slate-400">
+              <span>Showing {data.recentOrders.length} of {data.orderList.length} orders</span>
+              <Link href="/orders" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                View all orders
+              </Link>
             </div>
           )}
         </div>

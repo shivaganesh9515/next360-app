@@ -56,16 +56,17 @@ import { ThrottlerGuard } from './common/guards/throttler.guard';
         url: process.env.REDIS_URL || 'redis://localhost:6379',
       },
     }),
+    // Single named throttler only. NestJS's global guard checks EVERY route
+    // against EVERY registered throttler unless the route opts out — a second
+    // 'auth' throttler here was silently capping the whole API (categories,
+    // orders, everything) at 5 requests/minute, not just the login endpoints
+    // it was meant for. Routes that need a stricter cap override 'default'
+    // locally via @Throttle({ default: { ... } }) instead of adding a new name.
     ThrottlerModule.forRoot([
       {
         name: 'default',
         ttl: 1000,
-        limit: 10,
-      },
-      {
-        name: 'auth',
-        ttl: 60000,
-        limit: 5,
+        limit: 30,
       },
     ]),
     ScheduleModule.forRoot(),

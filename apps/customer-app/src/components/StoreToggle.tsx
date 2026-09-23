@@ -60,17 +60,31 @@ function SwatchPill({ store, isActive, onPress }: { store: StoreType; isActive: 
   );
 }
 
+// Per the PRD's non-negotiable rule: Organic is platform-verified (NPOP),
+// Natural/Eco-friendly are the seller's own claim. Shown compactly as one
+// line for whichever store is currently selected, not a badge per pill.
+const TRUST_LINE: Record<StoreType, string> = {
+  [StoreType.ORGANIC]: 'NPOP Verified',
+  [StoreType.NATURAL]: 'Self-declared',
+  [StoreType.ECO_FRIENDLY]: 'Self-declared',
+};
+
 export default function StoreToggle({ selected, onSelect }: Props) {
   return (
-    <View style={styles.container}>
-      {STORES.map((store) => (
-        <SwatchPill
-          key={store}
-          store={store}
-          isActive={store === selected}
-          onPress={() => onSelect(store)}
-        />
-      ))}
+    <View>
+      <View style={styles.container}>
+        {STORES.map((store) => (
+          <SwatchPill
+            key={store}
+            store={store}
+            isActive={store === selected}
+            onPress={() => onSelect(store)}
+          />
+        ))}
+      </View>
+      <Text style={[styles.trustLine, { color: getStoreAccent(selected) }]}>
+        {getStoreLabel(selected)} · {TRUST_LINE[selected]}
+      </Text>
     </View>
   );
 }
@@ -101,5 +115,12 @@ const styles = StyleSheet.create({
   label: {
     ...Typography.bodySmall,
     fontWeight: '600',
+  },
+  trustLine: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    letterSpacing: 0.2,
   },
 });

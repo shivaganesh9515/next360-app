@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { vendorApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 
@@ -9,6 +10,7 @@ const PAGE_LIMIT = 20;
 const SEARCH_DEBOUNCE_MS = 400;
 
 export default function InventoryPage() {
+  const { vendorProfile } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -35,9 +37,13 @@ export default function InventoryPage() {
   }, []);
 
   const fetchProducts = async () => {
+    const vendorId = vendorProfile?.id;
+    if (!vendorId) return;
     setLoading(true);
     try {
-      const res = await vendorApi.getProducts({ search: debouncedSearch || undefined, page, limit: PAGE_LIMIT });
+      // Scoped to this vendor's own products — /products (unscoped) returns
+      // the whole platform catalog, showing every vendor's stock here.
+      const res = await vendorApi.getVendorProducts(vendorId, { search: debouncedSearch || undefined, page, limit: PAGE_LIMIT });
       // Backend double-nests: { data: { data: [...], meta: {...} } }
       const list = Array.isArray(res) ? res
         : Array.isArray((res as any)?.data) ? (res as any).data
@@ -49,7 +55,7 @@ export default function InventoryPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchProducts(); }, [debouncedSearch, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchProducts(); }, [debouncedSearch, page, vendorProfile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStock = async (id: string, rawValue: string, currentStock: number) => {
     setStockError(null);

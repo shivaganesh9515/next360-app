@@ -35,7 +35,10 @@ export interface Category {
   name: string;
   slug: string;
   storeType: StoreType;
-  image?: string;
+  // Matches the backend's real field name (prisma Category.imageUrl) — was
+  // previously named `image` here, which never matched the API response and
+  // meant every category silently fell back to the same generic icon.
+  imageUrl?: string;
   description?: string;
   parentId?: string;
   isActive: boolean;
@@ -56,7 +59,17 @@ export interface Product {
   categoryId: string;
   category?: Category;
   vendorId: string;
-  vendor?: { id: string; storeName: string; deliveryTimeMin?: number; deliveryTimeMax?: number; deliveryLabel?: string };
+  vendor?: {
+    id: string;
+    storeName: string;
+    deliveryTimeMin?: number;
+    deliveryTimeMax?: number;
+    deliveryLabel?: string;
+    // True only when the vendor has an admin-approved NPOP_CERTIFICATE on file
+    // (see products.service.ts withNpopVerified) — drives the "NPOP Verified"
+    // badge. Absent/false must never be presented as certified.
+    isNpopVerified?: boolean;
+  };
   rating?: number;
   reviewCount?: number;
   certification?: string; // e.g. 'USDA Organic', 'India Organic', 'Non-GMO'

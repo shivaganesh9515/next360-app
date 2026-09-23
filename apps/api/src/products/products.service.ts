@@ -4,6 +4,16 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
 
+// Collapses vendor.kycDocuments (an approved-NPOP-certificate lookup, see the
+// `kycDocuments` select above) into a plain boolean the customer app can
+// trust for the "NPOP Verified" badge — Organic products from a vendor
+// without an admin-approved certificate must never render as verified.
+function withNpopVerified<T extends { vendor?: { kycDocuments?: { id: string }[] } | null }>(product: T): T {
+  if (!product.vendor) return product;
+  const { kycDocuments, ...vendor } = product.vendor as any;
+  return { ...product, vendor: { ...vendor, isNpopVerified: (kycDocuments?.length ?? 0) > 0 } };
+}
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
@@ -37,10 +47,23 @@ export class ProductsService {
         isActive: dto.isActive ?? true,
         // New products require admin approval before appearing in public listings
         isApproved: dto.isApproved ?? false,
+        ...(dto.variants && dto.variants.length > 0
+          ? {
+              variants: {
+                create: dto.variants.map((v) => ({
+                  name: v.name,
+                  price: v.price,
+                  stock: v.stock ?? 0,
+                  sku: v.sku || null,
+                })),
+              },
+            }
+          : {}),
       },
       include: {
         category: { select: { name: true } },
         vendor: { select: { storeName: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
+        variants: true,
       },
     });
   }
@@ -107,7 +130,17 @@ export class ProductsService {
         orderBy,
         include: {
           category: { select: { id: true, name: true, slug: true } },
-          vendor: { select: { id: true, storeName: true, storeSlug: true, deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true } },
+          vendor: {
+            select: {
+              id: true, storeName: true, storeSlug: true,
+              deliveryTimeMin: true, deliveryTimeMax: true, deliveryLabel: true,
+              kycDocuments: {
+                where: { documentType: 'NPOP_CERTIFICATE', status: 'APPROVED' },
+                select: { id: true },
+                take: 1,
+              },
+            },
+          },
           _count: { select: { reviews: true } },
         },
       }),
@@ -115,7 +148,7 @@ export class ProductsService {
     ]);
 
     return {
-      data: products,
+      data: products.map(withNpopVerified),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -134,6 +167,11 @@ export class ProductsService {
             storeSlug: true,
             logoUrl: true,
             status: true,
+            kycDocuments: {
+              where: { documentType: 'NPOP_CERTIFICATE', status: 'APPROVED' },
+              select: { id: true },
+              take: 1,
+            },
           },
         },
         variants: true,
@@ -147,7 +185,7 @@ export class ProductsService {
     });
 
     if (!product) throw new NotFoundException('Product not found');
-    return product;
+    return withNpopVerified(product);
   }
 
   async update(userId: string, productId: string, dto: UpdateProductDto) {
@@ -166,7 +204,9 @@ export class ProductsService {
     // Strip isApproved from the update data — product approval must go through
     // the dedicated PATCH /products/:id/approve endpoint (admin-only) to prevent
     // vendors from self-approving their own products.
-    const { isApproved, ...safeDto } = dto;
+    // Strip variants too — Prisma's nested-write shape for updating a relation
+    // isn't a bare array, and there's no variant-editing endpoint yet.
+    const { isApproved, variants, ...safeDto } = dto;
 
     return this.prisma.product.update({
       where: { id: productId },

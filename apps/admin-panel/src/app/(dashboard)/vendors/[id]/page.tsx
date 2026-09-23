@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Store, Save, Loader2, DollarSign, ShoppingCart,
-  Package, TrendingUp, FileText, CheckCircle, XCircle,
+  Package, TrendingUp, CheckCircle, XCircle,
   Clock, AlertTriangle, User, Mail, Phone, MapPin,
   Shield, CreditCard, Calendar, BarChart3, ChevronRight,
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
+import VendorKycDocumentCard from '@/components/VendorKycDocumentCard';
 import { adminApi } from '@/lib/api';
 
 function formatCurrency(amount: number): string {
@@ -121,7 +122,12 @@ export default function VendorDetailPage() {
     );
   }
 
-  const { vendor, owner, kyc, performance, recentOrders, monthlyRevenue } = data;
+  const { vendor, owner, vendorKyc, profileCompletion, performance, recentOrders, monthlyRevenue } = data;
+  const docsByType: Record<string, any> = {};
+  (vendorKyc?.documents || []).forEach((d: any) => { docsByType[d.documentType] = d; });
+  const bankProofDoc = (vendorKyc?.bankProofDocumentTypes || [])
+    .map((t: string) => docsByType[t])
+    .find((d: any) => !!d);
 
   return (
     <div className="space-y-6">
@@ -271,58 +277,59 @@ export default function VendorDetailPage() {
           </div>
         </div>
 
-        {/* ── KYC / Certificates ──────────────────────────────────── */}
+        {/* ── Owner / Business & Bank Details ──────────────────────── */}
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <Shield className="w-4 h-4 text-purple-600" />
-            KYC &amp; Certificates
+            Business &amp; Bank Details
           </h3>
-          {kyc ? (
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Document Type</span>
-                <span className="text-sm font-medium text-slate-800">{kyc.documentType}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Document Number</span>
-                <span className="text-sm text-slate-600 font-mono">{kyc.documentNumber || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Status</span>
-                <StatusBadge status={kyc.status} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Submitted</span>
-                <span className="text-sm text-slate-600">
-                  {kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleDateString('en-IN') : '-'}
-                </span>
-              </div>
-              {kyc.documentUrl && (
-                <div className="pt-2">
-                  <a
-                    href={kyc.documentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-                  >
-                    <FileText className="w-4 h-4" />
-                    View Document
-                  </a>
-                </div>
-              )}
-              {kyc.rejectionReason && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-xs font-medium text-red-700 mb-1">Rejection Reason</p>
-                  <p className="text-xs text-red-600">{kyc.rejectionReason}</p>
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500">Seller Type</span>
+              <span className="text-sm font-medium text-slate-800">{vendor.sellerType === 'BUSINESS' ? 'Business' : 'Individual'}</span>
             </div>
-          ) : (
-            <div className="text-center py-6 text-slate-400">
-              <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-xs">No KYC documents submitted</p>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500">Owner Name</span>
+              <span className="text-sm text-slate-600">{vendor.ownerName || '-'}</span>
             </div>
-          )}
+            <div className="flex justify-between gap-4">
+              <span className="text-sm text-slate-500 shrink-0">Address</span>
+              <span className="text-sm text-slate-600 text-right">
+                {vendor.address ? `${vendor.address}, ${vendor.city}, ${vendor.state} ${vendor.pincode}` : '-'}
+              </span>
+            </div>
+            <hr className="border-slate-100" />
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500">Account Holder</span>
+              <span className="text-sm text-slate-600">{vendor.bankAccountName || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500">Bank</span>
+              <span className="text-sm text-slate-600">{vendor.bankName || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500">Account No.</span>
+              <span className="text-sm text-slate-600 font-mono">{vendor.bankAccountNumber ? `••••${vendor.bankAccountNumber.slice(-4)}` : '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500">IFSC</span>
+              <span className="text-sm text-slate-600 font-mono">{vendor.bankIfsc || '-'}</span>
+            </div>
+            {profileCompletion && (
+              <>
+                <hr className="border-slate-100" />
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm text-slate-500">Profile Completion</span>
+                    <span className="text-sm font-semibold text-emerald-600">{profileCompletion.percent}%</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${profileCompletion.percent}%` }} />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* ── Commission & Actions ──────────────────────────────────── */}
@@ -481,6 +488,41 @@ export default function VendorDetailPage() {
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── KYC Document Review ───────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-purple-600" />
+            KYC Document Review
+          </h3>
+          {vendorKyc && <StatusBadge status={vendorKyc.kycStatus} />}
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          {vendorKyc?.kycSubmittedAt
+            ? `Submitted for verification on ${new Date(vendorKyc.kycSubmittedAt).toLocaleDateString('en-IN')}`
+            : 'Vendor has not yet submitted for verification.'}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(vendorKyc?.requiredDocumentTypes || []).map((type: string) => (
+            <VendorKycDocumentCard
+              key={type}
+              vendorId={vendor.id}
+              label={docsByType[type]?.label || vendorKyc?.documentLabels?.[type] || type}
+              doc={docsByType[type]}
+              onReviewed={loadDetail}
+            />
+          ))}
+          {(vendorKyc?.bankProofDocumentTypes || []).length > 0 && (
+            <VendorKycDocumentCard
+              vendorId={vendor.id}
+              label={bankProofDoc ? `Bank Account Proof — ${bankProofDoc.label}` : 'Bank Account Proof (Cancelled Cheque or Bank Passbook)'}
+              doc={bankProofDoc}
+              onReviewed={loadDetail}
+            />
+          )}
         </div>
       </div>
 

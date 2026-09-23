@@ -538,6 +538,52 @@ export class NotificationsService {
     );
   }
 
+  /**
+   * V8b. Vendor KYC Document Approved — sent when admin approves one of the
+   * vendor's individual KYC documents (not the whole vendor).
+   */
+  async sendVendorKycDocumentApprovedNotification(vendorUserId: string, documentLabel: string) {
+    return this.notify(
+      vendorUserId,
+      'Document Approved',
+      `Your ${documentLabel} has been verified.`,
+      'VENDOR_KYC_DOCUMENT_APPROVED',
+      { screen: 'Store' },
+    );
+  }
+
+  /**
+   * V8c. Vendor KYC Document Rejected — sent when admin rejects one of the
+   * vendor's individual KYC documents, prompting resubmission.
+   */
+  async sendVendorKycDocumentRejectedNotification(
+    vendorUserId: string,
+    documentLabel: string,
+    rejectionReason?: string,
+  ) {
+    return this.notify(
+      vendorUserId,
+      'Document Rejected',
+      `Your ${documentLabel} was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''} Please upload a fresh copy.`,
+      'VENDOR_KYC_DOCUMENT_REJECTED',
+      { screen: 'Store' },
+    );
+  }
+
+  /**
+   * V8d. Vendor KYC Submitted — confirms to the vendor that their documents
+   * were submitted and are awaiting admin review.
+   */
+  async sendVendorKycSubmittedNotification(vendorUserId: string) {
+    return this.notify(
+      vendorUserId,
+      'Verification Submitted',
+      'Your KYC documents have been submitted for review. We will notify you once verified.',
+      'VENDOR_KYC_SUBMITTED',
+      { screen: 'Store' },
+    );
+  }
+
   async sendDeliveryPartnerKycApprovedNotification(userId: string) {
     return this.notify(
       userId,

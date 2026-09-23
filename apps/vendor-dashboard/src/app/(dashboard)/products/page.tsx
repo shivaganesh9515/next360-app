@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil, Power, PowerOff, Check, X, DollarSign, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, PackageX, PackageCheck, Check, X, DollarSign, AlertTriangle } from 'lucide-react';
 import { vendorApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 
 const SEARCH_DEBOUNCE_MS = 400;
 
 export default function ProductsPage() {
+  const { vendorProfile } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -43,10 +45,21 @@ export default function ProductsPage() {
   const [bulkPrice, setBulkPrice] = useState('');
   const [bulkResult, setBulkResult] = useState<{ success: number; failed: number } | null>(null);
 
+  // Restock modal — used for both the single-row "Restock" action (restockTarget
+  // holds that product) and the bulk "Restock" action (restockTarget is null).
+  const [showRestockModal, setShowRestockModal] = useState(false);
+  const [restockTarget, setRestockTarget] = useState<any | null>(null);
+  const [restockQtyInput, setRestockQtyInput] = useState('');
+
   const fetchProducts = async () => {
+    const vendorId = vendorProfile?.id;
+    if (!vendorId) return;
     setLoading(true);
     try {
-      const res = await vendorApi.getProducts({ search: debouncedSearch, page, limit: 20 });
+      // Scoped to this vendor's own products — /products (unscoped) returns
+      // the whole platform catalog, which let vendors see and attempt to
+      // edit other vendors' products (always failing with a 403).
+      const res = await vendorApi.getVendorProducts(vendorId, { search: debouncedSearch, page, limit: 20 });
       // Backend double-nests: { data: { data: [...], meta: {...} } }
       const list = Array.isArray(res) ? res
         : Array.isArray((res as any)?.data) ? (res as any).data
@@ -58,7 +71,7 @@ export default function ProductsPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchProducts(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [page, debouncedSearch]);
+  useEffect(() => { fetchProducts(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [page, debouncedSearch, vendorProfile?.id]);
 
   // Reset selection when page changes or products list changes
   useEffect(() => {
@@ -85,16 +98,45 @@ export default function ProductsPage() {
     }
   };
 
-  const toggleActive = async (id: string, isActive: boolean) => {
-    try { await vendorApi.updateProduct(id, { isActive: !isActive }); fetchProducts(); }
-    catch (e) { console.error(e); }
+  // Remembers each product's last known positive stock so restocking can
+  // suggest a sensible quantity instead of defaulting to an arbitrary number.
+  const [lastStock, setLastStock] = useState<Record<string, number>>({});
+  useEffect(() => {
+    setLastStock((prev) => {
+      const next = { ...prev };
+      products.forEach((p) => { if (p.stock > 0) next[p.id] = p.stock; });
+      return next;
+    });
+  }, [products]);
+
+  const toggleStock = async (item: any) => {
+    if (item.stock > 0) {
+      try {
+        await vendorApi.updateProduct(item.id, { stock: 0 });
+        fetchProducts();
+      } catch (e) {
+        console.error(e);
+        setBulkResult({ success: 0, failed: 1 });
+        setTimeout(() => setBulkResult(null), 4000);
+      }
+      return;
+    }
+    setRestockTarget(item);
+    setRestockQtyInput(String(lastStock[item.id] || 10));
+    setShowRestockModal(true);
   };
 
-  const executeBulkAction = async (action: 'activate' | 'deactivate' | 'price') => {
+  const executeBulkAction = async (action: 'outofstock' | 'restock' | 'price') => {
     if (selectedIds.size === 0) return;
     if (action === 'price') {
       setShowPriceModal(true);
       setBulkPrice('');
+      return;
+    }
+    if (action === 'restock') {
+      setRestockTarget(null);
+      setRestockQtyInput('10');
+      setShowRestockModal(true);
       return;
     }
 
@@ -103,16 +145,59 @@ export default function ProductsPage() {
     let success = 0;
     let failed = 0;
 
-    const isActive = action === 'activate';
     const ids = Array.from(selectedIds);
 
     for (const id of ids) {
       try {
-        await vendorApi.updateProduct(id, { isActive });
+        await vendorApi.updateProduct(id, { stock: 0 });
         success++;
       } catch (e) {
         failed++;
-        console.error(`Failed to ${action} product ${id}:`, e);
+        console.error(`Failed to mark product ${id} out of stock:`, e);
+      }
+    }
+
+    setBulkResult({ success, failed });
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    setSelectAll(false);
+    fetchProducts();
+
+    setTimeout(() => setBulkResult(null), 4000);
+  };
+
+  const submitRestock = async () => {
+    const qty = Number(restockQtyInput);
+    if (isNaN(qty) || qty <= 0) return;
+
+    setShowRestockModal(false);
+
+    if (restockTarget) {
+      try {
+        await vendorApi.updateProduct(restockTarget.id, { stock: qty });
+        fetchProducts();
+      } catch (e) {
+        console.error(e);
+        setBulkResult({ success: 0, failed: 1 });
+        setTimeout(() => setBulkResult(null), 4000);
+      }
+      setRestockTarget(null);
+      return;
+    }
+
+    setBulkProcessing(true);
+    setBulkResult(null);
+    let success = 0;
+    let failed = 0;
+    const ids = Array.from(selectedIds);
+
+    for (const id of ids) {
+      try {
+        await vendorApi.updateProduct(id, { stock: qty });
+        success++;
+      } catch (e) {
+        failed++;
+        console.error(`Failed to restock product ${id}:`, e);
       }
     }
 
@@ -190,12 +275,12 @@ export default function ProductsPage() {
     )},
     { key: 'price', label: 'Price', hideOnMobile: true, render: (item: any) => <span>₹{Number(item.price).toLocaleString()}</span> },
     { key: 'stock', label: 'Stock', hideOnMobile: true },
-    { key: 'isActive', label: 'Status', render: (item: any) => <StatusBadge status={item.isActive ? 'ACTIVE' : 'INACTIVE'} /> },
+    { key: 'stockStatus', label: 'Status', render: (item: any) => <StatusBadge status={item.stock > 0 ? 'IN STOCK' : 'OUT OF STOCK'} /> },
     { key: 'actions', label: '', render: (item: any) => (
       <div className="flex gap-2 justify-end">
         <Link href={`/products/${item.id}`} className="p-1.5 hover:bg-slate-100 rounded-md" title="Edit"><Pencil className="w-4 h-4 text-slate-500" /></Link>
-        <button onClick={() => toggleActive(item.id, item.isActive)} className="p-1.5 hover:bg-slate-100 rounded-md" title={item.isActive ? 'Deactivate' : 'Activate'}>
-          {item.isActive ? <PowerOff className="w-4 h-4 text-red-400" /> : <Power className="w-4 h-4 text-emerald-400" />}
+        <button onClick={() => toggleStock(item)} className="p-1.5 hover:bg-slate-100 rounded-md" title={item.stock > 0 ? 'Mark Out of Stock' : 'Restock'}>
+          {item.stock > 0 ? <PackageX className="w-4 h-4 text-red-400" /> : <PackageCheck className="w-4 h-4 text-emerald-400" />}
         </button>
       </div>
     )},
@@ -227,18 +312,18 @@ export default function ProductsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => executeBulkAction('activate')}
+              onClick={() => executeBulkAction('restock')}
               disabled={bulkProcessing}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
             >
-              <Check className="w-3.5 h-3.5" /> Activate
+              <PackageCheck className="w-3.5 h-3.5" /> Restock
             </button>
             <button
-              onClick={() => executeBulkAction('deactivate')}
+              onClick={() => executeBulkAction('outofstock')}
               disabled={bulkProcessing}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
             >
-              <X className="w-3.5 h-3.5" /> Deactivate
+              <PackageX className="w-3.5 h-3.5" /> Mark Out of Stock
             </button>
             <button
               onClick={() => executeBulkAction('price')}
@@ -318,6 +403,56 @@ export default function ProductsPage() {
                 className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
                 Update Price
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restock Modal */}
+      {showRestockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowRestockModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <PackageCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-lg font-semibold text-slate-900">Restock</h3>
+              </div>
+              <button onClick={() => setShowRestockModal(false)} autoFocus className="p-1 hover:bg-slate-100 rounded-md transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              {restockTarget ? (
+                <>Set a new stock quantity for <span className="font-semibold text-slate-700">{restockTarget.name}</span>.</>
+              ) : (
+                <>Set a stock quantity for all <span className="font-semibold text-slate-700">{selectedIds.size} selected</span> products.</>
+              )}
+            </p>
+            <input
+              type="number"
+              value={restockQtyInput}
+              onChange={(e) => setRestockQtyInput(e.target.value)}
+              placeholder="Enter quantity"
+              min={1}
+              step={1}
+              autoFocus
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+            />
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setShowRestockModal(false)}
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRestock}
+                disabled={!restockQtyInput || isNaN(Number(restockQtyInput)) || Number(restockQtyInput) <= 0}
+                className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                Restock
               </button>
             </div>
           </div>

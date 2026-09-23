@@ -38,6 +38,9 @@ export default function OrdersPage() {
   const [rejectItem, setRejectItem] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
+  // Tracks which vendor-group id has an in-flight status update, so the
+  // clicked row's button can show a spinner without blocking other rows.
+  const [processingGroupId, setProcessingGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     requestNotificationPermission();
@@ -126,15 +129,19 @@ export default function OrdersPage() {
     };
   }, [fetchOrders]);
 
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+
   const handleRejectOrder = async () => {
     if (!rejectItem || !rejectReason.trim()) return;
+    setRejectSubmitting(true);
     try {
       await vendorApi.cancelVendorGroup(rejectItem.orderId || rejectItem.id, rejectItem.id, rejectReason);
       setShowRejectModal(false);
       setRejectReason('');
       setRejectItem(null);
-      fetchOrders(false);
+      await fetchOrders(false);
     } catch (e) { console.error(e); }
+    finally { setRejectSubmitting(false); }
   };
 
   const columns = [
@@ -161,25 +168,35 @@ export default function OrdersPage() {
     { key: 'createdAt', label: 'Date', hideOnMobile: true, render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
     {
       key: 'actions', label: 'Actions', render: (item: any) => {
+        const isProcessing = processingGroupId === item.id;
         if (item.status === 'PLACED' || item.status === 'CONFIRMED') {
+          const nextStatus = item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED';
+          const acceptLabel = item.status === 'PLACED' ? 'Confirm' : 'Mark Packed';
           return (
             <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={async () => {
+                  setProcessingGroupId(item.id);
                   try {
-                    const nextStatus = item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED';
                     await vendorApi.updateVendorGroupStatus(item.orderId || item.id, item.id, nextStatus);
-                    fetchOrders(false);
+                    await fetchOrders(false);
                   } catch (e) { console.error(e); }
+                  finally { setProcessingGroupId(null); }
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100"
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-4 py-2.5 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-3.5 h-3.5" />
-                Accept
+                {isProcessing ? (
+                  <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                )}
+                {acceptLabel}
               </button>
               <button
                 onClick={() => { setRejectItem(item); setShowRejectModal(true); }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100"
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-4 py-2.5 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 Reject
@@ -192,14 +209,21 @@ export default function OrdersPage() {
             <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={async () => {
+                  setProcessingGroupId(item.id);
                   try {
                     await vendorApi.updateVendorGroupStatus(item.orderId || item.id, item.id, 'READY_FOR_PICKUP');
-                    fetchOrders(false);
+                    await fetchOrders(false);
                   } catch (e) { console.error(e); }
+                  finally { setProcessingGroupId(null); }
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100"
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-3.5 h-3.5" />
+                {isProcessing ? (
+                  <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                )}
                 Ready for Pickup
               </button>
             </div>
@@ -288,8 +312,15 @@ export default function OrdersPage() {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
             <div className="flex gap-3 mt-4 justify-end">
-              <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
-              <button onClick={handleRejectOrder} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">Confirm Cancel</button>
+              <button onClick={() => setShowRejectModal(false)} disabled={rejectSubmitting} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+              <button
+                onClick={handleRejectOrder}
+                disabled={!rejectReason.trim() || rejectSubmitting}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {rejectSubmitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Confirm Cancel
+              </button>
             </div>
           </div>
         </div>

@@ -236,6 +236,18 @@ export const vendorApi = {
   updateStore: (vendorId: string, data: any) =>
     api.patch<any>(`/vendors/${vendorId}`, data),
 
+  // Vendor KYC
+  getMyKyc: () => api.get<any>('/vendors/me/kyc'),
+  uploadKycDocument: (documentType: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentType', documentType);
+    return api.upload<any>('/vendors/me/kyc/documents', formData);
+  },
+  getKycDocumentUrl: (documentId: string) =>
+    api.get<{ url: string }>(`/vendors/me/kyc/documents/${documentId}/url`),
+  submitKycForVerification: () => api.post<any>('/vendors/me/kyc/submit'),
+
   // Notifications
   getNotifications: () => api.get<any[]>('/notifications'),
   getUnreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),

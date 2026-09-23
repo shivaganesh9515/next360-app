@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View, ViewStyle, Dimensions } from 'react-native';
+import { Animated, Easing, StyleSheet, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/theme';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface Props {
   style?: ViewStyle | ViewStyle[];
@@ -15,7 +13,8 @@ interface Props {
 // (measures its own width via onLayout) so it works at any size without the
 // caller doing anything but swapping the View for this.
 export default function Shimmer({ style }: Props) {
-  const [width, setWidth] = useState(SCREEN_WIDTH);
+  const { width: screenWidth } = useWindowDimensions();
+  const [width, setWidth] = useState(screenWidth);
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
