@@ -13,6 +13,7 @@ import { DeliveryService } from './delivery.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { EarningsQueryDto } from './dto/earnings-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -80,9 +81,9 @@ export class DeliveryController {
   @Get('earnings')
   getEarnings(
     @CurrentUser('id') userId: string,
-    @Query('period') period?: string,
+    @Query() query: EarningsQueryDto,
   ) {
-    return this.deliveryService.getEarnings(userId, period);
+    return this.deliveryService.getEarnings(userId, query.period);
   }
 
   @Post('setup')

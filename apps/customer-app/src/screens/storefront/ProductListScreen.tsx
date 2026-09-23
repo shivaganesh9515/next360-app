@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, ActivityIndicator, StyleSheet,
-  RefreshControl, TouchableOpacity, Alert, Image, Dimensions,
+  RefreshControl, TouchableOpacity, Alert, Image, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -14,6 +14,8 @@ import ProductCard from '../../components/ProductCard';
 import Shimmer from '../../components/Shimmer';
 import StaggerFadeIn from '../../components/StaggerFadeIn';
 import ErrorState from '../../components/ErrorState';
+import { getCategoryIcon } from '../../constants/categoryIcons';
+import { useScrollNav } from '../../lib/scrollNav';
 import {
   Colors, Spacing, BorderRadius, Typography,
   getStoreAccent, getStoreAccentLight,
@@ -30,11 +32,6 @@ const SORT_OPTIONS = [
 
 const RAIL_WIDTH = 72;
 const RAIL_BORDER = 1;
-// ProductCard's default sizing assumes a full-width 2-column grid; this pane
-// is narrower (screen width minus the rail), so cards need an explicit width
-// or they'd overflow the pane using their own full-width calculation.
-const PANE_WIDTH = Dimensions.get('window').width - RAIL_WIDTH - RAIL_BORDER;
-const CARD_WIDTH = (PANE_WIDTH - Spacing.lg * 3) / 2;
 
 const PRICE_RANGES: { key: string; label: string; min: number; max?: number }[] = [
   { key: 'under200', label: 'Under ₹200', min: 0, max: 200 },
@@ -49,10 +46,21 @@ export default function ProductListScreen() {
   const navigation = useNavigation<any>();
   const { addToCart, storeType: activeStoreType } = useStore();
   const { open: openProduct } = useProductSheet();
+  const { handleScroll } = useScrollNav();
   const { categoryId, categoryName } = route.params || {};
   // Falls back to the globally selected store (StoreToggle) when opened as the
   // "All Products" tab root rather than navigated to with an explicit storeType.
   const storeType = route.params?.storeType || activeStoreType;
+
+  const { width: screenWidth } = useWindowDimensions();
+  // Tablet-safe cap: bound the pane/card-width math to a phone-like width on
+  // large screens (iPad, unfolded foldables) so cards don't stretch oversized.
+  const cardBasisWidth = Math.min(screenWidth, 768);
+  // ProductCard's default sizing assumes a full-width 2-column grid; this pane
+  // is narrower (screen width minus the rail), so cards need an explicit width
+  // or they'd overflow the pane using their own full-width calculation.
+  const PANE_WIDTH = cardBasisWidth - RAIL_WIDTH - RAIL_BORDER;
+  const CARD_WIDTH = (PANE_WIDTH - Spacing.lg * 3) / 2;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,8 +233,8 @@ export default function ProductListScreen() {
             renderItem={({ item }) => (
               <RailItem
                 label={item.name}
-                image={item.image}
-                icon="leaf-outline"
+                image={item.imageUrl}
+                icon={getCategoryIcon(item)}
                 active={selectedCategoryId === item.id}
                 accent={accent}
                 accentTint={accentTint}
@@ -294,7 +302,7 @@ export default function ProductListScreen() {
 
           {loading && products.length === 0 ? (
             <View style={styles.skeletonGrid}>
-              {[0, 1, 2, 3, 4, 5].map((i) => <SkeletonProductCard key={i} />)}
+              {[0, 1, 2, 3, 4, 5].map((i) => <SkeletonProductCard key={i} cardWidth={CARD_WIDTH} />)}
             </View>
           ) : error && products.length === 0 ? (
             <ErrorState message={t('products.error.load')} onRetry={() => { setLoading(true); fetchProducts(1, true); }} />
@@ -305,6 +313,8 @@ export default function ProductListScreen() {
               numColumns={2}
               columnWrapperStyle={styles.row}
               contentContainerStyle={styles.listContent}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} />
               }
@@ -348,12 +358,16 @@ function RailItem({
   label: string; image?: string; icon: string; active: boolean;
   accent: string; accentTint: string; onPress: () => void;
 }) {
+  // Falls back to the icon instead of a broken-image glyph if imageUrl 404s.
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = !!image && !imageFailed;
+
   return (
     <TouchableOpacity style={styles.railItem} activeOpacity={0.7} onPress={onPress}>
       <View style={[styles.railIndicator, active && { backgroundColor: accent }]} />
       <View style={[styles.railImageWrap, { backgroundColor: active ? accentTint : Colors.background }]}>
-        {image ? (
-          <Image source={{ uri: image }} style={styles.railImage} />
+        {showImage ? (
+          <Image source={{ uri: image }} style={styles.railImage} onError={() => setImageFailed(true)} />
         ) : (
           <Ionicons name={icon as any} size={20} color={active ? accent : Colors.textSecondary} />
         )}
@@ -368,10 +382,10 @@ function RailItem({
   );
 }
 
-function SkeletonProductCard() {
+function SkeletonProductCard({ cardWidth }: { cardWidth: number }) {
   return (
-    <View style={[styles.skeletonCard, { width: CARD_WIDTH }]}>
-      <Shimmer style={[styles.skeletonImg, { height: CARD_WIDTH * 0.95 }]} />
+    <View style={[styles.skeletonCard, { width: cardWidth }]}>
+      <Shimmer style={[styles.skeletonImg, { height: cardWidth * 0.95 }]} />
       <Shimmer style={styles.skeletonLine} />
       <Shimmer style={[styles.skeletonLine, { width: '55%' }]} />
     </View>

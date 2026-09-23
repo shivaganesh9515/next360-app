@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 // Guard placeholder/localhost in production (same as customer-app)
 if (!__DEV__) {

@@ -1,12 +1,15 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseEnumPipe, ParseIntPipe, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile, ParseEnumPipe, ParseIntPipe, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { UploadVendorKycDocumentDto } from './dto/upload-vendor-kyc-document.dto';
+import { ReviewVendorKycDocumentDto } from './dto/review-vendor-kyc-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UserRole, StoreType } from '@prisma/client';
+import { UserRole, StoreType, VendorKycDocumentType } from '@prisma/client';
 
 interface TransactionQueryDto {
   page?: string;
@@ -118,6 +121,49 @@ export class VendorsController {
     return this.vendorsService.getCustomers(vendorId);
   }
 
+  // ── Vendor KYC (self-service) ─────────────────────────────────────────
+
+  @Get('me/kyc')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyKyc(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) throw new ForbiddenException('You do not have a vendor profile');
+    return this.vendorsService.getMyKycOverview(vendorId);
+  }
+
+  @Post('me/kyc/documents')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 8 * 1024 * 1024 } }))
+  async uploadMyKycDocument(
+    @CurrentUser('vendorId') vendorId: string,
+    @Body() dto: UploadVendorKycDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!vendorId) throw new ForbiddenException('You do not have a vendor profile');
+    if (!file) throw new BadRequestException('File is required');
+    return this.vendorsService.uploadKycDocument(vendorId, dto.documentType, file);
+  }
+
+  @Get('me/kyc/documents/:documentId/url')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async getMyKycDocumentUrl(
+    @CurrentUser('vendorId') vendorId: string,
+    @Param('documentId') documentId: string,
+  ) {
+    if (!vendorId) throw new ForbiddenException('You do not have a vendor profile');
+    return this.vendorsService.getKycDocumentSignedUrl(vendorId, documentId);
+  }
+
+  @Post('me/kyc/submit')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.VENDOR)
+  async submitMyKyc(@CurrentUser('vendorId') vendorId: string) {
+    if (!vendorId) throw new ForbiddenException('You do not have a vendor profile');
+    return this.vendorsService.submitForVerification(vendorId);
+  }
+
   @Get(':id/storefront')
   async getStorefront(@Param('id') id: string) {
     return this.vendorsService.findOne(id);
@@ -173,16 +219,49 @@ export class VendorsController {
     return this.vendorsService.getVendorStats(id);
   }
 
+  // ── Vendor KYC (admin review) ─────────────────────────────────────────
+
+  @Get(':id/kyc/documents')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getVendorKycDocuments(@Param('id') id: string) {
+    return this.vendorsService.getVendorKycDocumentsForAdmin(id);
+  }
+
+  @Get(':id/kyc/documents/:documentId/url')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getVendorKycDocumentUrl(
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.vendorsService.adminGetKycDocumentSignedUrl(id, documentId);
+  }
+
+  @Patch(':id/kyc/documents/:documentId/review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async reviewVendorKycDocument(
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+    @Body() dto: ReviewVendorKycDocumentDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.vendorsService.adminReviewKycDocument(id, documentId, adminId, dto.status, dto.rejectionReason);
+  }
+
   @Get(':id/products')
   async getVendorProducts(
     @Param('id') id: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('search') search?: string,
   ) {
     return this.vendorsService.getVendorProducts(
       id,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
+      search,
     );
   }
 }

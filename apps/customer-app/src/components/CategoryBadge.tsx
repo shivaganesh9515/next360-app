@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows } from '../constants/theme';
@@ -27,6 +27,11 @@ export default function CategoryBadge({
   isActive,
   onPress,
 }: Props) {
+  // Falls back to the icon instead of a broken-image glyph if imageUrl 404s
+  // or points at something invalid.
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = !!image && !imageFailed;
+
   return (
     <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.75}>
       {/* Outer ring — only visible when active, gives the "selected" glow */}
@@ -39,13 +44,14 @@ export default function CategoryBadge({
               : { backgroundColor: accentTint },
           ]}
         >
-          {image ? (
+          {showImage ? (
             <Image
               source={{ uri: image }}
               style={[
                 styles.image,
                 isActive && { opacity: 0.9 },
               ]}
+              onError={() => setImageFailed(true)}
             />
           ) : (
             <Ionicons

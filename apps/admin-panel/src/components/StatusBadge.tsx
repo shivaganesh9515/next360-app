@@ -33,6 +33,10 @@ const statusStyles: Record<string, string> = {
   ADMIN: 'bg-red-100 text-red-700',
   true: 'bg-emerald-100 text-emerald-700',
   false: 'bg-gray-100 text-gray-500',
+  VERIFIED: 'bg-emerald-100 text-emerald-700',
+  PENDING_REVIEW: 'bg-yellow-100 text-yellow-700',
+  INCOMPLETE: 'bg-gray-100 text-gray-600',
+  EXPIRED: 'bg-orange-100 text-orange-700',
 };
 
 export default function StatusBadge({ status, color }: StatusBadgeProps) {

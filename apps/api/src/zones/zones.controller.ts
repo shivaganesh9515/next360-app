@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@n
 import { ZonesService } from './zones.service';
 import { CreateZoneDto } from './dto/create-zone.dto';
 import { UpdateZoneDto } from './dto/update-zone.dto';
+import { ValidatePincodeDto } from './dto/validate-pincode.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -40,5 +41,10 @@ export class ZonesController {
   @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string) {
     return this.zonesService.remove(id);
+  }
+
+  @Post('validate-pincode')
+  async validatePincode(@Body() dto: ValidatePincodeDto) {
+    return this.zonesService.validatePincode(dto.pincode);
   }
 }

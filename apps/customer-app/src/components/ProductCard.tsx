@@ -1,15 +1,12 @@
 import React, { useRef, useCallback } from 'react';
 import {
-  View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Animated,
+  View, Text, Image, TouchableOpacity, StyleSheet, useWindowDimensions, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../types';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, getStoreAccent, getStoreAccentLight, getStoreCardBorder, SPRING_CONFIG } from '../constants/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, SPRING_CONFIG } from '../constants/theme';
 import { useFlyToCart } from '../lib/flyToCart';
 import TrustBadge from './TrustBadge';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - Spacing.lg * 3) / 2;
 
 interface Props {
   product: Product;
@@ -31,11 +28,19 @@ export default function ProductCard({
   const discountPercent = hasDiscount
     ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
     : 0;
-  const accent = getStoreAccent(product.storeType);
-  const accentTint = getStoreAccentLight(product.storeType);
-  const cardBorder = getStoreCardBorder(product.storeType);
+  // Flat single-brand-green styling — one Next360 green across every
+  // product card, regardless of store type (Organic/Natural/Eco-friendly
+  // still show their category label, just no longer tint the whole card).
+  const accent = Colors.primary;
+  const accentTint = Colors.primaryLight;
+  const cardBorder = Colors.border;
   const categoryLabel = product.category?.name || product.storeType;
-  const resolvedWidth = cardWidth ?? CARD_WIDTH;
+  const { width: screenWidth } = useWindowDimensions();
+  // Tablet-safe cap: card-width math is bounded to a phone-like width on
+  // large screens so cards don't stretch to oversized dimensions on iPad.
+  const cardBasisWidth = Math.min(screenWidth, 768);
+  const defaultCardWidth = (cardBasisWidth - Spacing.lg * 3) / 2;
+  const resolvedWidth = cardWidth ?? defaultCardWidth;
   const imageRef = useRef<View>(null);
   const { fly } = useFlyToCart();
 
@@ -65,8 +70,12 @@ export default function ProductCard({
     onQuickAdd(product);
   };
 
-  // Map storeType to trust badge type
-  const trustBadgeType = product.storeType === 'ORGANIC' ? 'ORGANIC'
+  // Organic only ever shows as verified when the vendor has an admin-approved
+  // NPOP certificate on file (vendor.isNpopVerified, from the real API field —
+  // never assumed true just because storeType is ORGANIC). Natural/Eco-friendly
+  // always render as self-declared per the PRD's non-negotiable UI rule.
+  const trustBadgeType = product.storeType === 'ORGANIC'
+    ? (product.vendor?.isNpopVerified ? 'NPOP' : 'NPOP_PENDING')
     : product.storeType === 'NATURAL' ? 'NATURAL'
     : product.storeType === 'ECO_FRIENDLY' ? 'ECO_FRIENDLY'
     : null;
@@ -180,13 +189,6 @@ export default function ProductCard({
           </Text>
         </View>
 
-        {/* Trust certification row */}
-        {product.certification && (
-          <View style={styles.certRow}>
-            <TrustBadge type={product.certification.toUpperCase().includes('NPOP') ? 'NPOP' : trustBadgeType || 'ORGANIC'} size="sm" variant="inline" compact />
-          </View>
-        )}
-
         {/* Hairline Divider */}
         <View style={styles.divider} />
 
@@ -217,14 +219,14 @@ export default function ProductCard({
           ) : (
             <Animated.View style={{ transform: [{ scale: addScale }] }}>
               <TouchableOpacity
-                style={[styles.addBtnTextOnly, { borderColor: accent }]}
+                style={[styles.addBtnFilled, { backgroundColor: accent }, Shadows.button(accent)]}
                 onPress={handleQuickAdd}
                 onPressIn={handleQuickAddPressIn}
                 onPressOut={handleQuickAddPressOut}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.addBtnLabel, { color: accent }]}>ADD</Text>
-                <Ionicons name="add" size={12} color={accent} style={{ marginLeft: 2 }} />
+                <Text style={styles.addBtnLabel}>Add</Text>
+                <Ionicons name="add" size={13} color={Colors.white} style={{ marginLeft: 2 }} />
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -359,10 +361,6 @@ const styles = StyleSheet.create({
     color: '#76767A',
   },
 
-  certRow: {
-    marginTop: 3,
-  },
-
   name: {
     color: '#1C1C1E',
     fontFamily: 'Inter_600SemiBold',
@@ -387,7 +385,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   price: {
-    fontFamily: 'Fraunces_700Bold',
+    fontFamily: 'Inter_800ExtraBold',
     fontSize: 15,
     color: '#1C1C1E',
   },
@@ -405,25 +403,19 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  addBtnTextOnly: {
+  addBtnFilled: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
     borderRadius: BorderRadius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   addBtnLabel: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 11,
-    letterSpacing: 0.5,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: '#FFFFFF',
   },
 
   notifyBtn: {

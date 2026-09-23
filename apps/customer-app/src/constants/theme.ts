@@ -14,6 +14,14 @@ export const Colors = {
   border: '#EAEAEA',
   cardBorder: '#F3F3F3',
 
+  // Single flat brand green — the primary CTA/accent color for the
+  // quick-commerce-style screens (Home, ProductCard). Kept separate from
+  // the per-store-type accents below, which other screens still rely on.
+  primary: '#1B8A3D',
+  primaryDark: '#0F5C27',
+  primaryLight: '#E8F5E9',
+  primaryPale: '#F3FBF5',
+
   // Store accents
   organic: '#2E7D32',
   organicDark: '#1B5E20',

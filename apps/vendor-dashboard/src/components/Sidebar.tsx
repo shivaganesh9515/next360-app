@@ -7,18 +7,18 @@ import {
   BarChart3, DollarSign, Store, Bell, Settings, HelpCircle,
   ChevronDown, ChevronRight, Box, AlertTriangle, Percent, Receipt
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/products', label: 'Products', icon: Package, subItems: [
     { href: '/products', label: 'All Products' },
     { href: '/products/add', label: 'Add Product' },
-    { href: '/categories', label: 'Categories' },
   ]},
   { href: '/inventory', label: 'Inventory', icon: ClipboardList, subItems: [
     { href: '/inventory', label: 'Stock Management' },
     { href: '/inventory/low-stock', label: 'Low Stock Alerts' },
+    { href: '/inventory/categories', label: 'Categories' },
   ]},
   { href: '/orders', label: 'Orders', icon: ShoppingCart, subItems: [
     { href: '/orders', label: 'All Orders' },
@@ -47,7 +47,21 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState<string[]>(['Products', 'Orders']);
+  const [expanded, setExpanded] = useState<string[]>(() => {
+    return navItems
+      .filter(item => item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)))
+      .map(item => item.label);
+  });
+
+  useEffect(() => {
+    setExpanded(prev => {
+      const autoExpand = navItems
+        .filter(item => item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)))
+        .map(item => item.label);
+      const merged = new Set([...prev, ...autoExpand]);
+      return Array.from(merged);
+    });
+  }, [pathname]);
 
   const toggleExpand = (label: string) => {
     setExpanded(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]);
@@ -59,13 +73,13 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 min-h-screen flex flex-col">
-      <div className="p-4 border-b border-slate-200">
+    <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky top-0 h-screen flex flex-col shrink-0">
+      <div className="h-16 px-4 border-b border-slate-200 dark:border-slate-700 flex items-center shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-sm">N</span>
           </div>
-          <span className="font-semibold text-slate-900">Next360 Vendor</span>
+          <span className="font-semibold text-slate-900 dark:text-slate-100">Next360 Vendor</span>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -75,8 +89,8 @@ export default function Sidebar() {
               <>
                 <button
                   onClick={() => toggleExpand(item.label)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
+                    isActive(item.href) ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
@@ -89,8 +103,8 @@ export default function Sidebar() {
                       <Link
                         key={sub.href}
                         href={sub.href}
-                        className={`block px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          pathname === sub.href ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-500 hover:text-slate-700'
+                        className={`block px-3 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
+                          pathname === sub.href ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                         }`}
                       >
                         {sub.label}
@@ -102,8 +116,8 @@ export default function Sidebar() {
             ) : (
               <Link
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive(item.href) ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${
+                  isActive(item.href) ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
               >
                 <item.icon className="w-4 h-4" />

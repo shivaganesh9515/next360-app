@@ -6,6 +6,8 @@ import {
   Param,
   Query,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
   HttpCode,
   HttpStatus,
   Headers,
@@ -20,6 +22,9 @@ import {
   CreateRazorpayOrderDto,
   VerifyPaymentDto,
   RazorpayWebhookDto,
+  PaymentQueryDto,
+  ProcessDeliveryPayoutsDto,
+  AutoSettleVendorsDto,
 } from './dto/create-razorpay-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -43,7 +48,7 @@ export class PaymentsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.paymentsService.findAll({
+    return this.paymentsService.listPayments({
       status,
       startDate,
       endDate,
@@ -73,6 +78,7 @@ export class PaymentsController {
 
   @Post('razorpay/webhook')
   @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   handleWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Body() dto: RazorpayWebhookDto,
@@ -116,6 +122,47 @@ export class PaymentsController {
   }
 
   @Get('admin/list')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  listPayments(@Query() query: PaymentQueryDto) {
+    return this.paymentsService.listPayments(query);
+  }
+
+  @Post('process-delivery-payouts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  processDeliveryPayouts(@Body() dto: ProcessDeliveryPayoutsDto) {
+    return this.paymentsService.processDeliveryPartnerPayouts(
+      dto.periodStart,
+      dto.periodEnd,
+    );
+  }
+
+  @Post('auto-settle-vendors')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  autoSettleVendors(@Body() dto: AutoSettleVendorsDto) {
+    return this.paymentsService.autoSettleVendors(dto.threshold);
+  }
+
+  @Get('settlements/:vendorId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  getVendorSettlementInfo(@Param('vendorId') vendorId: string) {
+    return this.paymentsService.getVendorSettlementInfo(vendorId);
+  }
+
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  getPaymentAnalytics(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.paymentsService.getPaymentAnalytics(startDate, endDate);
+  }
+
+  @Get('list-all')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   async listAll() {

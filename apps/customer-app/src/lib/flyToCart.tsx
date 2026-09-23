@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
-import { Animated, Easing, Image, View, StyleSheet, Dimensions } from 'react-native';
+import { Animated, Easing, Image, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, BorderRadius, Shadows } from '../constants/theme';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const FLIGHT_MS = 550;
 
 interface FlyOrigin {
@@ -56,6 +54,7 @@ let flightId = 0;
 // Sheet, which is itself already mounted at the root).
 export function FlyToCartProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const [flights, setFlights] = useState<Flight[]>([]);
   const cartTargetRef = useRef<CartTarget | null>(null);
   const landListenersRef = useRef<Set<() => void>>(new Set());
@@ -90,7 +89,7 @@ export function FlyToCartProvider({ children }: { children: React.ReactNode }) {
       setFlights((prev) => prev.filter((f) => f.id !== id));
       landListenersRef.current.forEach((cb) => cb());
     });
-  }, [insets.bottom]);
+  }, [insets.bottom, SCREEN_WIDTH, SCREEN_HEIGHT]);
 
   const value = useMemo(() => ({ fly, registerCartTarget, subscribeLand }), [fly, registerCartTarget, subscribeLand]);
 

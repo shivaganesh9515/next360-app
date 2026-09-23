@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStore } from './store';
 import { navigationRef } from './navigationRef';
 import { getDeliveryFee } from './pricing';
+import { ApiHttpError } from './api';
 import { CartItem } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../constants/theme';
 import QuantityStepper from '../components/QuantityStepper';
@@ -60,6 +61,11 @@ const CartSheetModal = forwardRef<SheetHandle>((_, ref) => {
   const insets = useSafeAreaInsets();
   const { cartItems, cartCount, subtotal, updateCartItem, removeCartItem } = useStore();
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  // Alert.alert doesn't render a real dialog on web (react-native-web has no
+  // native Alert implementation), so a failed update looked like it silently
+  // did nothing there. An inline banner works on every platform and shows
+  // the actual cause instead of requiring devtools.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     open: () => sheetRef.current?.snapToIndex(0),
@@ -69,9 +75,20 @@ const CartSheetModal = forwardRef<SheetHandle>((_, ref) => {
 
   const handleQuantityChange = async (item: CartItem, nextQty: number) => {
     setBusyItemId(item.id);
+    setErrorMsg(null);
     try {
-      if (nextQty < 1) await removeCartItem(item.id);
-      else await updateCartItem(item.id, nextQty);
+      // Keyed by productId — the real PATCH/DELETE /cart/items/:productId
+      // routes look the row up by (userId, productId), not this row's own id.
+      if (nextQty < 1) await removeCartItem(item.productId);
+      else await updateCartItem(item.productId, nextQty);
+    } catch (err) {
+      console.error('[cart] quantity update failed:', err);
+      const status = err instanceof ApiHttpError ? err.status : undefined;
+      setErrorMsg(
+        status === 401
+          ? 'Session expired — please log in again.'
+          : `Couldn't update cart${status ? ` (${status})` : ''}. ${err instanceof Error ? err.message : ''}`.trim(),
+      );
     } finally {
       setBusyItemId(null);
     }
@@ -148,6 +165,13 @@ const CartSheetModal = forwardRef<SheetHandle>((_, ref) => {
       <View style={s.header}>
         <Text style={s.headerTitle}>Your Cart</Text>
       </View>
+
+      {!!errorMsg && (
+        <View style={s.errorBanner}>
+          <Ionicons name="alert-circle" size={16} color={Colors.error} />
+          <Text style={s.errorBannerText}>{errorMsg}</Text>
+        </View>
+      )}
 
       {cartItems.length === 0 ? (
         <View style={s.empty}>
@@ -226,6 +250,14 @@ export function CartSheetProvider({ children }: { children: React.ReactNode }) {
 const s = StyleSheet.create({
   sheetBg: { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   handle: { backgroundColor: Colors.border, width: 40 },
+
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: Spacing.xl, marginTop: Spacing.md,
+    padding: Spacing.md, borderRadius: BorderRadius.md,
+    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+  },
+  errorBannerText: { flex: 1, ...Typography.bodySmall, color: Colors.error },
 
   header: {
     paddingHorizontal: Spacing.xl, paddingBottom: Spacing.md,

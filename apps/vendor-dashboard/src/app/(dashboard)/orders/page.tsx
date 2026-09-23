@@ -1,109 +1,202 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
-import { CheckCircle, XCircle, X } from 'lucide-react';
+import { Bell, BellRing, CheckCircle, XCircle, X } from 'lucide-react';
 
-const POLL_INTERVAL_MS = 30000; // 30-second auto-refresh per CLAUDE.md spec
+const POLL_INTERVAL_MS = 30000;
+
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function showBrowserNotification(title: string, body: string) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    if (document.visibilityState === 'visible') return;
+    new Notification(title, { body, icon: '/favicon.ico', tag: 'new-order' });
+  }
+}
 
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [initialError, setInitialError] = useState<Error | null>(null);
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const previousCountRef = useRef(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectItem, setRejectItem] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
+  // Tracks which vendor-group id has an in-flight status update, so the
+  // clicked row's button can show a spinner without blocking other rows.
+  const [processingGroupId, setProcessingGroupId] = useState<string | null>(null);
 
-  const fetchOrders = () => {
-    // The vendor orders endpoint returns OrderVendorGroups whose nested order
-    // only carries userId (no customer name). Join with /vendors/me/customers
-    // (keyed by user id) so the Customer column shows real names.
-    Promise.allSettled([vendorApi.getOrders({}), vendorApi.getCustomers()]).then(([ordersRes, customersRes]) => {
-      if (customersRes.status === 'fulfilled') {
-        const list = Array.isArray(customersRes.value) ? customersRes.value : [];
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
+  // Customer names are fetched once on mount, not on every poll tick — the
+  // customer list rarely changes and refetching it every 30s was the bulk of
+  // the orders page's request volume (audit Bug 3).
+  useEffect(() => {
+    vendorApi.getCustomers()
+      .then((list: any) => {
+        const arr = Array.isArray(list) ? list : [];
         const map: Record<string, string> = {};
-        for (const c of list) {
+        for (const c of arr) {
           if (c?.id && c?.name) map[c.id] = c.name;
         }
         setCustomerNames(map);
+      })
+      .catch(() => {
+        // Names fall back to order.user?.name in the row renderer
+      });
+  }, []);
+
+  const fetchOrders = useCallback(async (isInitial = false) => {
+    try {
+      const ordersRes = await vendorApi.getOrdersWithMeta({});
+
+      let normalized: any[] = [];
+      const res: any = ordersRes;
+      // getOrdersWithMeta returns { data: [...], meta: {...} }
+      // The data array may itself be double-nested from the backend interceptor
+      const raw = Array.isArray(res?.data) ? res.data
+        : Array.isArray(res?.data?.data) ? res.data.data
+        : Array.isArray(res) ? res : [];
+      normalized = raw.map((g: any) => ({
+        id: g.id,
+        orderId: g.orderId || g.order?.id,
+        orderNo: g.order?.orderNo || g.id?.slice(0, 8),
+        status: g.status || g.order?.status,
+        customerUserId: g.order?.userId,
+        customerName: g.order?.user?.name,
+        subtotal: g.subtotal,
+        totalAmount: g.subtotal,
+        createdAt: g.order?.createdAt || g.createdAt,
+        paymentStatus: g.order?.paymentStatus,
+        paymentMethod: g.order?.paymentMethod,
+        cancellationReason: g.cancellationReason || g.order?.cancellationReason,
+        items: g.items || [],
+      }));
+
+      if (!isInitial && previousCountRef.current > 0 && normalized.length > previousCountRef.current) {
+        const diff = normalized.length - previousCountRef.current;
+        setNewOrderCount(prev => prev + diff);
+
+        if (diff === 1) {
+          showBrowserNotification('New Order!', 'You have 1 new order to process.');
+        } else {
+          showBrowserNotification('New Orders!', `You have ${diff} new orders to process.`);
+        }
+
+        if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+        pulseTimeoutRef.current = setTimeout(() => setNewOrderCount(0), 5000);
       }
-      if (ordersRes.status === 'fulfilled') {
-        const res: any = ordersRes.value;
-        // Backend returns { data: [...vendorGroups], meta: {...} }
-        const raw = res.data || res || [];
-        // Normalize OrderVendorGroup items to have flat fields for DataTable.
-        // NOTE: the nested order select only includes userId — no customer name
-        // (see findVendorOrders). Names are joined from the customers map above.
-        const normalized = (Array.isArray(raw) ? raw : []).map((g: any) => ({
-          id: g.id,
-          orderId: g.orderId || g.order?.id,
-          orderNo: g.order?.orderNo || g.id?.slice(0, 8),
-          status: g.status || g.order?.status,
-          customerUserId: g.order?.userId,
-          customerName: g.order?.user?.name,
-          subtotal: g.subtotal,
-          totalAmount: g.subtotal,
-          createdAt: g.order?.createdAt || g.createdAt,
-          paymentStatus: g.order?.paymentStatus,
-          paymentMethod: g.order?.paymentMethod,
-          items: g.items || [],
-        }));
-        setOrders(normalized);
-      } else {
-        setOrders([]);
-      }
-    }).catch(() => {}).finally(() => setLoading(false));
-  };
+
+      previousCountRef.current = normalized.length;
+      setOrders(normalized);
+      setInitialError(null);
+    } catch (e) {
+      // Poll failure after a successful load keeps the stale list on screen;
+      // initial failure surfaces the error state instead of a fake "no orders".
+      if (isInitial) setInitialError(e instanceof Error ? e : new Error(String(e)));
+      else console.error(e);
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchOrders();
-    // Auto-refresh every 30 seconds so vendors see new orders without manual refresh
-    intervalRef.current = setInterval(fetchOrders, POLL_INTERVAL_MS);
+    fetchOrders(true);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => fetchOrders(false), POLL_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [fetchOrders]);
+
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+
+  const handleRejectOrder = async () => {
+    if (!rejectItem || !rejectReason.trim()) return;
+    setRejectSubmitting(true);
+    try {
+      await vendorApi.cancelVendorGroup(rejectItem.orderId || rejectItem.id, rejectItem.id, rejectReason);
+      setShowRejectModal(false);
+      setRejectReason('');
+      setRejectItem(null);
+      await fetchOrders(false);
+    } catch (e) { console.error(e); }
+    finally { setRejectSubmitting(false); }
+  };
 
   const columns = [
     { key: 'orderNo', label: 'Order #', render: (item: any) => <span className="font-mono text-sm font-medium">{item.orderNo}</span> },
-    { key: 'customer', label: 'Customer', render: (item: any) => {
+    { key: 'customer', label: 'Customer', hideOnMobile: true, render: (item: any) => {
       const name = item.customerName || (item.customerUserId ? customerNames[item.customerUserId] : undefined);
       return name
         ? <span className="text-sm text-slate-700">{name}</span>
         : <span className="text-slate-400 text-xs" title="Customer name not available">—</span>;
     } },
-    { key: 'items', label: 'Items', render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
+    { key: 'items', label: 'Items', hideOnMobile: true, render: (item: any) => <span>{(item.items?.length || 0)} items</span> },
     { key: 'totalAmount', label: 'Total', render: (item: any) => <span>₹{Number(item.totalAmount || 0).toLocaleString()}</span> },
-    { key: 'status', label: 'Status', render: (item: any) => <StatusBadge status={item.status} /> },
-    { key: 'paymentMethod', label: 'Payment', render: (item: any) => <span className="text-xs text-slate-500">{item.paymentMethod || '—'}</span> },
-    { key: 'createdAt', label: 'Date', render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
+    { key: 'status', label: 'Status', render: (item: any) => (
+      <div className="flex items-center gap-1.5">
+        <StatusBadge status={item.status} />
+        {item.status === 'CANCELLED' && item.cancellationReason && (
+          <span className="text-[10px] text-red-400 max-w-[120px] truncate" title={item.cancellationReason}>
+            · {item.cancellationReason}
+          </span>
+        )}
+      </div>
+    ) },
+    { key: 'paymentMethod', label: 'Payment', hideOnMobile: true, render: (item: any) => <span className="text-xs text-slate-500">{item.paymentMethod || '—'}</span> },
+    { key: 'createdAt', label: 'Date', hideOnMobile: true, render: (item: any) => <span className="text-sm text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span> },
     {
       key: 'actions', label: 'Actions', render: (item: any) => {
-        // Show Accept/Reject for new orders (PLACED or CONFIRMED)
-        // Show Ready for Pickup for PACKED orders
+        const isProcessing = processingGroupId === item.id;
         if (item.status === 'PLACED' || item.status === 'CONFIRMED') {
+          const nextStatus = item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED';
+          const acceptLabel = item.status === 'PLACED' ? 'Confirm' : 'Mark Packed';
           return (
             <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={async () => {
+                  setProcessingGroupId(item.id);
                   try {
-                    await vendorApi.updateOrderStatus(item.orderId || item.id, item.status === 'PLACED' ? 'CONFIRMED' : 'PACKED');
-                    fetchOrders();
+                    await vendorApi.updateVendorGroupStatus(item.orderId || item.id, item.id, nextStatus);
+                    await fetchOrders(false);
                   } catch (e) { console.error(e); }
+                  finally { setProcessingGroupId(null); }
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100"
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-4 py-2.5 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-3.5 h-3.5" />
-                Accept
+                {isProcessing ? (
+                  <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                )}
+                {acceptLabel}
               </button>
               <button
                 onClick={() => { setRejectItem(item); setShowRejectModal(true); }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100"
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-4 py-2.5 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 Reject
@@ -116,14 +209,21 @@ export default function OrdersPage() {
             <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={async () => {
+                  setProcessingGroupId(item.id);
                   try {
-                    await vendorApi.updateOrderStatus(item.orderId || item.id, 'READY_FOR_PICKUP');
-                    fetchOrders();
+                    await vendorApi.updateVendorGroupStatus(item.orderId || item.id, item.id, 'READY_FOR_PICKUP');
+                    await fetchOrders(false);
                   } catch (e) { console.error(e); }
+                  finally { setProcessingGroupId(null); }
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100"
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-3.5 h-3.5" />
+                {isProcessing ? (
+                  <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                )}
                 Ready for Pickup
               </button>
             </div>
@@ -138,21 +238,62 @@ export default function OrdersPage() {
     router.push(`/orders/${item.orderId || item.id}`);
   };
 
-  const handleRejectOrder = async () => {
-    if (!rejectItem || !rejectReason.trim()) return;
-    try {
-      await vendorApi.cancelVendorGroup(rejectItem.orderId || rejectItem.id, rejectItem.id, rejectReason);
-      setShowRejectModal(false);
-      setRejectReason('');
-      setRejectItem(null);
-      fetchOrders();
-    } catch (e) { console.error(e); }
-  };
+  const notificationStatus = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+  const notificationsEnabled = notificationStatus === 'granted';
+  const notificationsDenied = notificationStatus === 'denied';
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-slate-900">Orders</h2><p className="text-sm text-slate-500">View and manage customer orders</p></div>
-      <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Orders</h2>
+          <p className="text-sm text-slate-500">View and manage customer orders — auto-refreshes every 30s</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {newOrderCount > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full animate-pulse">
+              <BellRing className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-medium text-emerald-700">{newOrderCount} new</span>
+            </div>
+          )}
+          <button
+            onClick={() => {
+              setNewOrderCount(0);
+              if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+              fetchOrders(true);
+            }}
+            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            title="Refresh now"
+          >
+            Refresh
+          </button>
+          {notificationsEnabled ? (
+            <span className="text-xs text-emerald-600 flex items-center gap-1" title="Browser notifications enabled">
+              <Bell className="w-3.5 h-3.5" /> Notifications on
+            </span>
+          ) : notificationsDenied ? (
+            <span className="text-xs text-slate-400 flex items-center gap-1" title="Notifications were blocked. Enable them in your browser settings.">
+              <Bell className="w-3.5 h-3.5" /> Notifications blocked
+            </span>
+          ) : (
+            <button
+              onClick={requestNotificationPermission}
+              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+              title="Enable browser notifications for new orders"
+            >
+              <Bell className="w-3.5 h-3.5" /> Enable alerts
+            </button>
+          )}
+        </div>
+      </div>
+      {initialError ? (
+        <ErrorState
+          message={initialError.message}
+          onRetry={() => { setLoading(true); setInitialError(null); fetchOrders(true); }}
+        />
+      ) : (
+        <DataTable columns={columns} data={orders} loading={loading} searchable onRowClick={handleRowClick} emptyMessage="No orders yet" />
+      )}
 
       {/* Cancel Reason Modal */}
       {showRejectModal && (
@@ -171,8 +312,15 @@ export default function OrdersPage() {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
             <div className="flex gap-3 mt-4 justify-end">
-              <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
-              <button onClick={handleRejectOrder} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">Confirm Cancel</button>
+              <button onClick={() => setShowRejectModal(false)} disabled={rejectSubmitting} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+              <button
+                onClick={handleRejectOrder}
+                disabled={!rejectReason.trim() || rejectSubmitting}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {rejectSubmitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Confirm Cancel
+              </button>
             </div>
           </div>
         </div>

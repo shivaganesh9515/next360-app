@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
-  RefreshControl, ScrollView, Dimensions, Animated, Platform, FlatList,
+  RefreshControl, ScrollView, useWindowDimensions, Animated, Platform, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,10 +9,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../../lib/store';
 import { useProductSheet } from '../../lib/productSheet';
 import { customerApi } from '../../lib/api';
-import { Product, Category } from '../../types';
+import { Product, Category, Offer } from '../../types';
 import {
-  Colors, Typography, Spacing, BorderRadius, Shadows,
-  getStoreAccent, getStoreAccentLight, getStoreAccentDark, getStoreLabel,
+  Colors, Typography, Spacing, BorderRadius, Shadows, getStoreLabel,
 } from '../../constants/theme';
 import StoreToggle from '../../components/StoreToggle';
 import CategoryBadge from '../../components/CategoryBadge';
@@ -22,12 +21,16 @@ import LocationPopover from '../../components/LocationPopover';
 import Shimmer from '../../components/Shimmer';
 import ErrorState from '../../components/ErrorState';
 import TrustBadge from '../../components/TrustBadge';
+import { getCategoryIcon } from '../../constants/categoryIcons';
+import { useScrollNav } from '../../lib/scrollNav';
 import { useTranslation } from 'react-i18next';
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
+const PRODUCT_CARD_WIDTH = 156;
+
+// ─── Skeletons ────────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
-    <View style={s.skeletonCard}>
+    <View style={[s.skeletonCard, { width: PRODUCT_CARD_WIDTH }]}>
       <Shimmer style={s.skeletonImg} />
       <Shimmer style={s.skeletonLine} />
       <Shimmer style={[s.skeletonLine, { width: '55%' }]} />
@@ -35,12 +38,15 @@ function SkeletonCard() {
   );
 }
 
-function getGreetingWord() {
-  const h = new Date().getHours();
-  return h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+function SkeletonCategory() {
+  return (
+    <View style={{ alignItems: 'center', width: 68, gap: 7 }}>
+      <Shimmer style={{ width: 58, height: 58, borderRadius: 29 }} />
+      <Shimmer style={{ width: 44, height: 10, borderRadius: 5 }} />
+    </View>
+  );
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const HERO_PLACEHOLDER_IMAGE = require('../../../assets/images/hero-plate.png');
 
 interface HeroBanner {
@@ -51,20 +57,25 @@ interface HeroBanner {
   desc: string;
 }
 
-const DEMO_FALLBACK_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO_FALLBACK === 'true';
-// Banners come only from the API. When the API returns none there is no
-// active campaign, so the carousel renders nothing — never a fabricated offer.
+// Banners and offers come only from the API. When the API returns none there
+// is no active campaign, so those sections render nothing — never a
+// fabricated discount or coupon code.
 
 export default function HomeScreen({ navigation }: any) {
   const { t } = useTranslation();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  // Tablet-safe cap: bound hero/card-sizing math to a phone-like width on
+  // large screens (iPad, foldables unfolded) so the layout doesn't stretch.
+  const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 768);
   const { storeType, setStoreType, addToCart, incrementCart } = useStore();
   const { open: openProduct } = useProductSheet();
+  const { handleScroll } = useScrollNav();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<HeroBanner[]>([]);
-  // Production must not fabricate discount banners — empty means “no active campaign”, not a fake 27% off
+  const [activeOffer, setActiveOffer] = useState<Offer | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -87,7 +98,7 @@ export default function HomeScreen({ navigation }: any) {
         return next;
       });
     }, 4000);
-  }, [banners.length]);
+  }, [banners.length, SCREEN_WIDTH]);
 
   const stopAutoScroll = useCallback(() => {
     if (autoScrollTimer.current) {
@@ -108,17 +119,21 @@ export default function HomeScreen({ navigation }: any) {
     Animated.spring(contentAnim, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }).start();
   }, []);
 
-  const accent = getStoreAccent(storeType);
-  const accentTint = getStoreAccentLight(storeType);
-  const accentDark = getStoreAccentDark(storeType);
+  // Flat single-brand-green everywhere on Home — the per-store accent
+  // (getStoreAccent) is still used by StoreToggle's swatches, on purpose,
+  // so the three store pills stay visually distinct.
+  const accent = Colors.primary;
+  const accentTint = Colors.primaryLight;
+  const accentDark = Colors.primaryDark;
   const storeLabel = getStoreLabel(storeType);
 
   const load = useCallback(async () => {
     try {
-      const [catRes, prodRes, bannerRes] = await Promise.all([
+      const [catRes, prodRes, bannerRes, offerRes] = await Promise.all([
         customerApi.getCategories({ storeType }),
         customerApi.getProducts({ storeType, categoryId: activeCategoryId, limit: 10 }),
         customerApi.getBanners({ storeType, isActive: true }).catch(() => null),
+        customerApi.getActiveOffers(storeType).catch(() => []),
       ]);
       setCategories(Array.isArray(catRes) ? catRes : (catRes as any)?.data || []);
       setProducts(Array.isArray(prodRes) ? prodRes : (prodRes as any)?.data || []);
@@ -137,6 +152,10 @@ export default function HomeScreen({ navigation }: any) {
         // Backend returned no banners (or request failed) → show nothing, not a fabricated discount
         setBanners([]);
       }
+
+      const offerList = Array.isArray(offerRes) ? offerRes : (offerRes as any)?.data || [];
+      setActiveOffer(offerList.length > 0 ? offerList[0] : null);
+
       setError(false);
     } catch {
       setProducts([]);
@@ -156,7 +175,7 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => { load(); }, [activeCategoryId]);
 
   const handleQuickAdd = (product: Product) => {
-    incrementCart();
+    incrementCart(product);
     addToCart(product.id, 1).catch(() => {});
   };
 
@@ -171,33 +190,76 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <View style={s.root}>
-      {/* Sticky Zomato-Style Header */}
+      {/* Header */}
       <SafeAreaView edges={['top']} style={s.topHeader}>
-        <View style={s.topBar}>
-          <LocationPopover accent={accent} isLight />
-          <View style={[s.topBarSide, s.topIcons]}>
+        <View style={s.brandRow}>
+          <View style={s.brandLockup}>
+            <View style={s.brandMark}>
+              <Ionicons name="leaf" size={16} color={Colors.white} />
+            </View>
+            <View>
+              <Text style={s.brandName}>Next360</Text>
+              <Text style={s.brandTagline}>Good Food. A Better Tomorrow.</Text>
+            </View>
+          </View>
+          <View style={s.brandActions}>
+            <LocationPopover accent={accent} isLight />
             <NotificationsPopover iconColor={Colors.text} />
           </View>
         </View>
 
-        <View style={s.greetingRow}>
-          <Text style={s.greeting}>Good {getGreetingWord()}</Text>
-          <View style={[s.trustChip, { backgroundColor: `${accent}14` }]}>
-            <Ionicons name="shield-checkmark" size={12} color={accent} />
-            <Text style={[s.trustChipText, { color: accent }]}>Verified {storeLabel}</Text>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={s.searchBar}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Search')}
+        >
+          <Ionicons name="search" size={18} color={Colors.textSecondary} />
+          <Text style={s.searchPlaceholder} numberOfLines={1}>
+            Search for fruits, vegetables, milk & more...
+          </Text>
+          <TouchableOpacity
+            style={s.scanBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => navigation.navigate('AiScanner')}
+          >
+            <Ionicons name="scan-outline" size={18} color={accent} />
+          </TouchableOpacity>
+        </TouchableOpacity>
       </SafeAreaView>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={accent} />
         }
       >
+        {/* Quick info cards */}
+        <View style={s.infoRow}>
+          <View style={[s.infoCard, { backgroundColor: accentTint }]}>
+            <Ionicons name="flash" size={16} color={accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.infoCardTitle, { color: accentDark }]}>Delivery in 8–15 mins</Text>
+              <Text style={s.infoCardSubtitle}>Freshness at your doorstep</Text>
+            </View>
+          </View>
+          <View style={[s.infoCard, { backgroundColor: accentTint }]}>
+            <Ionicons name="leaf" size={16} color={accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.infoCardTitle, { color: accentDark }]}>100% {storeLabel}</Text>
+              <Text style={s.infoCardSubtitle}>Verified Products</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Banner carousel — rendered only when the API returns active banners */}
-        {banners.length > 0 && (
+        {loading ? (
+          <View style={s.carouselContainer}>
+            <Shimmer style={[s.bannerCard, { marginHorizontal: Spacing.xl, width: CONTENT_WIDTH - Spacing.xl * 2 }]} />
+          </View>
+        ) : banners.length > 0 && (
         <View style={s.carouselContainer}>
           <ScrollView
             ref={bannerScrollRef}
@@ -221,7 +283,7 @@ export default function HomeScreen({ navigation }: any) {
                       colors={hasImage ? ['rgba(0,0,0,0.72)', 'rgba(0,0,0,0.52)'] : [accent, accentDark]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={s.bannerCard}
+                      style={[s.bannerCard, { width: CONTENT_WIDTH - Spacing.xl * 2 }]}
                     >
                       {hasImage && (
                         <Image
@@ -232,20 +294,22 @@ export default function HomeScreen({ navigation }: any) {
                       )}
 
                       <View style={s.heroCopy}>
-                        <View style={[s.bannerTag, { backgroundColor: accent }]}>
-                          <Text style={s.bannerTagText}>OFFER</Text>
+                        <View style={[s.bannerTag, { backgroundColor: '#FFFFFF' }]}>
+                          <Text style={[s.bannerTagText, { color: accentDark }]}>OFFER</Text>
                         </View>
-                        <View style={s.offerRow}>
-                          <Text style={s.offerValue}>{slide.offerValue}</Text>
-                          <Text style={s.offerLabel}>{slide.offerLabel}</Text>
-                        </View>
+                        <Text style={s.offerValue}>{slide.offerValue}</Text>
+                        {!!slide.offerLabel && <Text style={s.offerLabel}>{slide.offerLabel}</Text>}
                         <Text style={s.heroDesc}>{slide.desc}</Text>
                       </View>
 
-                      <View style={s.bannerCTARow}>
-                        <Text style={[s.bannerCTAText, { color: '#FFFFFF' }]}>Shop now</Text>
-                        <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-                      </View>
+                      <TouchableOpacity
+                        style={s.shopNowBtn}
+                        activeOpacity={0.85}
+                        onPress={() => navigation.navigate('Promos')}
+                      >
+                        <Text style={[s.shopNowText, { color: accentDark }]}>Shop Now</Text>
+                        <Ionicons name="arrow-forward" size={14} color={accentDark} />
+                      </TouchableOpacity>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -266,7 +330,7 @@ export default function HomeScreen({ navigation }: any) {
 
         <SafeAreaView edges={[]} style={s.safe}>
           {/* Store Swatch Selector */}
-          <View style={{ marginBottom: Spacing.xl }}>
+          <View style={{ marginTop: Spacing.sm, marginBottom: Spacing.lg }}>
             <StoreToggle selected={storeType} onSelect={setStoreType} />
           </View>
 
@@ -304,34 +368,58 @@ export default function HomeScreen({ navigation }: any) {
           </ScrollView>
 
           {/* Categories */}
-          {categories.length > 0 && (
-            <Animated.View style={animatedContentStyle}>
-              <View style={[s.sectionHeader, { marginTop: Spacing.md }]}>
-                <Text style={s.sectionLabel}>SHOP BY</Text>
-                <Text style={s.sectionTitle}>{t('home.section.categories')}</Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catScroll}>
-                <CategoryBadge
-                  label={t('common.all')}
-                  icon="grid"
-                  accent={accent}
-                  accentTint={accentTint}
-                  isActive={!activeCategoryId}
-                  onPress={() => setActiveCategoryId(undefined)}
-                />
-                {categories.map((cat) => (
+          <Animated.View style={animatedContentStyle}>
+            <View style={[s.sectionHeader, { marginTop: Spacing.md }]}>
+              <Text style={s.sectionLabel}>SHOP BY</Text>
+              <Text style={s.sectionTitle}>{t('home.section.categories')}</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catScroll}>
+              {loading ? (
+                [0, 1, 2, 3, 4].map((i) => <SkeletonCategory key={`cat-skel-${i}`} />)
+              ) : (
+                <>
                   <CategoryBadge
-                    key={cat.id}
-                    label={cat.name}
-                    image={cat.image}
+                    label={t('common.all')}
+                    icon="grid"
                     accent={accent}
                     accentTint={accentTint}
-                    isActive={activeCategoryId === cat.id}
-                    onPress={() => setActiveCategoryId(cat.id)}
+                    isActive={!activeCategoryId}
+                    onPress={() => setActiveCategoryId(undefined)}
                   />
-                ))}
-              </ScrollView>
-            </Animated.View>
+                  {categories.map((cat) => (
+                    <CategoryBadge
+                      key={cat.id}
+                      label={cat.name}
+                      image={cat.imageUrl}
+                      icon={getCategoryIcon(cat)}
+                      accent={accent}
+                      accentTint={accentTint}
+                      isActive={activeCategoryId === cat.id}
+                      onPress={() => setActiveCategoryId(cat.id)}
+                    />
+                  ))}
+                </>
+              )}
+            </ScrollView>
+          </Animated.View>
+
+          {/* Promotional strip — only rendered when a real offer is active */}
+          {activeOffer && (
+            <TouchableOpacity
+              style={[s.promoCard, { backgroundColor: Colors.primaryPale }]}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('Promos')}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[s.promoValue, { color: accentDark }]}>
+                  Flat {activeOffer.discountValue}{activeOffer.discountType === 'PERCENTAGE' ? '%' : '₹'} OFF
+                </Text>
+                <Text style={s.promoTitle}>{activeOffer.title}</Text>
+              </View>
+              <View style={[s.promoIcon, { backgroundColor: accent }]}>
+                <Ionicons name="pricetag" size={18} color={Colors.white} />
+              </View>
+            </TouchableOpacity>
           )}
 
           {/* Delivery Speed Filter + Sort */}
@@ -367,7 +455,7 @@ export default function HomeScreen({ navigation }: any) {
             </ScrollView>
           </View>
 
-          {/* Product Grid */}
+          {/* Product carousel */}
           {(() => {
             let filtered = deliveryFilter != null
               ? products.filter((p) => p.vendor?.deliveryTimeMax != null && p.vendor.deliveryTimeMax <= deliveryFilter)
@@ -400,44 +488,38 @@ export default function HomeScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            <View style={s.grid}>
-              {loading ? (
-                [0, 1, 2, 3].map((i) => <SkeletonCard key={`skeleton-${i}`} />)
-              ) : error ? (
-                <View style={{ width: '100%' }}>
-                  <ErrorState message={t('home.error.loadProducts')} onRetry={load} />
-                </View>
-              ) : (
-                <FlatList
-                  data={filtered}
-                  keyExtractor={(item) => item.id}
-                  numColumns={2}
-                  // Nested in the screen ScrollView — the outer scroller owns
-                  // scrolling, this list only lays out rows (no per-row timers).
-                  scrollEnabled={false}
-                  style={s.gridList}
-                  columnWrapperStyle={s.gridRow}
-                  contentContainerStyle={s.gridContent}
-                  renderItem={({ item }) => (
-                    <ProductCard
-                      product={item}
-                      onPress={(p) => openProduct(p.id)}
-                      onQuickAdd={handleQuickAdd}
-                      onVendorPress={handleVendorPress}
-                    />
-                  )}
-                  ListEmptyComponent={
-                    <View style={s.emptyState}>
-                      <Ionicons name="time-outline" size={36} color={Colors.textSecondary} />
-                      <Text style={s.emptyText}>No products with delivery under {deliveryFilter} min</Text>
-                      <TouchableOpacity onPress={() => setDeliveryFilter(null)}>
-                        <Text style={[s.emptyText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>Clear filter</Text>
-                      </TouchableOpacity>
-                    </View>
-                  }
-                />
-              )}
-            </View>
+            {loading ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.productScroll}>
+                {[0, 1, 2, 3].map((i) => <SkeletonCard key={`skeleton-${i}`} />)}
+              </ScrollView>
+            ) : error ? (
+              <ErrorState message={t('home.error.loadProducts')} onRetry={load} />
+            ) : filtered.length === 0 ? (
+              <View style={s.emptyState}>
+                <Ionicons name="time-outline" size={36} color={Colors.textSecondary} />
+                <Text style={s.emptyText}>No products with delivery under {deliveryFilter} min</Text>
+                <TouchableOpacity onPress={() => setDeliveryFilter(null)}>
+                  <Text style={[s.emptyText, { color: accent, fontFamily: 'Inter_600SemiBold' }]}>Clear filter</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <FlatList
+                data={filtered}
+                keyExtractor={(item) => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.productScroll}
+                renderItem={({ item }) => (
+                  <ProductCard
+                    product={item}
+                    cardWidth={PRODUCT_CARD_WIDTH}
+                    onPress={(p) => openProduct(p.id)}
+                    onQuickAdd={handleQuickAdd}
+                    onVendorPress={handleVendorPress}
+                  />
+                )}
+              />
+            )}
           </Animated.View>
           );
           })()}
@@ -454,14 +536,6 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1 },
 
-  hero: {
-    position: 'relative',
-    paddingBottom: Spacing.xxxl + 8,
-    borderBottomLeftRadius: BorderRadius.xl,
-    borderBottomRightRadius: BorderRadius.xl,
-    overflow: 'hidden',
-  },
-
   overscrollOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: '#0A0A08',
@@ -475,37 +549,42 @@ const s = StyleSheet.create({
     borderBottomColor: 'rgba(28, 27, 23, 0.08)',
     paddingBottom: Spacing.md,
   },
-  topBar: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.sm,
-  },
-  topBarSide: { flex: 1 },
-  topIcons: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'flex-end' },
-
-  greeting: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: '#1C1B17',
-  },
-  greetingRow: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    marginTop: Spacing.xs,
+    paddingTop: Spacing.sm,
   },
-  trustChip: {
+  brandLockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.pill,
+    gap: Spacing.sm,
+    flexShrink: 1,
   },
-  trustChipText: {
+  brandMark: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandName: {
+    fontFamily: 'Inter_800ExtraBold',
+    fontSize: 17,
+    color: Colors.primaryDark,
+    letterSpacing: -0.3,
+  },
+  brandTagline: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.3,
+    color: Colors.textSecondary,
+  },
+  brandActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
 
   searchBar: {
@@ -513,26 +592,58 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginHorizontal: Spacing.xl,
-    marginTop: Spacing.sm,
-    backgroundColor: '#F3F4F6', // Zomato soft grey input
+    marginTop: Spacing.md,
+    backgroundColor: '#F3F4F6',
     borderRadius: BorderRadius.md,
-    height: 44,
+    height: 46,
     paddingHorizontal: Spacing.md,
-    borderWidth: 1,
-    ...Shadows.card,
   },
   searchPlaceholder: {
+    flex: 1,
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: Colors.textSecondary,
+  },
+  scanBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   scrollContent: {
     paddingBottom: Spacing.xxl + 20,
   },
 
+  infoRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.md,
+  },
+  infoCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  infoCardTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11.5,
+  },
+  infoCardSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+
   carouselContainer: {
-    marginTop: Spacing.sm,
+    marginTop: Spacing.lg,
     marginBottom: Spacing.lg,
   },
   heroSlide: {
@@ -543,7 +654,6 @@ const s = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    width: SCREEN_WIDTH - Spacing.xl * 2,
     marginHorizontal: Spacing.xl,
     borderRadius: 22,
     padding: Spacing.xl,
@@ -562,10 +672,8 @@ const s = StyleSheet.create({
   bannerTagText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 9,
-    color: '#FFFFFF',
     letterSpacing: 0.6,
   },
-  heroBody: { marginTop: Spacing.xs },
   heroDots: {
     flexDirection: 'row', justifyContent: 'center', gap: 6,
     marginTop: Spacing.md,
@@ -575,29 +683,34 @@ const s = StyleSheet.create({
   },
   heroDotActive: { width: 20, borderRadius: 4 },
   heroCopy: { flex: 1, justifyContent: 'center' },
-  offerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  offerValue: { fontFamily: 'Inter_800ExtraBold', fontSize: 40, color: '#FFFFFF', letterSpacing: -1 },
+  offerValue: {
+    fontFamily: 'Inter_800ExtraBold', fontSize: 26, color: '#FFFFFF', letterSpacing: -0.5, lineHeight: 32,
+  },
   offerLabel: {
     fontFamily: 'Inter_700Bold', color: '#FFFFFF',
-    fontSize: 13, lineHeight: 16, letterSpacing: 0.2,
+    fontSize: 15, lineHeight: 20, letterSpacing: -0.2, marginTop: 2,
   },
   heroDesc: {
-    fontFamily: 'Inter_400Regular', color: 'rgba(255, 255, 255, 0.75)', fontSize: 13, lineHeight: 18, marginTop: 6,
+    fontFamily: 'Inter_400Regular', color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, lineHeight: 18, marginTop: 6,
   },
-  bannerCTARow: {
+  shopNowBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: Spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
   },
-  bannerCTAText: {
-    fontFamily: 'Inter_600SemiBold',
+  shopNowText: {
+    fontFamily: 'Inter_700Bold',
     fontSize: 13,
     letterSpacing: 0.2,
   },
-  // Removed glassBubble — clean banner layout
 
-  // ══ Section Headers (matching ProfileScreen style) ═══════════════════════════
+  // ══ Section Headers ═══════════════════════════════════════════════
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -613,7 +726,8 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   sectionTitle: {
-    ...Typography.h2,
+    fontFamily: 'Inter_800ExtraBold',
+    fontSize: 19,
     color: Colors.text,
     letterSpacing: -0.3,
   },
@@ -651,8 +765,8 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   farmerCardTitle: {
-    fontFamily: 'Fraunces_700Bold',
-    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 16,
     color: Colors.text,
     letterSpacing: -0.2,
   },
@@ -690,8 +804,38 @@ const s = StyleSheet.create({
 
   catScroll: { paddingHorizontal: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing.xs },
 
+  // Promo strip
+  promoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  promoValue: {
+    fontFamily: 'Inter_800ExtraBold',
+    fontSize: 17,
+    letterSpacing: -0.3,
+  },
+  promoTitle: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  promoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   deliveryFilterWrap: {
     marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
   },
   deliveryFilterScroll: {
     paddingHorizontal: Spacing.xl,
@@ -720,12 +864,9 @@ const s = StyleSheet.create({
     marginTop: 2,
   },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: Spacing.xl },
-  gridList: { width: '100%' },
-  gridRow: { justifyContent: 'space-between' },
-  gridContent: { flexGrow: 1 },
+  productScroll: { paddingHorizontal: Spacing.xl, gap: Spacing.md },
 
-  skeletonCard: { width: '48%', marginBottom: Spacing.lg },
+  skeletonCard: { marginRight: Spacing.md },
   skeletonImg: { height: 140, borderRadius: BorderRadius.lg, backgroundColor: Colors.border, marginBottom: Spacing.sm },
   skeletonLine: { height: 12, borderRadius: 6, backgroundColor: Colors.border, width: '90%', marginBottom: 6 },
 

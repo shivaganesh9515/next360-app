@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { vendorApi } from '@/lib/api';
+import { exportToCSV } from '@/lib/utils';
 
 export default function SalesAnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [period, setPeriod] = useState('30d');
 
-  useEffect(() => {
+  const loadAnalytics = (p: string) => {
     setLoading(true);
-    vendorApi.getAnalytics(period).then((res: any) => {
+    setError(null);
+    vendorApi.getAnalytics(p).then((res: any) => {
       const data = res || {};
 
       // Build category breakdown from order data if available
@@ -39,8 +42,10 @@ export default function SalesAnalyticsPage() {
             }))
           : data.revenueOverTime?.map((r: any) => ({ date: r.date, orders: 0, sales: r.revenue || 0 })) || [],
       });
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [period]);
+    }).catch((err) => setError(err instanceof Error ? err : new Error(String(err)))).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadAnalytics(period); }, [period]);
 
   if (loading) {
     return (
@@ -48,6 +53,19 @@ export default function SalesAnalyticsPage() {
         <div><h2 className="text-xl font-bold text-slate-900">Sales Analytics</h2><p className="text-sm text-slate-500">Detailed sales performance</p></div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {[1, 2].map((i) => <div key={i} className="h-48 bg-slate-100 rounded-xl animate-pulse" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !analytics) {
+    return (
+      <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-slate-900">Sales Analytics</h2><p className="text-sm text-slate-500">Detailed sales performance</p></div>
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200" role="alert">
+          <p className="text-sm font-medium text-slate-700">Couldn&apos;t load analytics</p>
+          <p className="text-xs text-slate-400 mt-1">{error.message}</p>
+          <button onClick={() => loadAnalytics(period)} className="mt-3 px-4 py-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors">Retry</button>
         </div>
       </div>
     );
@@ -64,10 +82,30 @@ export default function SalesAnalyticsPage() {
           <h2 className="text-xl font-bold text-slate-900">Sales Analytics</h2>
           <p className="text-sm text-slate-500">Detailed sales performance</p>
         </div>
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
-          {[{ id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: '90d', label: '90D' }].map((p) => (
-            <button key={p.id} onClick={() => setPeriod(p.id)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.id ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'}`}>{p.label}</button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const rows: Record<string, any>[] = [];
+              salesByCategory.forEach((c: any) => rows.push({ Type: 'Category', Name: c.name || c.category || 'N/A', Orders: c.orders || c.count || 0, Revenue: Number(c.revenue || c.sales || 0), Details: '' }));
+              topProducts.forEach((p: any) => rows.push({ Type: 'Product', Name: p.name, Orders: p.sales || p.quantity || 0, Revenue: Number(p.revenue || 0), Details: `${p.sales || p.quantity || 0} sold` }));
+              analytics?.salesOverTime?.forEach((d: any) => rows.push({ Type: 'Daily', Name: new Date(d.date).toISOString().slice(0, 10), Orders: d.orders || 0, Revenue: d.sales || 0, Details: '' }));
+              exportToCSV(rows, [
+                { key: 'Type', label: 'Type' },
+                { key: 'Name', label: 'Name' },
+                { key: 'Orders', label: 'Orders' },
+                { key: 'Revenue', label: 'Revenue' },
+                { key: 'Details', label: 'Details' },
+              ], `sales-analytics-${period}`);
+            }}
+            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Export CSV
+          </button>
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+            {[{ id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: '90d', label: '90D' }].map((p) => (
+              <button key={p.id} onClick={() => setPeriod(p.id)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.id ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'}`}>{p.label}</button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -124,12 +162,12 @@ export default function SalesAnalyticsPage() {
       {analytics?.salesOverTime?.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h3 className="font-semibold text-slate-800 mb-4">Sales Over Time</h3>
-          <div className="h-48 flex items-end gap-1.5">
+          <div className="h-48 flex items-end gap-1.5 overflow-x-auto">
             {analytics.salesOverTime.map((d: any, i: number) => {
               const max = Math.max(...analytics.salesOverTime.map((x: any) => x.orders || x.sales || 0), 1);
               const h = ((d.orders || d.sales || 0) / max) * 100;
               return (
-                <div key={i} className="flex-1 flex flex-col items-center group relative">
+                <div key={i} className="flex-1 min-w-[24px] flex flex-col items-center group relative">
                   <div className="absolute -top-8 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
                     {d.orders || d.sales || 0} orders
                   </div>

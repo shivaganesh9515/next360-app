@@ -106,6 +106,7 @@ export default function VendorApprovalsPage() {
     { key: 'storeName', label: 'Store', render: (v: any) => <span className="font-medium text-gray-800">{v.storeName}</span> },
     { key: 'ownerName', label: 'Owner', render: (v: any) => v.ownerName || v.user?.name || '-' },
     { key: 'storeType', label: 'Type', render: (v: any) => <StatusBadge status={v.storeType} /> },
+    { key: 'kycStatus', label: 'KYC', render: (v: any) => <StatusBadge status={v.kycStatus || 'INCOMPLETE'} /> },
     { key: 'createdAt', label: 'Applied', render: (v: any) => new Date(v.createdAt).toLocaleDateString() },
     { key: 'actions', label: 'Actions', render: (v: any) => (
       <div className="flex gap-2">

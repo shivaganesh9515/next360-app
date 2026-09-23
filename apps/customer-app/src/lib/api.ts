@@ -55,13 +55,13 @@ function demoAddToCart(productId: string, quantity: number): CartItem[] {
   return demoCartItems;
 }
 
-function demoUpdateCartItem(itemId: string, quantity: number): CartItem[] {
-  demoCartItems = demoCartItems.map((item) => (item.id === itemId ? { ...item, quantity } : item));
+function demoUpdateCartItem(productId: string, quantity: number): CartItem[] {
+  demoCartItems = demoCartItems.map((item) => (item.productId === productId ? { ...item, quantity } : item));
   return demoCartItems;
 }
 
-function demoRemoveCartItem(itemId: string): CartItem[] {
-  demoCartItems = demoCartItems.filter((item) => item.id !== itemId);
+function demoRemoveCartItem(productId: string): CartItem[] {
+  demoCartItems = demoCartItems.filter((item) => item.productId !== productId);
   return demoCartItems;
 }
 
@@ -204,8 +204,35 @@ export async function removeToken(): Promise<void> {
   else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
+// Lets AuthProvider (inside the React tree) hear about a 401 that happened
+// here (outside it) — same bridge pattern App.tsx already uses for the OAuth
+// deep-link handler (googleSignInRef). Without this, removeToken() alone left
+// the app's in-memory `user`/`isAuthenticated` state untouched: the token was
+// gone, but the UI still believed it was logged in, so every subsequent
+// request 401'd forever with no way back to the login screen short of the
+// user manually finding "Log Out" themselves.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+}
+
+// Thrown when a request actually reached the backend and got a real error
+// response (401, 404, 500, ...) — as opposed to fetch() itself rejecting
+// because there's no server to reach at all. The demo-fallback catch blocks
+// below must only trigger for the latter: falling back to demo data on a
+// real 401 (e.g. an expired/invalid token) silently swaps a real, working
+// cart for an empty local one instead of surfacing the actual problem —
+// which is exactly what made "+" look like it was deleting the cart.
+export class ApiHttpError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
@@ -233,8 +260,15 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
     if (response.status === 401) {
       await removeToken();
+      // Only force a sign-out if there actually was a token that got rejected.
+      // Dev Skip intentionally has no real token at all — every guarded call
+      // will legitimately 401 under it, and that's expected (Dev Skip never
+      // promised a working backend session); forcing a sign-out there just
+      // bounces the developer straight back to the login screen with no way
+      // to stay on the skipped session.
+      if (token) onUnauthorized?.();
     }
-    throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    throw new ApiHttpError(error.message || error.error || `HTTP ${response.status}`, response.status);
   }
 
   if (response.status === 204) return undefined as T;
@@ -289,11 +323,17 @@ export const customerApi = {
   // whenever apps/api's real /auth/send-otp + /auth/verify-otp-login (see
   // AuthService.verifyOtpLogin) aren't reachable, e.g. no backend running
   // locally — same pattern as every other demo fallback in this file.
+  // These two must only fall back for genuine network failures (no backend
+  // reachable) — the real endpoints deliberately return 410 Gone (phone OTP
+  // is disabled server-side, see auth.service.ts), and silently swapping
+  // that real rejection for a fake demo token meant login looked like it
+  // succeeded while producing a token the real API would reject on every
+  // subsequent request.
   sendOtp: async (phone: string): Promise<{ message: string }> => {
     try {
       return await api.post<{ message: string }>('/auth/send-otp', { phone });
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       return { message: `OTP sent (demo mode — use ${DEMO_OTP})` };
     }
   },
@@ -301,7 +341,7 @@ export const customerApi = {
     try {
       return await api.post('/auth/verify-otp-login', { phone, otp });
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       return demoVerifyOtpLogin(phone, otp);
     }
   },
@@ -316,7 +356,7 @@ export const customerApi = {
     try {
       return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/google', data);
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       return {
         access_token: `demo-google-token-${Date.now()}`,
         user: {
@@ -334,7 +374,7 @@ export const customerApi = {
     try {
       return await api.post<{ access_token: string; user: any; isNewUser: boolean }>('/auth/apple', data);
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       return {
         access_token: `demo-apple-token-${Date.now()}`,
         user: {
@@ -403,43 +443,51 @@ export const customerApi = {
   // Cart — falls back to an in-memory demo cart when the real API is
   // unreachable, same rationale as getProducts/getCategories. Without this,
   // add/update/remove would silently throw and cartItems would never update.
+  // Real routes (apps/api/src/cart/cart.controller.ts) are POST /cart/items,
+  // PATCH /cart/items/:productId, DELETE /cart/items/:productId — keyed by
+  // the product's id, not the CartItem row's own id (the backend looks the
+  // row up via the userId+productId unique constraint). Every one of these
+  // previously hit a path with no matching route (`/cart`, `/cart/:id`),
+  // which is why quantity changes silently did nothing: the request 404'd,
+  // fell through to the demo fallback, and a subsequent fetchCart() just
+  // reloaded the real (unchanged) server-side cart.
   getCart: async () => {
     try {
       return await api.get<any>('/cart');
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       return demoCartItems;
     }
   },
   addToCart: async (productId: string, quantity: number) => {
     try {
-      return await api.post<any>('/cart', { productId, quantity });
+      return await api.post<any>('/cart/items', { productId, quantity });
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       return demoAddToCart(productId, quantity);
     }
   },
-  updateCartItem: async (itemId: string, quantity: number) => {
+  updateCartItem: async (productId: string, quantity: number) => {
     try {
-      return await api.patch<any>(`/cart/${itemId}`, { quantity });
+      return await api.patch<any>(`/cart/items/${productId}`, { quantity });
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
-      return demoUpdateCartItem(itemId, quantity);
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
+      return demoUpdateCartItem(productId, quantity);
     }
   },
-  removeCartItem: async (itemId: string) => {
+  removeCartItem: async (productId: string) => {
     try {
-      return await api.delete<any>(`/cart/${itemId}`);
+      return await api.delete<any>(`/cart/items/${productId}`);
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
-      return demoRemoveCartItem(itemId);
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
+      return demoRemoveCartItem(productId);
     }
   },
   clearCart: async () => {
     try {
       return await api.delete<any>('/cart');
     } catch (err) {
-      if (!DEMO_FALLBACK_ENABLED) throw err;
+      if (!DEMO_FALLBACK_ENABLED || err instanceof ApiHttpError) throw err;
       demoCartItems = [];
       return demoCartItems;
     }

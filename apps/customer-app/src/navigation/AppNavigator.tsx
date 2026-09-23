@@ -15,6 +15,7 @@ import { useZone } from '../lib/zone';
 import { useStore } from '../lib/store';
 import { useFlyToCart } from '../lib/flyToCart';
 import { useCartSheet } from '../lib/cartSheet';
+import { useScrollNav } from '../lib/scrollNav';
 import { Colors, Shadows, getStoreAccent } from '../constants/theme';
 import SplashScreen from '../screens/onboarding/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
@@ -152,7 +153,8 @@ function MiniCartBar() {
   const handleRemove = () => {
     if (!lastItem) return;
     swipeableRef.current?.close();
-    removeCartItem(lastItem.id);
+    // Keyed by productId, not this row's own id — see removeCartItem in store.tsx.
+    removeCartItem(lastItem.productId);
   };
 
   const renderRightActions = () => (
@@ -215,10 +217,26 @@ function MiniCartBar() {
 }
 
 // ── Floating pill tab bar ─────────────────────────────────────────────────────
+// How far the nav row travels to clear the screen, and how far the mini cart
+// bar drops to take its place — matches pill.container's height (64) plus a
+// small buffer so the row's shadow (Shadows.raised) fully clears too.
+const NAV_ROW_SHIFT = 76;
+
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { wishlistCount, storeType } = useStore();
+  const { hideAnim } = useScrollNav();
   const accent = getStoreAccent(storeType);
+
+  const rowAnimStyle = {
+    opacity: hideAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+    transform: [{ translateY: hideAnim.interpolate({ inputRange: [0, 1], outputRange: [0, NAV_ROW_SHIFT] }) }],
+  };
+  // Drops into the row's vacated spot as it hides, landing flush with the
+  // outer container's bottom edge — the single "only cart bar visible" state.
+  const cartShiftStyle = {
+    transform: [{ translateY: hideAnim.interpolate({ inputRange: [0, 1], outputRange: [0, NAV_ROW_SHIFT] }) }],
+  };
 
   const handleTabPress = (routeIndex: number, routeName: string) => {
     const isFocused = state.index === routeIndex;
@@ -239,8 +257,10 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View style={[pill.outer, { bottom: insets.bottom + 16 }]}>
-      <MiniCartBar />
-      <View style={pill.row}>
+      <Animated.View style={cartShiftStyle}>
+        <MiniCartBar />
+      </Animated.View>
+      <Animated.View style={[pill.row, rowAnimStyle]}>
         <View style={[pill.container, Shadows.raised]}>
           {/* Button 0: Home */}
           <TouchableOpacity
@@ -309,7 +329,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           navigation={navigation}
           onSearch={(q) => navigation.navigate('Home', { screen: 'Search', params: { initialQuery: q } })}
         />
-      </View>
+      </Animated.View>
     </View>
   );
 }

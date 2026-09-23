@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, MutableRefObject } from 'react';
-import { customerApi, setToken, removeToken } from './api';
+import { customerApi, setToken, removeToken, setUnauthorizedHandler } from './api';
 import { registerForPushNotifications, unregisterPushToken } from './notifications';
 import { User } from '../types';
 
@@ -30,6 +30,15 @@ export function AuthProvider({ children, googleSignInRef }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => { checkAuth(); }, []);
+
+  // A 401 from any request (cart, orders, wherever) means the stored token is
+  // dead — clear the in-memory user too so isAuthenticated actually flips to
+  // false and AppNavigator routes back to login, instead of leaving the app
+  // stuck believing it's still signed in while every request keeps failing.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // Registers the device for push once there's an authenticated user — covers
   // fresh sign-in/sign-up and a restored session on app relaunch alike. This

@@ -11,7 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { I18nextProvider } from 'react-i18next';
 import * as SplashScreenNative from 'expo-splash-screen';
 import { useFonts, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import * as Sentry from '@sentry/react-native';
 import i18n, { loadSavedLanguage } from './src/i18n';
@@ -21,6 +21,7 @@ import { ZoneProvider } from './src/lib/zone';
 import { ProductSheetProvider } from './src/lib/productSheet';
 import { CartSheetProvider } from './src/lib/cartSheet';
 import { FlyToCartProvider } from './src/lib/flyToCart';
+import { ScrollNavProvider } from './src/lib/scrollNav';
 import { navigationRef } from './src/lib/navigationRef';
 import { setupNotificationListeners } from './src/lib/notifications';
 import { handleSupabaseCallback, getInitialOAuthUrl } from './src/lib/supabaseAuthCallback';
@@ -65,6 +66,7 @@ function App() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    Inter_800ExtraBold,
     JetBrainsMono_400Regular,
   });
 
@@ -129,14 +131,16 @@ function App() {
             <AuthProvider googleSignInRef={googleSignInRef}>
               <ZoneProvider>
                 <StoreProvider>
-                  <FlyToCartProvider>
-                    <ProductSheetProvider>
-                      <CartSheetProvider>
-                        <StatusBar style="dark" />
-                        <AppNavigator />
-                      </CartSheetProvider>
-                    </ProductSheetProvider>
-                  </FlyToCartProvider>
+                  <ScrollNavProvider>
+                    <FlyToCartProvider>
+                      <ProductSheetProvider>
+                        <CartSheetProvider>
+                          <StatusBar style="dark" />
+                          <AppNavigator />
+                        </CartSheetProvider>
+                      </ProductSheetProvider>
+                    </FlyToCartProvider>
+                  </ScrollNavProvider>
                 </StoreProvider>
               </ZoneProvider>
             </AuthProvider>

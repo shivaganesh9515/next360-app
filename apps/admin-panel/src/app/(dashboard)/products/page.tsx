@@ -55,8 +55,8 @@ export default function ProductsPage() {
     { key: 'isApproved', label: 'Status', render: (p: any) => p.isApproved ? <StatusBadge status="ACTIVE" /> : <StatusBadge status="PENDING" /> },
     { key: 'actions', label: 'Actions', render: (p: any) => (
       <div className="flex gap-1">
-        {!p.isApproved && <button onClick={(e) => { e.stopPropagation(); setConfirmAction({ id: p.id, action: 'approve', name: p.name }); }} className="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">Approve</button>}
-        <button onClick={(e) => { e.stopPropagation(); router.push(`/products/${p.id}`); }} className="p-1.5 hover:bg-gray-100 rounded"><Eye className="w-3.5 h-3.5 text-gray-600" /></button>
+        {!p.isApproved && <button onClick={(e) => { e.stopPropagation(); setConfirmAction({ id: p.id, action: 'approve', name: p.name }); }} className="px-3 py-2 text-xs bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">Approve</button>}
+        <button onClick={(e) => { e.stopPropagation(); router.push(`/products/${p.id}`); }} className="p-2.5 hover:bg-gray-100 rounded"><Eye className="w-3.5 h-3.5 text-gray-600" /></button>
       </div>
     )},
   ];

@@ -79,7 +79,7 @@ export default function WishlistScreen() {
   };
 
   const handleQuickAdd = async (product: Product) => {
-    incrementCart();
+    incrementCart(product);
     await addToCart(product.id, 1).catch(() => {});
   };
 

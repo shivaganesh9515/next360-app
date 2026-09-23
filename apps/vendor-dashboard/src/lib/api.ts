@@ -34,12 +34,16 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   try {
     response = await fetch(url, { ...fetchOptions, headers });
   } catch (err: any) {
-    // Network error (API not running, CORS, etc.)
     throw new Error('Unable to connect to server. Please try again later.');
   }
 
   // Handle 401 Unauthorized — session expired or invalid token
   if (response.status === 401) {
+    // Dev-skip: when vendor_dev_skip is in localStorage, return undefined
+    // instead of throwing so the dashboard can render without auth.
+    if (typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
+      return undefined as T;
+    }
     localStorage.removeItem('vendor_token');
     if (onUnauthorized) {
       onUnauthorized();
@@ -61,14 +65,73 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   } catch {
     throw new Error('API returned invalid response. Is the server running?');
   }
-  // apps/api wraps every response in { success, data, meta } (ResponseInterceptor)
-  // — unwrap it here so callers get the payload directly instead of the envelope.
   return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
+}
+
+// Like request() but preserves pagination meta from the response envelope.
+// Returns { data, meta } for paginated endpoints, or just the data for non-paginated.
+async function requestWithMeta<T>(path: string, options: ApiOptions = {}): Promise<{ data: T; meta?: any }> {
+  let url = `${API_BASE}${path}`;
+  if (options.params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(options.params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, String(value));
+    });
+    const qs = searchParams.toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  const { params, ...fetchOptions } = options;
+
+  const token = localStorage.getItem('vendor_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { ...fetchOptions, headers });
+  } catch (err: any) {
+    throw new Error('Unable to connect to server. Please try again later.');
+  }
+
+  if (response.status === 401) {
+    if (typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
+      return { data: undefined as T };
+    }
+    localStorage.removeItem('vendor_token');
+    if (onUnauthorized) onUnauthorized();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || error.error || `HTTP ${response.status}`);
+  }
+
+  if (response.status === 204) return { data: undefined as T };
+
+  const text = await response.text();
+  let body: any;
+  try { body = JSON.parse(text); } catch {
+    throw new Error('API returned invalid response. Is the server running?');
+  }
+
+  // Unwrap the { success, data, meta } envelope, preserving meta
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    return { data: body.data, meta: body.meta };
+  }
+  return { data: body };
 }
 
 export const api = {
   get: <T>(path: string, params?: Record<string, any>) =>
     request<T>(path, { method: 'GET', params }),
+
+  getWithMeta: <T>(path: string, params?: Record<string, any>) =>
+    requestWithMeta<T>(path, { method: 'GET', params }),
 
   post: <T>(path: string, body?: any) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
@@ -94,14 +157,17 @@ export const api = {
   },
 };
 
-// Vendor-specific API methods
 export const vendorApi = {
+  // Generic methods (delegated to base api)
+  post: <T>(path: string, body?: any): Promise<T> => api.post<T>(path, body),
+  get: <T>(path: string, params?: any): Promise<T> => api.get<T>(path, params),
+
+  // Multipart file upload (product images etc.) — see api.upload for envelope handling
+  upload: <T>(path: string, formData: FormData): Promise<T> => api.upload<T>(path, formData),
+
   // Auth
   login: (email: string, password: string) =>
     api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
-  // Was posting to /auth/register (doesn't exist — only /auth/signup does) and
-  // never sent a role, which the backend defaults to CUSTOMER — every vendor
-  // signup would've silently created a customer account instead.
   signup: (data: any) => api.post<any>('/auth/signup', { ...data, role: 'VENDOR' }),
   verifyOtp: (email: string, otp: string) =>
     api.post<any>('/auth/verify-otp', { email, otp }),
@@ -109,7 +175,7 @@ export const vendorApi = {
     api.post<any>('/auth/forgot-password', { email }),
   getProfile: () => api.get<any>('/auth/me'),
 
-  // Vendor profile — always uses authenticated identity, never a client-supplied ID
+  // Vendor profile
   getMyProfile: () => api.get<any>('/vendors/my-profile'),
   updateMyProfile: (data: any) => api.patch<any>('/vendors/my-profile', data),
 
@@ -120,6 +186,8 @@ export const vendorApi = {
   // Products
   getProducts: (params?: any) =>
     api.get<any>('/products', params),
+  getVendorProducts: (vendorId: string, params?: any) =>
+    api.get<any>(`/vendors/${vendorId}/products`, params),
   getProduct: (id: string) => api.get<any>(`/products/${id}`),
   createProduct: (data: any) => api.post<any>('/products', data),
   updateProduct: (id: string, data: any) => api.patch<any>(`/products/${id}`, data),
@@ -127,12 +195,10 @@ export const vendorApi = {
 
   // Orders
   getOrders: (params?: any) => api.get<any>('/orders/vendor', params),
+  getOrdersWithMeta: (params?: any) => api.getWithMeta<any[]>('/orders/vendor', params),
   getOrder: (id: string) => api.get<any>(`/orders/${id}`),
-  updateOrderStatus: (id: string, status: string) =>
-    api.patch<any>(`/orders/${id}/status`, { status }),
-  // Vendors must update their vendor group's status (not the entire order).
-  // The PATCH /orders/:id/status endpoint requires ADMIN role — vendors
-  // must call PATCH /orders/:id/groups/:groupId/status instead.
+  updateOrderStatus: (id: string, status: string, reason?: string) =>
+    api.patch<any>(`/orders/${id}/status`, reason ? { status, cancellationReason: reason } : { status }),
   updateVendorGroupStatus: (id: string, groupId: string, status: string) =>
     api.patch<any>(`/orders/${id}/groups/${groupId}/status`, { status }),
 
@@ -159,16 +225,28 @@ export const vendorApi = {
     api.get<any>('/vendors/me/analytics', { period }),
   // Earnings
   getEarnings: () => api.get<any>('/vendors/me/earnings'),
-  getPayouts: () => api.get<any[]>('/vendors/me/payouts'),
+  getPayouts: (params?: any) => api.get<any[]>('/vendors/me/payouts', params),
   getTransactions: (params?: any) =>
     api.get<any[]>('/vendors/me/transactions', params),
+  getTransactionsWithMeta: (params?: any) =>
+    api.getWithMeta<any[]>('/vendors/me/transactions', params),
 
-  // Store — uses authenticated vendor identity (PATCH /vendors/my-profile)
-  // The backend's PATCH /vendors/:id checks ownership via @CurrentUser, so the
-  // authenticated user can only update their own store.
+  // Store
   getStore: (vendorId: string) => api.get<any>(`/vendors/${vendorId}`),
   updateStore: (vendorId: string, data: any) =>
     api.patch<any>(`/vendors/${vendorId}`, data),
+
+  // Vendor KYC
+  getMyKyc: () => api.get<any>('/vendors/me/kyc'),
+  uploadKycDocument: (documentType: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentType', documentType);
+    return api.upload<any>('/vendors/me/kyc/documents', formData);
+  },
+  getKycDocumentUrl: (documentId: string) =>
+    api.get<{ url: string }>(`/vendors/me/kyc/documents/${documentId}/url`),
+  submitKycForVerification: () => api.post<any>('/vendors/me/kyc/submit'),
 
   // Notifications
   getNotifications: () => api.get<any[]>('/notifications'),
@@ -183,9 +261,7 @@ export const vendorApi = {
   updateReturnStatus: (id: string, status: string, reason?: string) =>
     api.patch<any>(`/returns/${id}`, { status, reason }),
 
-  // Cancel a vendor group within an order (vendor rejects their portion).
-  // This is the correct endpoint for vendors — cancelling the entire order
-  // via POST /orders/:id/cancel would affect other vendors' items.
+  // Cancel a vendor group within an order
   cancelVendorGroup: (orderId: string, groupId: string, reason?: string) =>
     api.post<any>(`/orders/${orderId}/groups/${groupId}/cancel`, { reason }),
 

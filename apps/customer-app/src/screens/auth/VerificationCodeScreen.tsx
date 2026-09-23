@@ -95,7 +95,9 @@ export default function VerificationCodeScreen({ navigation, route }: any) {
       <View style={s.content}>
         <Text style={s.title}>{t('auth.verify.title')}</Text>
         <Text style={s.subtitle}>
-          {t('auth.verify.subtitle', { phone: phone ? `+91 ${phone}` : 'your number' })}
+          {/* auth.verify.subtitle already includes "+91" ("...sent to +91 {{phone}}") —
+              passing phone with +91 prepended too produced "+91 +91 96...". */}
+          {t('auth.verify.subtitle', { phone: phone || 'your number' })}
         </Text>
 
         <View style={s.codeRow}>
@@ -187,8 +189,14 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#E2E8F0',
     backgroundColor: Colors.white,
     fontFamily: 'Inter_600SemiBold', fontSize: 22, color: Colors.text,
+    textAlign: 'center',
+    padding: 0,
+    // The `textAlign="center"` prop alone isn't reliable on react-native-web
+    // (renders as a real <input>, and the browser's own left-aligned default
+    // can win) — baking it into the style, same fix as the other web-input
+    // quirks elsewhere in this app (borderWidth/outline reset).
     ...Platform.select({
-      web: { outlineStyle: 'none' },
+      web: { outlineStyle: 'none' as any, outlineWidth: 0 },
     }),
   },
   boxFilled: {

@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, Linking, Image, Animated, Platform } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import DeliveryMap, { DeliveryMapMarker } from '../../components/DeliveryMap';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { formatDeliveryFee } from '../../lib/pricing';
 import { deliveryApi } from '../../lib/api';
@@ -15,6 +16,7 @@ const LOCATION_PUSH_INTERVAL_MS = 15000;
 const LOCATION_PUSH_DISTANCE_M = 50;
 
 export default function DeliveryDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeDeliveries, fetchActiveDeliveries, updateDeliveryStatus, verifyPickupOTP, isLoading } = useDeliveryStore();
   const [order, setOrder] = useState<any>(null);
@@ -30,7 +32,6 @@ export default function DeliveryDetailScreen() {
   const [skipReason, setSkipReason] = useState('');  const [showFailureModal, setShowFailureModal] = useState(false);
   const [failureReason, setFailureReason] = useState('');
   const [failureDetails, setFailureDetails] = useState('');
-  const mapRef = useRef<MapView>(null);
 
   // Spring animation for each status dot — when the status advances, the
   // newly active dot springs with a scale pulse to signal the transition.
@@ -293,44 +294,40 @@ export default function DeliveryDetailScreen() {
       {/* Map — the screen's dominant surface, per the "map-first" design
           rule. State changes (pickup/drop, courier position) update markers
           in place; the screen never re-navigates. */}
-      <MapView
-        ref={mapRef}
+      <DeliveryMap
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
         initialRegion={{
           latitude: order.address?.lat || order.vendorGroups?.[0]?.vendor?.lat || 17.385,
           longitude: order.address?.lng || order.vendorGroups?.[0]?.vendor?.lng || 78.4867,
           latitudeDelta: 0.08,
           longitudeDelta: 0.08,
         }}
-      >
-        {order.vendorGroups?.[0]?.vendor?.lat && order.vendorGroups?.[0]?.vendor?.lng && (
-          <Marker
-            coordinate={{
-              latitude: order.vendorGroups[0].vendor.lat,
-              longitude: order.vendorGroups[0].vendor.lng,
-            }}
-            title="Pickup"
-            description={order.vendorGroups[0].vendor.name}
-            pinColor="#10B981"
-          />
-        )}
-        {order.address?.lat && order.address?.lng && (
-          <Marker
-            coordinate={{ latitude: order.address.lat, longitude: order.address.lng }}
-            title="Drop"
-            description={order.address.street}
-            pinColor="#EF4444"
-          />
-        )}
-        {deviceLocation && (
-          <Marker
-            coordinate={{ latitude: deviceLocation.lat, longitude: deviceLocation.lng }}
-            title="You"
-            pinColor="#3B82F6"
-          />
-        )}
-      </MapView>
+        markers={[
+          ...(order.vendorGroups?.[0]?.vendor?.lat && order.vendorGroups?.[0]?.vendor?.lng ? [{
+            key: 'pickup',
+            latitude: order.vendorGroups[0].vendor.lat,
+            longitude: order.vendorGroups[0].vendor.lng,
+            title: 'Pickup',
+            description: order.vendorGroups[0].vendor.name,
+            pinColor: '#10B981',
+          }] : []),
+          ...(order.address?.lat && order.address?.lng ? [{
+            key: 'drop',
+            latitude: order.address.lat,
+            longitude: order.address.lng,
+            title: 'Drop',
+            description: order.address.street,
+            pinColor: '#EF4444',
+          }] : []),
+          ...(deviceLocation ? [{
+            key: 'you',
+            latitude: deviceLocation.lat,
+            longitude: deviceLocation.lng,
+            title: 'You',
+            pinColor: '#3B82F6',
+          }] : []),
+        ] as DeliveryMapMarker[]}
+      />
 
       {/* Compact status strip overlaid on the map — active dot springs
           with a scale pulse when the status advances, making the state
@@ -581,7 +578,7 @@ export default function DeliveryDetailScreen() {
       </Modal>
 
       {/* Action Buttons */}
-      <View style={styles.actionContainer}>
+      <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
         {currentStatus === 'ASSIGNED' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.primaryButton]}

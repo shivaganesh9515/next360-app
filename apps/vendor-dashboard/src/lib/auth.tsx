@@ -107,10 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
         // Load vendor profile if user is a vendor
         if (userData.role === 'VENDOR') {
-          vendorApi.getMyProfile().then(setVendorProfile).catch(() => {});
+          vendorApi.getMyProfile().then(setVendorProfile).catch(() => {
+              // Non-critical: vendor profile is display-only; auth already succeeded
+            });
         }
-      } catch {
-        localStorage.removeItem('vendor_token');
+      } catch (err: any) {
+        // Only clear token on auth errors (401/403), not network errors
+        const msg = err?.message || '';
+        const isNetworkError = msg.includes('Unable to connect') || msg.includes('invalid response');
+        if (!isNetworkError) {
+          localStorage.removeItem('vendor_token');
+        }
       } finally {
         setLoading(false);
       }
@@ -134,7 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
     // Load vendor profile
     if (res.user.role === 'VENDOR') {
-      vendorApi.getMyProfile().then(setVendorProfile).catch(() => {});
+      vendorApi.getMyProfile().then(setVendorProfile).catch(() => {
+        // Non-critical: vendor profile is display-only; auth already succeeded
+      });
     }
   };
 
@@ -143,7 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('vendor_token', res.access_token);
     setUser(res.user);
     if (res.user.role === 'VENDOR') {
-      vendorApi.getMyProfile().then(setVendorProfile).catch(() => {});
+      vendorApi.getMyProfile().then(setVendorProfile).catch(() => {
+        // Non-critical: vendor profile is display-only; auth already succeeded
+      });
     }
   };
 

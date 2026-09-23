@@ -1,26 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
+import { useApiData } from '@/hooks/useApiData';
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: res, loading, error, retry } = useApiData<any>(() => vendorApi.getCoupons());
+  const coupons = Array.isArray(res) ? res : [];
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ code: '', discountType: 'PERCENTAGE', discountValue: '', minOrderAmount: '', maxDiscount: '', usageLimit: '', expiresAt: '' });
   const [saving, setSaving] = useState(false);
-
-  const fetchCoupons = async () => {
-    setLoading(true);
-    try { const res = await vendorApi.getCoupons(); setCoupons(Array.isArray(res) ? res : []); }
-    catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchCoupons(); }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
@@ -33,13 +26,13 @@ export default function CouponsPage() {
         expiresAt: form.expiresAt || undefined,
       });
       setShowForm(false); setForm({ code: '', discountType: 'PERCENTAGE', discountValue: '', minOrderAmount: '', maxDiscount: '', usageLimit: '', expiresAt: '' });
-      fetchCoupons();
+      retry();
     } catch (e: any) { alert(e.message); }
     finally { setSaving(false); }
   };
 
   const toggleActive = async (id: string, isActive: boolean) => {
-    try { await vendorApi.updateCoupon(id, { isActive: !isActive }); fetchCoupons(); }
+    try { await vendorApi.updateCoupon(id, { isActive: !isActive }); retry(); }
     catch (e) { console.error(e); }
   };
 
@@ -91,7 +84,11 @@ export default function CouponsPage() {
           </form>
         </div>
       )}
-      <DataTable columns={columns} data={coupons} loading={loading} emptyMessage="No coupons created yet" />
+      {error ? (
+        <ErrorState message={error.message} onRetry={retry} />
+      ) : (
+        <DataTable columns={columns} data={coupons} loading={loading} emptyMessage="No coupons created yet" />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, {
   createContext, useContext, useCallback, useRef, useState, useMemo, forwardRef, useImperativeHandle,
 } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Share, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Share, ScrollView, useWindowDimensions } from 'react-native';
 import BottomSheet, {
   BottomSheetScrollView, BottomSheetBackdrop, BottomSheetFooter, BottomSheetFooterProps, useBottomSheet,
 } from '@gorhom/bottom-sheet';
@@ -15,14 +15,12 @@ import { Product, Review } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows, getStoreAccent, getStoreAccentLight } from '../constants/theme';
 import QuantityStepper from '../components/QuantityStepper';
 import ErrorState from '../components/ErrorState';
+import TrustBadge from '../components/TrustBadge';
 
 // Collapsed thumbnail size (45% snap) vs the full-bleed hero (90% snap) — the
 // image itself grows between these, driven directly by the sheet's own
 // animated index so the transform tracks the drag gesture 1:1.
 const COMPACT_IMAGE_SIZE = 100;
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const HERO_IMAGE_SIZE = SCREEN_WIDTH - Spacing.xl * 2;
 
 // The footer (see s.footer/s.footerSpacer) is pinned to the real screen
 // bottom at every snap point by design (BottomSheetFooter's whole purpose),
@@ -127,13 +125,17 @@ function SheetHero({
   toggleWishlist: () => void; handleShare: () => void; expanded: boolean;
 }) {
   const { animatedIndex } = useBottomSheet();
+  const { width: screenWidth } = useWindowDimensions();
+  // Tablet-safe cap: bound the hero image to a phone-like width on large
+  // screens (iPad, unfolded foldables) instead of growing full-bleed.
+  const heroImageSize = Math.min(screenWidth, 768) - Spacing.xl * 2;
 
   const rowStyle = useAnimatedStyle(() => ({
     columnGap: interpolate(animatedIndex.value, [0, 1], [Spacing.lg, 0], Extrapolation.CLAMP),
   }));
 
   const imageStyle = useAnimatedStyle(() => {
-    const size = interpolate(animatedIndex.value, [0, 1], [COMPACT_IMAGE_SIZE, HERO_IMAGE_SIZE], Extrapolation.CLAMP);
+    const size = interpolate(animatedIndex.value, [0, 1], [COMPACT_IMAGE_SIZE, heroImageSize], Extrapolation.CLAMP);
     const radius = interpolate(animatedIndex.value, [0, 1], [BorderRadius.lg, BorderRadius.xl], Extrapolation.CLAMP);
     return { width: size, height: size, borderRadius: radius };
   });
@@ -194,6 +196,7 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
   const { addToCart } = useStore();
   const { fly } = useFlyToCart();
   const insets = useSafeAreaInsets();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
 
   const [productId, setProductId] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
@@ -428,6 +431,29 @@ const ProductSheetModal = forwardRef<SheetHandle>((_, ref) => {
 
           {expanded && (
             <>
+              {/* Certification status — the PRD's core trust differentiator. Organic
+                  only shows as verified when the vendor has an admin-approved NPOP
+                  certificate on file; otherwise it's "pending", never assumed. */}
+              <View style={s.trustSection}>
+                {product.storeType === 'ORGANIC' ? (
+                  <>
+                    <TrustBadge type={product.vendor?.isNpopVerified ? 'NPOP' : 'NPOP_PENDING'} size="lg" />
+                    <Text style={s.trustSectionNote}>
+                      {product.vendor?.isNpopVerified
+                        ? 'This seller’s NPOP organic certificate has been reviewed and approved by Next360.'
+                        : 'This seller’s organic certification is still under review by Next360.'}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <TrustBadge type={product.storeType === 'NATURAL' ? 'NATURAL' : 'ECO_FRIENDLY'} size="lg" />
+                    <Text style={s.trustSectionNote}>
+                      This claim is made by the seller and has not been independently certified.
+                    </Text>
+                  </>
+                )}
+              </View>
+
               {product.vendor?.storeName && (
                 <View style={s.factGrid}>
                   <View style={s.factCol}>
@@ -577,6 +603,12 @@ const s = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
   },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: Spacing.xs },
+
+  trustSection: {
+    marginTop: Spacing.lg, paddingVertical: Spacing.lg,
+    borderTopWidth: 1, borderColor: Colors.border, gap: Spacing.sm, alignItems: 'flex-start',
+  },
+  trustSectionNote: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 18 },
 
   sectionTitle: { ...Typography.h3, color: Colors.text, marginTop: Spacing.lg, marginBottom: Spacing.sm },
   // Small-caps gray label above a bold value — the reference PDP's key/value

@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, LogOut, Menu, Store } from 'lucide-react';
+import { Bell, LogOut, Menu, Store, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useTheme } from '@/lib/theme';
 import { vendorApi } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Link from 'next/link';
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
-// Route path → header title. Falls back to a title-cased last segment.
 const ROUTE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/orders': 'Orders',
@@ -30,7 +31,6 @@ const ROUTE_TITLES: Record<string, string> = {
 
 function titleForPath(pathname: string): string {
   if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
-  // Nested routes (e.g. /orders/123, /inventory/low-stock) → parent title
   const segments = pathname.split('/').filter(Boolean);
   while (segments.length > 1) {
     segments.pop();
@@ -45,28 +45,37 @@ function titleForPath(pathname: string): string {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, vendorProfile, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Fetch once on mount, then every 60s — no longer re-fires on every
+  // navigation (was the main contributor to Bug 3's excessive requests).
   useEffect(() => {
-    vendorApi.getUnreadCount()
-      .then((res) => setUnreadCount(res?.count || 0))
-      .catch(() => setUnreadCount(0));
-  }, [pathname]);
+    let cancelled = false;
+    const poll = () => {
+      vendorApi.getUnreadCount()
+        .then((res) => { if (!cancelled) setUnreadCount(res?.count || 0); })
+        .catch(() => {}); // silent — unread count is non-critical
+    };
+    poll();
+    const id = setInterval(poll, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   return (
-    <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+    <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+        <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
           <Menu className="w-5 h-5 text-slate-600" />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900">{titleForPath(pathname)}</h1>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{titleForPath(pathname)}</h1>
       </div>
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push('/notifications')}
-          className="p-2 hover:bg-slate-100 rounded-full relative transition-colors"
+          className="p-2 hover:bg-slate-100 rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
           title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
           aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
         >
@@ -88,14 +97,22 @@ export default function Header({ onMenuClick }: HeaderProps) {
             )}
           </Avatar>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
               {vendorProfile?.storeName || user?.name || 'Vendor'}
               {vendorProfile && <Store className="w-3 h-3 text-slate-400" />}
             </p>
-            <p className="text-xs text-slate-500">{user?.email || ''}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email || ''}</p>
           </div>
         </div>
-        <button onClick={logout} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="Logout">
+        <button
+          onClick={toggleTheme}
+          className="p-2 hover:bg-slate-100 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4 text-slate-500" /> : <Moon className="w-4 h-4 text-slate-500" />}
+        </button>
+        <button onClick={logout} className="p-2 hover:bg-slate-100 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500" title="Logout">
           <LogOut className="w-4 h-4 text-slate-500" />
         </button>
       </div>

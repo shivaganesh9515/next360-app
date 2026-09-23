@@ -8,10 +8,28 @@ import {
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Cron } from '@nestjs/schedule';
 import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
 
 function generateOtp(): string {
   return crypto.randomInt(100000, 999999).toString();
+}
+
+const AUTO_ASSIGN_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 @Injectable()
@@ -537,6 +555,168 @@ export class DeliveryService {
   }
 
   /**
+   * Auto-assign the nearest available Delivery Partner to an OrderVendorGroup
+   * that is in READY_FOR_PICKUP status. Uses haversine distance from the
+   * delivery address to each partner's last known GPS coordinates.
+   * If no partner is available, schedules a fallback retry after AUTO_ASSIGN_TIMEOUT_MS.
+   */
+  async autoAssign(orderVendorGroupId: string) {
+    const group = await this.prisma.orderVendorGroup.findUnique({
+      where: { id: orderVendorGroupId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNo: true,
+            totalAmount: true,
+            paymentMethod: true,
+            createdAt: true,
+            address: { select: { lat: true, lng: true } },
+            user: { select: { id: true, name: true, phone: true } },
+          },
+        },
+        vendor: { select: { id: true, storeName: true, zoneId: true } },
+        delivery: true,
+      },
+    });
+
+    if (!group) {
+      this.logger.warn(`Auto-assign: OrderVendorGroup ${orderVendorGroupId} not found`);
+      return null;
+    }
+
+    if (group.status !== OrderStatus.READY_FOR_PICKUP) {
+      this.logger.warn(`Auto-assign: Group ${orderVendorGroupId} is ${group.status}, not READY_FOR_PICKUP`);
+      return null;
+    }
+
+    if (group.delivery) {
+      this.logger.warn(`Auto-assign: Group ${orderVendorGroupId} already has a DeliveryAssignment`);
+      return null;
+    }
+
+    const orderAddress = group.order.address;
+    if (!orderAddress?.lat == null|| !orderAddress?.lng == null) {
+      this.logger.warn(`Auto-assign: Order ${group.order.id} has no delivery coordinates`);
+      this.scheduleAutoAssignment(orderVendorGroupId);
+      return null;
+    }
+
+    const availablePartners = await this.prisma.deliveryPartner.findMany({
+      where: {
+        zoneId: group.vendor.zoneId,
+        status: DeliveryPartnerStatus.AVAILABLE,
+        currentLat: { not: null },
+        currentLng: { not: null },
+      },
+      select: {
+        id: true,
+        userId: true,
+        currentLat: true,
+        currentLng: true,
+      },
+    });
+
+    if (availablePartners.length === 0) {
+      this.logger.warn(`Auto-assign: No available DPs in zone ${group.vendor.zoneId} for group ${orderVendorGroupId}`);
+      this.scheduleAutoAssignment(orderVendorGroupId);
+      return null;
+    }
+
+    const partnersWithDistance = availablePartners
+      .filter((p) => p.currentLat != null && p.currentLng != null)
+      .map((p) => ({
+        ...p,
+        distance: haversineDistance(
+          orderAddress.lat!,
+          orderAddress.lng!,
+          p.currentLat!,
+          p.currentLng!,
+        ),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+      if (partnersWithDistance.length === 0) {
+        this.logger.warn(
+          `Auto-assign: No delivery partners with valid coordinates found`,
+        );
+        this.scheduleAutoAssignment(orderVendorGroupId);
+        return null;
+      }
+    const nearest = partnersWithDistance[0];
+    const otp = generateOtp();
+
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.deliveryAssignment.create({
+        data: {
+          orderVendorGroupId: group.id,
+          deliveryPartnerId: nearest.id,
+          otp,
+        },
+      });
+
+      await tx.orderVendorGroup.update({
+        where: { id: group.id },
+        data: { status: OrderStatus.ASSIGNED_TO_DELIVERY },
+      });
+
+      await tx.deliveryPartner.update({
+        where: { id: nearest.id },
+        data: { status: DeliveryPartnerStatus.ON_DELIVERY },
+      });
+
+      return created;
+    });
+
+    this.logger.log(
+      `Auto-assigned DP ${nearest.id} (${nearest.distance.toFixed(1)}km) to group ${orderVendorGroupId}`,
+    );
+
+    return {
+      id: assignment.id,
+      otp: assignment.otp,
+      assignedAt: assignment.assignedAt,
+      orderVendorGroupId: group.id,
+      status: 'AUTO_ASSIGNED',
+      partner: { id: nearest.id, distance: nearest.distance },
+      order: {
+        id: group.order.id,
+        orderNumber: group.order.orderNo,
+        total: Number(group.order.totalAmount),
+        user: group.order.user,
+        address: group.order.address,
+      },
+      vendor: group.vendor,
+    };
+  }
+
+  /**
+   * Schedule a delayed auto-assign retry for an OrderVendorGroup.
+   * After AUTO_ASSIGN_TIMEOUT_MS, if the group is still in READY_FOR_PICKUP
+   * with no assignment, autoAssign will be called again. If still no DP is
+   * available, the order remains in READY_FOR_PICKUP for manual assignment.
+   */
+  private scheduleAutoAssignment(orderVendorGroupId: string) {
+    setTimeout(async () => {
+      try {
+        const group = await this.prisma.orderVendorGroup.findUnique({
+          where: { id: orderVendorGroupId },
+          select: { status: true, delivery: true },
+        });
+
+        if (!group) return;
+        if (group.status !== OrderStatus.READY_FOR_PICKUP) return;
+        if (group.delivery) return;
+
+        this.logger.log(`Auto-assign fallback: retrying for group ${orderVendorGroupId}`);
+        await this.autoAssign(orderVendorGroupId);
+      } catch (error: any) {
+        this.logger.error(`Auto-assign fallback failed for group ${orderVendorGroupId}: ${error.message}`);
+      }
+    }, AUTO_ASSIGN_TIMEOUT_MS);
+  }
+
+  /**
    * POST /orders/:id/reject
    * Decline or release a delivery assignment.
    * If the partner was assigned but hasn't picked up yet, release the assignment.
@@ -948,70 +1128,222 @@ export class DeliveryService {
 
   /**
    * GET /delivery/earnings
-   * Calculate earnings for a delivery partner, optionally filtered by period.
-   * Period: 'today' | 'week' | 'month' | 'all' (default)
+   * Calculate earnings for a delivery partner across all time windows.
+   * Returns today, thisWeek, thisMonth, allTime, totalDeliveries, averagePerDelivery.
    */
-  async getEarnings(userId: string, period?: string) {
+  async getEarnings(userId: string, period?: 'today' | 'week' | 'month') {
     const partner = await this.getPartnerByUserId(userId);
+    const DELIVERY_FEE = 40;
 
     const now = new Date();
-    let dateFilter: Date | null = null;
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    switch (period) {
-      case 'today':
-        dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case 'week': {
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay());
-        weekStart.setHours(0, 0, 0, 0);
-        dateFilter = weekStart;
-        break;
-      }
-      case 'month':
-        dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      default:
-        // 'all' or any other value — no date filter, include all time
-        break;
-    }
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    const where: any = {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const buildWhere = (deliveredFrom?: Date) => ({
       deliveryPartnerId: partner.id,
-      deliveredAt: { not: null },
+      deliveredAt: deliveredFrom
+        ? { gte: deliveredFrom, not: null }
+        : { not: null },
+    });
+
+    const computeEarnings = (assignments: any[]) => {
+      const itemTotal = assignments.reduce((sum, a) => {
+        const groupTotal = a.orderVendorGroup.items.reduce(
+          (s: number, item: any) => s + Number(item.priceAtPurchase) * item.quantity,
+          0,
+        );
+        return sum + groupTotal;
+      }, 0);
+      return itemTotal + assignments.length * DELIVERY_FEE;
     };
-    if (dateFilter) {
-      where.deliveredAt = { gte: dateFilter };
+
+    const include = {
+      orderVendorGroup: {
+        select: {
+          items: {
+            select: { priceAtPurchase: true, quantity: true },
+          },
+        },
+      },
+    };
+
+    if (period) {
+      const dateMap: Record<string, Date> = {
+        today: startOfToday,
+        week: startOfWeek,
+        month: startOfMonth,
+      };
+      const filtered = await this.prisma.deliveryAssignment.findMany({
+        where: buildWhere(dateMap[period]),
+        include,
+      });
+
+      const totalDeliveries = filtered.length;
+      const earnings = computeEarnings(filtered);
+      return {
+        earnings,
+        totalDeliveries,
+        averagePerDelivery: totalDeliveries > 0 ? earnings / totalDeliveries : 0,
+        period,
+      };
     }
 
-    const completedDeliveries = await this.prisma.deliveryAssignment.findMany({
-      where,
+    const [todayDeliveries, weekDeliveries, monthDeliveries, allDeliveries] =
+      await Promise.all([
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(startOfToday),
+          include,
+        }),
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(startOfWeek),
+          include,
+        }),
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(startOfMonth),
+          include,
+        }),
+        this.prisma.deliveryAssignment.findMany({
+          where: buildWhere(),
+          include,
+        }),
+      ]);
+
+    const today = computeEarnings(todayDeliveries);
+    const thisWeek = computeEarnings(weekDeliveries);
+    const thisMonth = computeEarnings(monthDeliveries);
+    const allTime = computeEarnings(allDeliveries);
+    const totalDeliveries = allDeliveries.length;
+
+    return {
+      today,
+      thisWeek,
+      thisMonth,
+      allTime,
+      totalDeliveries,
+      averagePerDelivery: totalDeliveries > 0 ? allTime / totalDeliveries : 0,
+    };
+  }
+
+  /**
+   * Weekly batch payout for Delivery Partners.
+   * Processes completed deliveries that have not yet been included in a payout,
+   * groups them by partner, calculates totals, and creates one Payout per partner.
+   * Runs automatically every Monday at 00:05 AM.
+   */
+  @Cron('5 0 * * 1')
+  async processWeeklyPayouts() {
+    const DELIVERY_FEE = 40;
+    const now = new Date();
+
+    // Default: last week (Mon 00:00 → Sun 23:59:59.999)
+    const endOfLastWeek = new Date(now);
+    endOfLastWeek.setDate(now.getDate() - now.getDay());
+    endOfLastWeek.setHours(0, 0, 0, 0);
+    endOfLastWeek.setMilliseconds(endOfLastWeek.getMilliseconds() - 1);
+
+    const startOfLastWeek = new Date(endOfLastWeek);
+    startOfLastWeek.setDate(endOfLastWeek.getDate() - 6);
+    startOfLastWeek.setHours(0, 0, 0, 0);
+
+    // Fetch all completed deliveries in the period
+    const completedAssignments = await this.prisma.deliveryAssignment.findMany({
+      where: {
+        deliveredAt: { gte: startOfLastWeek, lte: endOfLastWeek },
+      },
       include: {
         orderVendorGroup: {
           select: {
-            id: true,
-            items: true,
+            vendorId: true,
+            items: {
+              select: { priceAtPurchase: true, quantity: true },
+            },
           },
         },
       },
     });
 
-    const totalEarnings = completedDeliveries.reduce((sum, a) => {
-      const earnings = a.orderVendorGroup.items.reduce(
-        (itemSum, item: any) =>
-          itemSum + Number(item.priceAtPurchase) * item.quantity,
-        0,
-      );
-      return sum + earnings;
-    }, 0);
+    if (completedAssignments.length === 0) {
+      return { periodStart: startOfLastWeek, periodEnd: endOfLastWeek, payouts: [] };
+    }
 
-    const deliveryFeeEarnings = completedDeliveries.length * 40; // ₹40 per delivery
+    // Collect unique partner IDs
+    const partnerIds = [...new Set(completedAssignments.map((a) => a.deliveryPartnerId))];
+
+    // Fetch existing payouts for these partners in this period to exclude already-paid deliveries
+    const existingPayouts = await this.prisma.payout.findMany({
+      where: {
+        deliveryPartnerId: { in: partnerIds },
+        periodStart: startOfLastWeek,
+        periodEnd: endOfLastWeek,
+      },
+      select: { deliveryPartnerId: true },
+    });
+
+    const paidPartnerIds = new Set(existingPayouts.map((p) => p.deliveryPartnerId));
+
+    // Filter out partners who already have a payout for this period
+    const unpaidPartnerIds = partnerIds.filter((id) => !paidPartnerIds.has(id));
+
+    if (unpaidPartnerIds.length === 0) {
+      return { periodStart: startOfLastWeek, periodEnd: endOfLastWeek, payouts: [] };
+    }
+
+    // Filter assignments to only unpaid partners
+    const eligibleAssignments = completedAssignments.filter((a) =>
+      unpaidPartnerIds.includes(a.deliveryPartnerId),
+    );
+
+    // Group by partner
+    const partnerGroups = new Map<string, typeof eligibleAssignments>();
+    for (const a of eligibleAssignments) {
+      const list = partnerGroups.get(a.deliveryPartnerId) || [];
+      list.push(a);
+      partnerGroups.set(a.deliveryPartnerId, list);
+    }
+
+    // Create payout for each partner
+    const payouts = await this.prisma.$transaction(
+      Array.from(partnerGroups.entries()).map(([partnerId, assignments]) => {
+        const itemTotal = assignments.reduce((sum, a) => {
+          const groupTotal = a.orderVendorGroup.items.reduce(
+            (s: number, item: any) => s + Number(item.priceAtPurchase) * item.quantity,
+            0,
+          );
+          return sum + groupTotal;
+        }, 0);
+
+        const totalAmount = itemTotal + assignments.length * DELIVERY_FEE;
+
+        return this.prisma.payout.create({
+          data: {
+            deliveryPartnerId: partnerId,
+            amount: totalAmount,
+            status: 'PENDING',
+            periodStart: startOfLastWeek,
+            periodEnd: endOfLastWeek,
+          },
+          select: {
+            id: true,
+            deliveryPartnerId: true,
+            amount: true,
+            status: true,
+            periodStart: true,
+            periodEnd: true,
+            createdAt: true,
+          },
+        });
+      }),
+    );
 
     return {
-      earnings: totalEarnings + deliveryFeeEarnings,
-      deliveryFeeEarnings,
-      totalDeliveries: completedDeliveries.length,
-      period: period || 'all',
+      periodStart: startOfLastWeek,
+      periodEnd: endOfLastWeek,
+      payouts,
     };
   }
 
@@ -1078,37 +1410,11 @@ export class DeliveryService {
   }
 
   /**
-   * POST /delivery/process-payouts
-   * Process weekly payouts for all delivery partners with completed deliveries.
+   * POST /delivery/process-payouts — manual trigger of the same weekly payout
+   * run the Monday cron performs (see processWeeklyPayouts above).
    */
-  async processWeeklyPayouts() {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    const assignments = await this.prisma.deliveryAssignment.findMany({
-      where: { deliveredAt: { gte: oneWeekAgo } },
-      include: { deliveryPartner: true },
-    });
-
-    const dpMap = new Map<string, number>();
-    for (const a of assignments) {
-      const current = dpMap.get(a.deliveryPartnerId) || 0;
-      dpMap.set(a.deliveryPartnerId, current + 50); // ₹50 per delivery
-    }
-
-    for (const [dpId, amount] of dpMap) {
-      await this.prisma.payout.create({
-        data: {
-          deliveryPartnerId: dpId,
-          amount,
-          status: 'PENDING',
-          periodStart: oneWeekAgo,
-          periodEnd: new Date(),
-        },
-      });
-    }
-
-    return { processed: dpMap.size, totalDeliveries: assignments.length };
+  async triggerWeeklyPayouts() {
+    return this.processWeeklyPayouts();
   }
 
   /**

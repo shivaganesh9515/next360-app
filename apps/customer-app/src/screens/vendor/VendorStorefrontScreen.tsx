@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet, FlatList,
-  RefreshControl, Dimensions,
+  RefreshControl, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,9 +18,6 @@ import {
   getStoreAccent, getStoreAccentLight, getStoreAccentDark,
 } from '../../constants/theme';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - Spacing.lg * 3) / 2;
-
 // Strips HTML tags from a string — vendor descriptions sometimes include
 // <p>, <br>, etc. that React Native's <Text> won't render.
 const stripHtml = (str?: string) => str?.replace(/<[^>]*>/g, '') || '';
@@ -29,6 +26,11 @@ export default function VendorStorefrontScreen({ navigation, route }: any) {
   const { vendorId, vendorName } = route?.params || {};
   const { addToCart } = useStore();
   const { open: openProduct } = useProductSheet();
+  const { width: screenWidth } = useWindowDimensions();
+  // Tablet-safe cap: bound card-width math to a phone-like width on large
+  // screens so cards don't stretch to oversized dimensions on iPad.
+  const cardBasisWidth = Math.min(screenWidth, 768);
+  const CARD_WIDTH = (cardBasisWidth - Spacing.lg * 3) / 2;
 
   const [vendor, setVendor] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);

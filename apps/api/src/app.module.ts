@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -40,6 +41,7 @@ import { ReportsModule } from './reports/reports.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
+import { RazorpayModule } from './razorpay/razorpay.module';
 import { SmsModule } from './providers/sms/sms.module';
 import { EmailModule } from './providers/email/email.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -54,18 +56,20 @@ import { ThrottlerGuard } from './common/guards/throttler.guard';
         url: process.env.REDIS_URL || 'redis://localhost:6379',
       },
     }),
+    // Single named throttler only. NestJS's global guard checks EVERY route
+    // against EVERY registered throttler unless the route opts out — a second
+    // 'auth' throttler here was silently capping the whole API (categories,
+    // orders, everything) at 5 requests/minute, not just the login endpoints
+    // it was meant for. Routes that need a stricter cap override 'default'
+    // locally via @Throttle({ default: { ... } }) instead of adding a new name.
     ThrottlerModule.forRoot([
       {
         name: 'default',
         ttl: 1000,
-        limit: 10,
-      },
-      {
-        name: 'auth',
-        ttl: 60000,
-        limit: 5,
+        limit: 30,
       },
     ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -104,6 +108,7 @@ import { ThrottlerGuard } from './common/guards/throttler.guard';
     ReportsModule,
     LoyaltyModule,
     QueueModule,
+    RazorpayModule,
     SmsModule,
     EmailModule,
   ],

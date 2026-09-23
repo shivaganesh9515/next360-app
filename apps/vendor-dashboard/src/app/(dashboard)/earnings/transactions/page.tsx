@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import DataTable from '@/components/DataTable';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  const loadTransactions = () => {
+    setLoading(true);
+    setError(null);
     vendorApi.getTransactions({}).then((res: any) => {
       // Backend returns { items: [...], total, page, limit, totalPages }
       const rawItems = res?.items || (Array.isArray(res) ? res : []);
@@ -24,8 +28,10 @@ export default function TransactionsPage() {
         paymentStatus: t.paymentStatus,
       }));
       setTransactions(mapped);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    }).catch((err) => setError(err instanceof Error ? err : new Error(String(err)))).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadTransactions(); }, []);
 
   const columns = [
     { key: 'orderNo', label: 'Order', render: (item: any) => <span className="font-mono text-sm">{item.orderNo}</span> },
@@ -40,7 +46,11 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-slate-900">Transactions</h2><p className="text-sm text-slate-500">Complete transaction log</p></div>
-      <DataTable columns={columns} data={transactions} loading={loading} searchable emptyMessage="No transactions yet" />
+      {error ? (
+        <ErrorState message={error.message} onRetry={loadTransactions} />
+      ) : (
+        <DataTable columns={columns} data={transactions} loading={loading} searchable emptyMessage="No transactions yet" />
+      )}
     </div>
   );
 }

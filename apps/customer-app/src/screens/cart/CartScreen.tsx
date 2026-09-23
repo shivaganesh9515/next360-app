@@ -24,8 +24,8 @@ function SwipeDeleteAction() {
 
 function CartItemRow({ item, onQuantityChange, onRemove, index }: {
   item: CartItemType;
-  onQuantityChange: (id: string, qty: number) => void;
-  onRemove: (id: string) => void;
+  onQuantityChange: (productId: string, qty: number) => void;
+  onRemove: (productId: string) => void;
   index: number;
 }) {
   const { t } = useTranslation();
@@ -42,19 +42,21 @@ function CartItemRow({ item, onQuantityChange, onRemove, index }: {
   }, []);
 
   const handleQuantityChange = async (newQty: number) => {
+    // Keyed by productId — the real PATCH/DELETE /cart/items/:productId routes
+    // look the row up by (userId, productId), not this row's own id.
     if (newQty < 1) {
       swipeableRef.current?.close();
-      onRemove(item.id);
+      onRemove(item.productId);
       return;
     }
     setUpdating(true);
-    await onQuantityChange(item.id, newQty);
+    await onQuantityChange(item.productId, newQty);
     setUpdating(false);
   };
 
   const handleSwipeDelete = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    onRemove(item.id);
+    onRemove(item.productId);
   };
 
   // Derive vendor info from the item's product

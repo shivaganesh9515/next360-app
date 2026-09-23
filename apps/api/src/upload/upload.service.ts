@@ -121,6 +121,102 @@ export class UploadService {
     return { urls: results.map((r) => r.url) };
   }
 
+  /**
+   * Sniff a file's real type from magic bytes, extending sniffImageType with
+   * PDF support — vendor KYC documents (bank statements, GST certificates)
+   * are commonly submitted as PDFs, not just photos.
+   */
+  private sniffDocumentType(buffer: Buffer): 'jpg' | 'png' | 'webp' | 'gif' | 'pdf' | null {
+    if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === '%PDF') return 'pdf';
+    return this.sniffImageType(buffer);
+  }
+
+  /**
+   * Uploads a vendor KYC document (PAN, Aadhaar, GST certificate, bank proof,
+   * etc.) to a private bucket. Unlike product/vendor images, these are never
+   * given a public URL — callers must go through getSignedDocumentUrl(),
+   * which issues a short-lived link, since these files contain sensitive PII.
+   */
+  async uploadVendorKycDocument(
+    file: Express.Multer.File,
+    vendorId: string,
+  ): Promise<{ storageKey: string; fileName: string; mimeType: string; fileSize: number }> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        `Invalid file type: ${file.mimetype}. Allowed: jpeg, png, webp, pdf`,
+      );
+    }
+
+    const sniffed = this.sniffDocumentType(file.buffer);
+    if (!sniffed) {
+      throw new BadRequestException(
+        'File content does not match a supported format (jpeg/png/webp/pdf)',
+      );
+    }
+
+    const maxSize = 8 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File too large. Maximum size is 8MB');
+    }
+
+    const storageKey = `${vendorId}/${uuidv4()}.${sniffed}`;
+
+    if (this.supabase) {
+      const { error } = await this.supabase.storage
+        .from('vendor-kyc')
+        .upload(storageKey, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+
+      if (error) {
+        throw new BadRequestException(`Upload failed: ${error.message}`);
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException(
+        'Document storage is not configured. Try again later.',
+      );
+    }
+
+    return {
+      storageKey,
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+    };
+  }
+
+  /**
+   * Issues a short-lived signed URL for a private KYC document. Falls back
+   * to a dev placeholder when Supabase storage isn't configured locally.
+   */
+  async getSignedKycDocumentUrl(storageKey: string): Promise<string> {
+    if (!this.supabase) {
+      return `https://via.placeholder.com/600x800?text=${encodeURIComponent('dev-placeholder-document')}`;
+    }
+    const { data, error } = await this.supabase.storage
+      .from('vendor-kyc')
+      .createSignedUrl(storageKey, 300);
+
+    if (error || !data?.signedUrl) {
+      throw new BadRequestException('Could not generate document link. Try again later.');
+    }
+    return data.signedUrl;
+  }
+
+  async deleteVendorKycDocument(storageKey: string): Promise<void> {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.storage.from('vendor-kyc').remove([storageKey]);
+    if (error) {
+      console.error('Failed to delete KYC document:', error.message);
+    }
+  }
+
   async deleteImage(url: string): Promise<void> {
     if (!this.supabase) return;
 

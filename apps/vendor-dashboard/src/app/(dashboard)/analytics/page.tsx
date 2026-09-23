@@ -3,13 +3,17 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, DollarSign, ShoppingCart, Download, Clock, Zap, TrendingDown } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  const loadAnalytics = () => {
+    setLoading(true);
+    setError(null);
     vendorApi.getAnalytics('30d').then((res: any) => {
       // Backend returns { totalOrders, totalRevenue, avgOrderValue, orderStatusBreakdown, monthlyRevenue, recentOrders, ... }
       // Transform to what the frontend expects
@@ -31,9 +35,12 @@ export default function AnalyticsPage() {
         ordersByStatus: data.orderStatusBreakdown
           ? Object.entries(data.orderStatusBreakdown).map(([status, count]: [string, any]) => ({ status, count: Number(count) }))
           : [],
+        deliveryPerformance: data.deliveryPerformance || null,
       });
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    }).catch((err) => setError(err instanceof Error ? err : new Error(String(err)))).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadAnalytics(); }, []);
 
   if (loading) return (
     <div className="space-y-4" role="status" aria-label="Loading analytics">
@@ -46,6 +53,15 @@ export default function AnalyticsPage() {
       <span className="sr-only">Loading analytics...</span>
     </div>
   );
+
+  if (error && !analytics) {
+    return (
+      <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-slate-900">Analytics</h2><p className="text-sm text-slate-500">Track your store performance</p></div>
+        <ErrorState message={error.message} onRetry={loadAnalytics} />
+      </div>
+    );
+  }
 
   const exportCsv = () => {
     if (!analytics) return;
@@ -123,13 +139,13 @@ export default function AnalyticsPage() {
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h3 className="font-semibold text-slate-900 mb-4">Revenue Over Time</h3>
           {analytics?.revenueOverTime?.length > 0 ? (
-            <div className="h-64 flex items-end gap-2">
+            <div className="h-64 flex items-end gap-1 sm:gap-2">
               {analytics.revenueOverTime.map((d: any, i: number) => {
                 const max = Math.max(...analytics.revenueOverTime.map((x: any) => x.revenue));
                 const h = max > 0 ? (d.revenue / max) * 100 : 0;
-                return <div key={i} className="flex-1 flex flex-col items-center">
+                return <div key={i} className="flex-1 flex flex-col items-center min-w-0">
                   <div className="w-full bg-emerald-100 rounded-t" style={{ height: `${h}%`, minHeight: d.revenue > 0 ? 8 : 0 }} title={`₹${d.revenue}`} />
-                  <span className="text-[10px] text-slate-400 mt-1 rotate-45 origin-left">{new Date(d.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                  <span className="text-[9px] sm:text-[10px] text-slate-400 mt-1 truncate max-w-full">{new Date(d.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
                 </div>;
               })}
             </div>
@@ -140,8 +156,8 @@ export default function AnalyticsPage() {
           {analytics?.ordersByStatus?.length > 0 ? (
             <div className="space-y-3">
               {analytics.ordersByStatus.map((s: any) => (
-                <div key={s.status} className="flex items-center gap-3">
-                  <span className="w-32 text-sm text-slate-600">{s.status.replace(/_/g, ' ')}</span>
+                <div key={s.status} className="flex items-center gap-2 sm:gap-3">
+                  <span className="text-xs sm:text-sm text-slate-600 truncate min-w-0 flex-shrink" title={s.status.replace(/_/g, ' ')}>{s.status.replace(/_/g, ' ')}</span>
                   <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
                     <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(s.count / Math.max(...analytics.ordersByStatus.map((x: any) => x.count))) * 100}%` }} />
                   </div>

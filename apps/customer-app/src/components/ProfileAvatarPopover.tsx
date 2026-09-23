@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
-  Alert, Platform, StatusBar, useWindowDimensions,
+  Platform, StatusBar, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
@@ -12,6 +12,7 @@ import { useAuth } from '../lib/auth';
 import { useStore } from '../lib/store';
 import { Colors, Spacing, BorderRadius, Shadows, getStoreAccent, getStoreAccentLight, getStoreAccentDark } from '../constants/theme';
 import PopoverBackdrop from './PopoverBackdrop';
+import ConfirmModal from './ConfirmModal';
 import {
   usePanelAnimation,
   useContentFadeIn, PRESS_SPRING_CONFIG,
@@ -135,14 +136,16 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
     }, 280);
   }, [navigation, close]);
 
+  const [confirmSignOutVisible, setConfirmSignOutVisible] = useState(false);
+
   const handleSignOut = useCallback(() => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out', style: 'destructive',
-        onPress: () => { close(); setTimeout(() => signOut(), 350); },
-      },
-    ]);
+    setConfirmSignOutVisible(true);
+  }, []);
+
+  const confirmSignOut = useCallback(() => {
+    setConfirmSignOutVisible(false);
+    close();
+    setTimeout(() => signOut(), 350);
   }, [signOut, close]);
 
   const panelStyle = useAnimatedStyle(() => {
@@ -384,6 +387,17 @@ export default function ProfileAvatarPopover({ navigation, active = false }: Pro
           </Reanimated.View>
         </Reanimated.View>
       </Modal>
+
+      <ConfirmModal
+        visible={confirmSignOutVisible}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmLabel="Sign Out"
+        icon="log-out-outline"
+        destructive
+        onConfirm={confirmSignOut}
+        onCancel={() => setConfirmSignOutVisible(false)}
+      />
     </>
   );
 }

@@ -1,22 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import ErrorState from '@/components/ErrorState';
 import { vendorApi } from '@/lib/api';
+import { useApiData } from '@/hooks/useApiData';
 
 export default function ReturnsPage() {
-  const [returns, setReturns] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    vendorApi.getReturns().then((res: any) => setReturns(Array.isArray(res) ? res : res.data || [])).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const { data: res, loading, error, retry } = useApiData<any>(() => vendorApi.getReturns());
+  const returns = Array.isArray(res) ? res : (res as any)?.data || [];
 
   const handleAction = async (id: string, status: string) => {
     try {
       await vendorApi.updateReturnStatus(id, status);
-      setReturns(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+      retry();
     } catch (e) { console.error(e); }
   };
 
@@ -37,7 +34,11 @@ export default function ReturnsPage() {
   return (
     <div className="space-y-6">
       <div><h2 className="text-xl font-bold text-slate-900">Returns</h2><p className="text-sm text-slate-500">Manage return requests</p></div>
-      <DataTable columns={columns} data={returns} loading={loading} emptyMessage="No return requests" />
+      {error ? (
+        <ErrorState message={error.message} onRetry={retry} />
+      ) : (
+        <DataTable columns={columns} data={returns} loading={loading} emptyMessage="No return requests" />
+      )}
     </div>
   );
 }

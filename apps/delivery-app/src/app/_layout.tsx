@@ -1,12 +1,35 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import { useAuthStore } from '../store/authStore';
 import { useDeliveryStore } from '../store/deliveryStore';
 import { registerForPushNotifications, setupNotificationListeners } from '../lib/notifications';
 import { IncomingAssignmentModal } from '../components/IncomingAssignmentModal';
 
-export default function RootLayout() {
+// Initialize Sentry for crash reporting — guard empty DSN (Play/App Store builds without DSN)
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: __DEV__ ? 'development' : 'production',
+    tracesSampleRate: 1.0,
+    enableAutoSessionTracking: true,
+    sessionTrackingIntervalMillis: 30000,
+    attachStacktrace: true,
+    beforeSend: (event) => {
+      if (event.request?.headers) {
+        delete event.request.headers['Authorization'];
+      }
+      return event;
+    },
+  });
+} else if (!__DEV__) {
+  console.warn('[Sentry] EXPO_PUBLIC_SENTRY_DSN not set — crash reporting disabled. Set it in eas.json production.env or EAS Secrets.');
+}
+
+function RootLayout() {
   const { loadSession, isAuthenticated } = useAuthStore();
   const { setupRealtime, cleanupRealtime } = useDeliveryStore();
 
@@ -30,7 +53,7 @@ export default function RootLayout() {
   }, [isAuthenticated]);
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="dark" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -62,6 +85,9 @@ export default function RootLayout() {
         />
       </Stack>
       {isAuthenticated && <IncomingAssignmentModal />}
-    </>
+    </SafeAreaProvider>
   );
 }
+
+// Wrap the root layout with Sentry's error boundary for automatic crash capture
+export default Sentry.wrap(RootLayout);

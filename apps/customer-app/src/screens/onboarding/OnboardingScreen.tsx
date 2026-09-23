@@ -1,11 +1,9 @@
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, NativeSyntheticEvent, NativeScrollEvent,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions, NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Colors, Typography } from '../../constants/theme';
-
-const { width } = Dimensions.get('window');
 
 type Slide = {
   key: string;
@@ -45,6 +43,10 @@ const SLIDES: Slide[] = [
 
 export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  // Tablet-safe cap: bound the hero square to a phone-like width on large
+  // screens (iPad, unfolded foldables) instead of stretching it full-bleed.
+  const heroBasisWidth = Math.min(width, 768);
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList>(null);
   const isLast = index === SLIDES.length - 1;
@@ -76,7 +78,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
         onMomentumScrollEnd={onMomentumScrollEnd}
         renderItem={({ item }) => (
           <View style={[s.slide, { width }]}>
-            <View style={[s.hero, { backgroundColor: item.accentTint }]}>
+            <View style={[s.hero, { backgroundColor: item.accentTint, width: heroBasisWidth - 64, height: heroBasisWidth - 64 }]}>
               <Text style={s.heroEmoji}>{item.emoji}</Text>
             </View>
           </View>
@@ -117,8 +119,6 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   slide: { alignItems: 'center', justifyContent: 'center' },
   hero: {
-    width: width - 64,
-    height: width - 64,
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',

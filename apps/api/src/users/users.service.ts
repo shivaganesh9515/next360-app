@@ -35,6 +35,57 @@ export class UsersService {
     return user;
   }
 
+  async findByIdAdmin(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        avatarUrl: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        vendor: {
+          select: {
+            id: true,
+            storeName: true,
+            storeType: true,
+            status: true,
+            zone: { select: { id: true, name: true } },
+          },
+        },
+        deliveryPartner: {
+          select: {
+            id: true,
+            vehicleType: true,
+            status: true,
+            zone: { select: { id: true, name: true } },
+          },
+        },
+        _count: {
+          select: {
+            orders: true,
+            reviews: true,
+            addresses: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  // updateStatus(id, isActive: boolean) removed — the controller calls the
+  // DTO variant updateStatus(id, { isActive, reason? }) below, which is the
+  // same behavior plus an audit-friendly reason field.
+
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },

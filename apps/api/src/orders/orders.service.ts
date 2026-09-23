@@ -778,26 +778,28 @@ export class OrdersService {
    * Cancel an order (or specific vendor group within an order).
    * Restores product stock on cancellation.
    */
-  async cancel(userId: string, role: string, orderId: string, vendorGroupId?: string) {
+  async cancel(userId: string, role: string, orderId: string, vendorGroupId?: string, reason?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
         vendorGroups: {
-          include: { items: true },
+          include: { items: true, vendor: { select: { userId: true } } },
         },
       },
     });
 
     if (!order) throw new NotFoundException('Order not found');
 
-    // Access control
-    if (role !== 'ADMIN' && order.userId !== userId) {
-      throw new ForbiddenException('Access denied');
-    }
-
     if (vendorGroupId) {
       const group = order.vendorGroups.find((g) => g.id === vendorGroupId);
       if (!group) throw new NotFoundException('Vendor group not found');
+
+      // Access control: the vendor that owns this group, or an admin — NOT
+      // the customer (order.userId), who has no cancel authority once a
+      // vendor has confirmed. Cancelling the group is a vendor/admin action.
+      if (role !== 'ADMIN' && !(role === 'VENDOR' && group.vendor.userId === userId)) {
+        throw new ForbiddenException('Access denied');
+      }
 
       if (group.status !== 'PLACED' && group.status !== 'CONFIRMED') {
         throw new BadRequestException('Cannot cancel vendor group at this stage');
@@ -813,12 +815,16 @@ export class OrdersService {
 
       return this.prisma.orderVendorGroup.update({
         where: { id: vendorGroupId },
-        data: { status: 'CANCELLED' },
+        data: { status: 'CANCELLED', cancellationReason: reason },
         include: { items: true },
       });
     }
 
-    // Cancel entire order
+    // Cancel entire order — only the customer who placed it, or an admin
+    if (role !== 'ADMIN' && order.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
     if (order.status !== 'PLACED' && order.status !== 'CONFIRMED') {
       throw new BadRequestException('Cannot cancel order at this stage');
     }
@@ -944,6 +950,7 @@ export class OrdersService {
               status: true,
               createdAt: true,
               paymentMethod: true,
+              user: { select: { id: true, name: true, phone: true } },
             },
           },
           items: {

@@ -539,6 +539,72 @@ export class NotificationsService {
   }
 
   /**
+   * V8b. Vendor KYC Document Approved — sent when admin approves one of the
+   * vendor's individual KYC documents (not the whole vendor).
+   */
+  async sendVendorKycDocumentApprovedNotification(vendorUserId: string, documentLabel: string) {
+    return this.notify(
+      vendorUserId,
+      'Document Approved',
+      `Your ${documentLabel} has been verified.`,
+      'VENDOR_KYC_DOCUMENT_APPROVED',
+      { screen: 'Store' },
+    );
+  }
+
+  /**
+   * V8c. Vendor KYC Document Rejected — sent when admin rejects one of the
+   * vendor's individual KYC documents, prompting resubmission.
+   */
+  async sendVendorKycDocumentRejectedNotification(
+    vendorUserId: string,
+    documentLabel: string,
+    rejectionReason?: string,
+  ) {
+    return this.notify(
+      vendorUserId,
+      'Document Rejected',
+      `Your ${documentLabel} was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''} Please upload a fresh copy.`,
+      'VENDOR_KYC_DOCUMENT_REJECTED',
+      { screen: 'Store' },
+    );
+  }
+
+  /**
+   * V8d. Vendor KYC Submitted — confirms to the vendor that their documents
+   * were submitted and are awaiting admin review.
+   */
+  async sendVendorKycSubmittedNotification(vendorUserId: string) {
+    return this.notify(
+      vendorUserId,
+      'Verification Submitted',
+      'Your KYC documents have been submitted for review. We will notify you once verified.',
+      'VENDOR_KYC_SUBMITTED',
+      { screen: 'Store' },
+    );
+  }
+
+  async sendDeliveryPartnerKycApprovedNotification(userId: string) {
+    return this.notify(
+      userId,
+      'KYC Verified',
+      'Your identity verification has been approved. You can now start accepting deliveries.',
+      'DP_KYC_APPROVED',
+      { screen: 'Home' },
+    );
+  }
+
+  async sendDeliveryPartnerKycRejectedNotification(userId: string, rejectionReason?: string) {
+    return this.notify(
+      userId,
+      'KYC Not Approved',
+      `Your identity verification was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''} Please resubmit your documents.`,
+      'DP_KYC_REJECTED',
+      { screen: 'Profile' },
+    );
+  }
+
+  /**
    * V9. Document Expiry Reminder — sent to vendor when KYC documents are expiring.
    * This is typically called from a cron job, not during a request.
    */
@@ -865,5 +931,45 @@ export class NotificationsService {
     });
 
     return tokens.map(t => ({ userId: t.user.id, token: t.token, role: t.user.role }));
+  }
+
+  // ─── Admin Broadcast ────────────────────────────────────────────────────
+
+  async broadcast(dto: {
+    title: string;
+    body: string;
+    type?: string;
+    targetRole?: string;
+  }) {
+    const type = dto.type || 'BROADCAST';
+    const targetRole = dto.targetRole || 'ALL';
+
+    const where: any = {};
+    if (targetRole !== 'ALL') {
+      where.role = targetRole;
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+      select: { id: true },
+    });
+
+    let createdCount = 0;
+    let pushSentCount = 0;
+
+    for (const user of users) {
+      await this.create(user.id, dto.title, dto.body, type, { broadcast: true });
+      createdCount++;
+
+      const pushResult = await this.sendPushToUser(user.id, dto.title, dto.body, { broadcast: true });
+      if (pushResult) pushSentCount++;
+    }
+
+    return {
+      message: `Broadcast sent to ${users.length} users (${pushSentCount} push notifications delivered)`,
+      totalTargeted: users.length,
+      notificationsCreated: createdCount,
+      pushDelivered: pushSentCount,
+    };
   }
 }
