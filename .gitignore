@@ -5,6 +5,7 @@ dist/
 .expo/
 *.env
 .env.local
+.env.backup
 .env.development.local
 .env.test.local
 .env.production.local
@@ -24,6 +25,9 @@ Thumbs.db
 # Agent skills (installed locally, not project code)
 .agents/skills/
 
+#next360 backup file
+next360_backup.dump
+
 # Local reference files
 _references/
 loyalty-engine/
@@ -32,3 +36,9 @@ loyalty-engine/
 build/
 *.apk
 *.aab
+
+# Local backend audit / implementation reports
+tasks/backend-integration-audit-report.md
+tasks/delivery-app-implementation-audit.md
+tasks/delivery-lifecycle-phase1-report.md
+tasks/delivery-lifecycle-phase2-report.md

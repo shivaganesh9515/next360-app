@@ -4,3 +4,7 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Local environment — never commit Supabase URL/keys or other secrets
+.env
+.env.*

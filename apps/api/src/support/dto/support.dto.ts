@@ -7,7 +7,11 @@ export class CreateTicketDto {
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  message: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 
   @IsOptional()
   @IsString()
@@ -21,7 +25,7 @@ export class CreateTicketDto {
 export class AddMessageDto {
   @IsString()
   @IsNotEmpty()
-  body: string;
+  message: string;
 }
 
 export class UpdateTicketStatusDto {

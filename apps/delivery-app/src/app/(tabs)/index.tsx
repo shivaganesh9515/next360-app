@@ -4,7 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Animated, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useDeliveryStore } from '../../store/deliveryStore';
@@ -19,6 +19,7 @@ export default function DashboardScreen() {
     isAvailable, setAvailability,
     newOrders, activeDeliveries,
     fetchNewOrders, fetchActiveDeliveries, isLoading,
+    unreadCount, fetchUnreadCount,
   } = useDeliveryStore();
 
   const [refreshing, setRefreshing] = React.useState(false);
@@ -32,7 +33,12 @@ export default function DashboardScreen() {
   useEffect(() => {
     fetchNewOrders();
     fetchActiveDeliveries();
+    fetchUnreadCount();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => { fetchUnreadCount(); }, []),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -63,11 +69,21 @@ export default function DashboardScreen() {
               <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Partner'}</Text>
               <Text style={styles.date}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.8}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'D'}</Text>
-              </View>
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity onPress={() => router.push('/notifications' as any)} activeOpacity={0.8} style={styles.bellWrap}>
+                <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
+                {unreadCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.8}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'D'}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
@@ -271,6 +287,15 @@ const styles = StyleSheet.create({
   headerLeft: {},
   greeting: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.3 },
   date: { fontSize: 14, color: Colors.textSecondary, marginTop: 4 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  bellWrap: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center', ...Shadow.sm },
+  bellBadge: {
+    position: 'absolute', top: -2, right: -2,
+    minWidth: 18, minHeight: 18, borderRadius: 9,
+    backgroundColor: Colors.danger, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 4, borderWidth: 2, borderColor: Colors.background,
+  },
+  bellBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.white },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', ...Shadow.md },
   avatarText: { fontSize: 20, fontWeight: '600', color: Colors.white },
   // Availability

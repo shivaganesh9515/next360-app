@@ -631,6 +631,29 @@ export class OrdersService {
       // parent stale. Most-advanced-active wins; DELIVERED only when all are.
       await this.recomputeParentStatus(orderId);
 
+      // When a group becomes READY_FOR_PICKUP, fan the new-delivery push out
+      // to every AVAILABLE partner in the vendor's zone so they can claim it.
+      // Partners claim first-come-first-served from the shared queue; the
+      // push is a heads-up, never a reservation.
+      if (dto.status === OrderStatus.READY_FOR_PICKUP && group.vendor?.zoneId) {
+        try {
+          await this.notificationsService.notifyAvailablePartnersInZone(
+            group.vendor.zoneId,
+            {
+              orderId,
+              orderVendorGroupId: vendorGroupId,
+              orderNumber: order.orderNo || orderId,
+              storeName: group.vendor.storeName,
+              storeType: group.vendor.storeType,
+            },
+          );
+        } catch (error: any) {
+          this.logger.error(
+            `Failed to notify partners for ready group ${vendorGroupId}: ${error.message}`,
+          );
+        }
+      }
+
       return updatedGroup;
     }
 

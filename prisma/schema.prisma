@@ -253,6 +253,7 @@ model DeliveryPartner {
 
   assignments DeliveryAssignment[]
   payouts     Payout[]
+  rejections  DeliveryRejection[]
 }
 
 model Category {
@@ -438,6 +439,7 @@ model OrderVendorGroup {
   items       OrderItem[]
   delivery    DeliveryAssignment?
   slotBooking DeliverySlotBooking?
+  rejections DeliveryRejection[]
 }
 
 model OrderItem {
@@ -478,6 +480,20 @@ model DeliveryAssignment {
   deliveredAt        DateTime?
 
   failures DeliveryFailure[]
+}
+
+model DeliveryRejection {
+  id                 String           @id @default(uuid())
+  deliveryPartnerId  String
+  deliveryPartner    DeliveryPartner  @relation(fields: [deliveryPartnerId], references: [id])
+  orderVendorGroupId String
+  orderVendorGroup   OrderVendorGroup @relation(fields: [orderVendorGroupId], references: [id])
+  reason             String?
+  createdAt           DateTime         @default(now())
+
+  @@unique([deliveryPartnerId, orderVendorGroupId])
+  @@index([orderVendorGroupId])
+  @@index([deliveryPartnerId])
 }
 
 model Payment {

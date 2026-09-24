@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { deliveryApi, API_BASE } from '../lib/api';
+import { deliveryApi } from '../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../constants/theme';
 import { useSpringEntrance } from '../hooks/useDeliveryAnimation';
 
@@ -104,12 +104,8 @@ export default function KycDocumentsScreen() {
       formData.append('file', {
         uri: asset.uri, name: asset.fileName || 'document.jpg', type: asset.mimeType || 'image/jpeg',
       } as any);
-      const response = await fetch(
-        `${API_BASE}/upload/image`,
-        { method: 'POST', body: formData, headers: { 'Content-Type': 'multipart/form-data' } },
-      );
-      const data = await response.json();
-      const url = data?.data?.url || data?.url;
+      const data = await deliveryApi.upload<any>('/upload/document', formData);
+      const url = data?.url;
       if (url) setDocumentUrl(url);
       else Alert.alert('Upload failed', 'Could not upload image.');
     } catch {
@@ -123,9 +119,11 @@ export default function KycDocumentsScreen() {
     if (!documentType) { Alert.alert('Required', 'Select a document type.'); return; }
     setSubmitting(true);
     try {
-      await deliveryApi.submitKycDocuments([{
-        documentType, documentNumber: documentNumber || undefined, documentUrl: documentUrl || '',
-      }]);
+      await deliveryApi.submitKycDocuments({
+        documentType,
+        documentNumber: documentNumber || undefined,
+        documentUrl: documentUrl || undefined,
+      });
       Alert.alert('Submitted', 'Your documents have been submitted for review.', [{ text: 'OK', onPress: loadKycStatus }]);
     } catch (error: any) {
       Alert.alert('Submission failed', error.message || 'Try again later.');

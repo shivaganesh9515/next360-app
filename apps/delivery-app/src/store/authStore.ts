@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import { deliveryApi } from '../lib/api';
-import { supabase } from '../lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deliveryApi, getAuthToken } from '../lib/api';
 
 interface User {
   id: string;
@@ -36,18 +34,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email: string, password: string) => {
     try {
+      // Local backend login (POST /auth/login) — persists the NestJS JWT.
       const data = await deliveryApi.login(email, password);
 
-      // Validate role
+      // Validate role against the local User record (auth token just set).
       const profile = await deliveryApi.getProfile();
       if (profile.role !== 'DELIVERY_PARTNER') {
-        await supabase.auth.signOut();
+        await deliveryApi.signOut();
         throw new Error('This account is not registered as a delivery partner');
       }
 
       set({
         user: profile,
-        session: data.session,
+        session: null,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -57,32 +56,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  sendPhoneOtp: async (phone: string) => {
-    const { error } = await supabase.auth.signInWithOtp({ phone });
-    if (error) throw error;
+  sendPhoneOtp: async () => {
+    // Backend phone-OTP flow returns 410 Gone (disabled). No Supabase Auth here.
+    throw new Error('Phone OTP login is not available with local authentication.');
   },
 
-  verifyPhoneOtp: async (phone: string, otp: string) => {
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
-      if (error) throw error;
-
-      const profile = await deliveryApi.getProfile();
-      if (profile.role !== 'DELIVERY_PARTNER') {
-        await supabase.auth.signOut();
-        throw new Error('This account is not registered as a delivery partner');
-      }
-
-      set({
-        user: profile,
-        session: data.session,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+  verifyPhoneOtp: async () => {
+    // Backend phone-OTP flow returns 410 Gone (disabled). No Supabase Auth here.
+    throw new Error('Phone OTP login is not available with local authentication.');
   },
 
   signOut: async () => {
@@ -96,9 +77,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loadSession: async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        set({ session, isAuthenticated: true });
+      const token = await getAuthToken();
+      if (token) {
+        set({ isAuthenticated: true });
         await get().loadProfile();
       } else {
         set({ isLoading: false });
@@ -112,7 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const profile = await deliveryApi.getProfile();
       if (profile.role !== 'DELIVERY_PARTNER') {
-        await supabase.auth.signOut();
+        await deliveryApi.signOut();
         set({ user: null, session: null, isAuthenticated: false, isLoading: false });
         return;
       }

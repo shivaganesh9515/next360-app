@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { deliveryApi } from '../lib/api';
+import { deliveryApi, api } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 interface Order {
@@ -25,11 +25,47 @@ interface Order {
 }
 
 interface Earnings {
+  period: 'today' | 'week' | 'month' | 'all';
+  totalEarnings: number;
+  deliveryCount: number;
+  averagePerDelivery: number;
   today: number;
   thisWeek: number;
   thisMonth: number;
   allTime: number;
   totalDeliveries: number;
+}
+
+interface DeliveryTransaction {
+  id: string;
+  orderId: string | null;
+  orderNumber: string | null;
+  itemsTotal: number;
+  deliveryFee: number;
+  amount: number;
+  itemCount: number;
+  deliveredAt: string | null;
+  status: string;
+}
+
+interface DeliveryPayout {
+  id: string;
+  amount: number;
+  status: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  data: { screen?: string; orderId?: string; orderVendorGroupId?: string } | null;
+  isRead: boolean;
+  createdAt: string;
 }
 
 // Safety net: at most one background refetch per 60s, plus a 60s
@@ -52,19 +88,33 @@ interface DeliveryState {
   activeDeliveries: Order[];
   deliveryHistory: Order[];
   earnings: Earnings | null;
+  transactions: DeliveryTransaction[];
+  payouts: DeliveryPayout[];
+  notifications: Notification[];
+  unreadCount: number;
+  financialError: string | null;
   isLoading: boolean;
   isAvailable: boolean;
   realtimeChannel: any;
+
+  // Notifications
+  fetchNotifications: () => Promise<void>;
+  fetchUnreadCount: () => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
 
   // Actions
   fetchNewOrders: () => Promise<void>;
   fetchActiveDeliveries: () => Promise<void>;
   fetchDeliveryHistory: (params?: any) => Promise<void>;
   fetchEarnings: (period?: string) => Promise<void>;
+  fetchTransactions: (params?: any) => Promise<void>;
+  fetchPayouts: (params?: any) => Promise<void>;
   acceptOrder: (orderId: string) => Promise<void>;
-  rejectOrder: (orderId: string) => Promise<void>;
+  rejectOrder: (orderId: string, reason?: string) => Promise<void>;
   updateDeliveryStatus: (orderId: string, status: string, data?: any) => Promise<void>;
   verifyPickupOTP: (orderId: string, otp: string) => Promise<void>;
+  startTransit: (orderId: string) => Promise<void>;
   setAvailability: (available: boolean) => Promise<void>;
   setupRealtime: () => void;
   cleanupRealtime: () => void;
@@ -75,9 +125,59 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   activeDeliveries: [],
   deliveryHistory: [],
   earnings: null,
+  transactions: [],
+  payouts: [],
+  notifications: [],
+  unreadCount: 0,
+  financialError: null,
   isLoading: false,
   isAvailable: true,
   realtimeChannel: null,
+
+  fetchNotifications: async () => {
+    try {
+      const res: any = await api.getNotifications();
+      const list = Array.isArray(res) ? res : (res?.notifications || res?.data || []);
+      set({ notifications: list });
+    } catch (error) {
+      console.error('Fetch notifications error:', error);
+    }
+  },
+
+  fetchUnreadCount: async () => {
+    try {
+      const res: any = await api.getNotificationUnreadCount();
+      set({ unreadCount: res?.count ?? 0 });
+    } catch (error) {
+      console.error('Fetch unread count error:', error);
+    }
+  },
+
+  markNotificationRead: async (id: string) => {
+    try {
+      await api.markNotificationRead(id);
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n,
+        ),
+        unreadCount: Math.max(0, state.unreadCount - 1),
+      }));
+    } catch (error) {
+      console.error('Mark notification read error:', error);
+    }
+  },
+
+  markAllNotificationsRead: async () => {
+    try {
+      await api.markAllNotificationsRead();
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+        unreadCount: 0,
+      }));
+    } catch (error) {
+      console.error('Mark all notifications read error:', error);
+    }
+  },
 
   fetchNewOrders: async () => {
     set({ isLoading: true });
@@ -121,9 +221,32 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   fetchEarnings: async (period?: string) => {
     try {
       const res = await deliveryApi.getEarnings({ period: period || 'all' });
-      set({ earnings: res });
+      set({ earnings: res, financialError: null });
     } catch (error) {
       console.error('Fetch earnings error:', error);
+      set({ financialError: 'Unable to load earnings' });
+    }
+  },
+
+  fetchTransactions: async (params?: any) => {
+    try {
+      const res: any = await deliveryApi.getTransactions(params);
+      const list = Array.isArray(res) ? res : res?.data || [];
+      set({ transactions: list, financialError: null });
+    } catch (error) {
+      console.error('Fetch transactions error:', error);
+      set({ financialError: 'Unable to load transactions' });
+    }
+  },
+
+  fetchPayouts: async (params?: any) => {
+    try {
+      const res: any = await deliveryApi.getPayouts(params);
+      const list = Array.isArray(res) ? res : res?.data || [];
+      set({ payouts: list, financialError: null });
+    } catch (error) {
+      console.error('Fetch payouts error:', error);
+      set({ financialError: 'Unable to load payouts' });
     }
   },
 
@@ -141,9 +264,9 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     }
   },
 
-  rejectOrder: async (orderId: string) => {
+  rejectOrder: async (orderId: string, reason?: string) => {
     try {
-      await deliveryApi.rejectOrder(orderId);
+      await deliveryApi.rejectOrder(orderId, reason);
       set(state => ({
         newOrders: state.newOrders.filter(o => o.id !== orderId),
       }));
@@ -177,6 +300,16 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     }
   },
 
+  startTransit: async (orderId: string) => {
+    try {
+      await deliveryApi.startTransit(orderId);
+      await get().fetchActiveDeliveries();
+    } catch (error) {
+      console.error('Start transit error:', error);
+      throw error;
+    }
+  },
+
   setAvailability: async (available: boolean) => {
     try {
       await deliveryApi.setAvailability(available);
@@ -188,42 +321,27 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   setupRealtime: () => {
+    // Listen for delivery-request rows (OrderVendorGroup) instead of the order
+    // itself: READY_FOR_PICKUP lives on order_vendor_groups, and orders never
+    // carry a READY_FOR_DELIVERY value. Payload rows are raw group records
+    // (not the flattened API shape), so we never merge them directly — every
+    // event just triggers the throttled safety refetch of both lists.
     const channel = supabase
       .channel('delivery-orders')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'orders',
-        filter: 'status=eq.READY_FOR_DELIVERY',
-      }, (payload) => {
-        // New order available
-        const newOrder = payload.new as Order;
-        set(state => ({
-          newOrders: [newOrder, ...state.newOrders],
-        }));
+        table: 'order_vendor_groups',
+        filter: 'status=eq.READY_FOR_PICKUP',
+      }, () => {
+        runSafetyRefetch(get);
       })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'orders',
-      }, (payload) => {
-        // Targeted update: patch only the changed order in place from the
-        // realtime payload. A full refetch runs at most every 60s as safety.
-        const updated = payload.new as Order;
-        set(state => {
-          const patch = (list: Order[]) =>
-            list.some(o => o.id === updated.id)
-              ? list.map(o => (o.id === updated.id ? { ...o, ...updated } : o))
-              : list;
-          const newOrders = patch(state.newOrders);
-          return {
-            newOrders:
-              newOrders === state.newOrders && updated.status === 'READY_FOR_DELIVERY'
-                ? [updated, ...state.newOrders]
-                : newOrders,
-            activeDeliveries: patch(state.activeDeliveries),
-          };
-        });
+        table: 'order_vendor_groups',
+        filter: 'status=eq.READY_FOR_PICKUP',
+      }, () => {
         runSafetyRefetch(get);
       })
       .subscribe();

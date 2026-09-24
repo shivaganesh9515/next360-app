@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
@@ -8,15 +8,29 @@ import { deliveryApi } from '../../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useStaggeredEntrance, useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
+const KYC_LOOKUP: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  APPROVED: { label: 'Approved', icon: 'shield-checkmark', color: Colors.primary, bg: Colors.primaryLight },
+  PENDING: { label: 'Pending', icon: 'shield-outline', color: Colors.warning, bg: Colors.warningLight },
+  REJECTED: { label: 'Rejected', icon: 'shield-half', color: Colors.danger, bg: Colors.dangerLight },
+  NOT_SUBMITTED: { label: 'Not Submitted', icon: 'shield-outline', color: Colors.textTertiary, bg: Colors.borderLight },
+};
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuthStore();
   const { earnings, fetchEarnings } = useDeliveryStore();
+  const [kycStatus, setKycStatus] = useState('NOT_SUBMITTED');
   const headerAnim = useSpringEntrance(0);
   const statsAnim = useSpringEntrance(150);
   const menuAnim = useSpringEntrance(250);
 
   useEffect(() => {
     fetchEarnings('all');
+    deliveryApi.getKycStatus()
+      .then((res: any) => setKycStatus(res?.status || res?.data?.status || 'NOT_SUBMITTED'))
+      .catch((err) => {
+        console.error('Fetch KYC status error:', err);
+        setKycStatus('NOT_SUBMITTED');
+      });
   }, []);
 
   const handleSignOut = () => {
@@ -33,12 +47,12 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
-    { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: null },
+    { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: '/edit-profile' as any },
     { icon: 'car-outline', label: 'Vehicle Details', color: Colors.warning, route: '/vehicle-setup' as any },
     { icon: 'document-text-outline', label: 'Documents (KYC)', color: Colors.purple, route: '/kyc-documents' as any },
     { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.blue, route: '/privacy-policy' as any },
     { icon: 'document-text-outline', label: 'Terms of Service', color: Colors.textSecondary, route: '/terms-of-service' as any },
-    { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.blue, route: null, action: () => Linking.openURL('mailto:support@next360.com') },
+    { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.blue, route: '/support' as any },
     { icon: 'information-circle-outline', label: 'About', color: Colors.textSecondary, route: null, action: () => Alert.alert('Next360 Delivery', 'Version 1.0.0\n\nDelivery Partner App') },
   ];
 
@@ -47,7 +61,7 @@ export default function ProfileScreen() {
   const weekEarningsText =
     earnings == null
       ? '—'
-      : `₹${((earnings.thisWeek ?? 0) / 100).toLocaleString('en-IN')}`;
+      : `₹${(earnings.thisWeek ?? 0).toLocaleString('en-IN')}`;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -79,13 +93,13 @@ export default function ProfileScreen() {
           <Text style={styles.statValue}>{user?.completedDeliveries || 0}</Text>
           <Text style={styles.statLabel}>Deliveries</Text>
         </View>
-        <View style={styles.statCard}>
-          <View style={[styles.statIconWrap, { backgroundColor: Colors.warningLight }]}>
-            <Ionicons name="star" size={20} color={Colors.warning} />
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/kyc-documents')} activeOpacity={0.7}>
+          <View style={[styles.statIconWrap, { backgroundColor: KYC_LOOKUP[kycStatus].bg }]}>
+            <Ionicons name={(KYC_LOOKUP[kycStatus].icon as any)} size={20} color={KYC_LOOKUP[kycStatus].color} />
           </View>
-          <Text style={styles.statValue}>{user?.rating || '5.0'}</Text>
-          <Text style={styles.statLabel}>Rating</Text>
-        </View>
+          <Text style={[styles.statValue, { fontSize: 15 }]}>{KYC_LOOKUP[kycStatus].label}</Text>
+          <Text style={styles.statLabel}>KYC Status</Text>
+        </TouchableOpacity>
         <View style={styles.statCard}>
           <View style={[styles.statIconWrap, { backgroundColor: Colors.primaryLight }]}>
             <Ionicons name="cash" size={20} color={Colors.primary} />

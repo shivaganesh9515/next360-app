@@ -57,7 +57,9 @@ function RootLayout() {
       <StatusBar style="dark" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/phone-login" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/verify-otp" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="delivery/[id]"
@@ -70,6 +72,22 @@ function RootLayout() {
         <Stack.Screen
           name="vehicle-setup"
           options={{ title: 'Vehicle & Zone', headerTintColor: '#10B981' }}
+        />
+        <Stack.Screen
+          name="edit-profile"
+          options={{ title: 'Edit Profile', headerTintColor: '#10B981' }}
+        />
+        <Stack.Screen
+          name="notifications"
+          options={{ title: 'Notifications', headerTintColor: '#10B981' }}
+        />
+        <Stack.Screen
+          name="support"
+          options={{ title: 'Help & Support', headerTintColor: '#10B981' }}
+        />
+        <Stack.Screen
+          name="support/[id]"
+          options={{ title: 'Ticket', headerTintColor: '#10B981' }}
         />
         <Stack.Screen
           name="kyc-documents"

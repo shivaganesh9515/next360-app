@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { supabase } from '../../lib/supabase';
+import { deliveryApi } from '../../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
@@ -19,6 +19,9 @@ export default function LoginScreen() {
 
   const fadeAnim = useSpringEntrance(0);
 
+  // Dev-only shortcut — bypasses Supabase auth so the UI flows can be
+  // exercised without a live DP credential. Keeps stats at 0 (real data
+  // comes from /users/me); never ships (gated behind __DEV__).
   const handleSkip = () => {
     useAuthStore.setState({
       isAuthenticated: true,
@@ -28,10 +31,8 @@ export default function LoginScreen() {
         name: 'Dev Driver',
         phone: '+919999999999',
         role: 'DELIVERY_PARTNER',
-        avatar: undefined,
-        completedDeliveries: 42,
-        rating: 4.8,
-        totalEarnings: 2560000,
+        completedDeliveries: 0,
+        totalEarnings: 0,
       },
       isLoading: false,
     });
@@ -43,11 +44,11 @@ export default function LoginScreen() {
       Alert.alert('Forgot Password', 'Enter your email above first, then tap "Forgot Password?" again.');
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
-      Alert.alert('Check your email', `A password reset link has been sent to ${email}.`);
+    try {
+      const res = await deliveryApi.forgotPassword(email);
+      Alert.alert('Check your email', (res as any)?.message || 'A password reset link has been sent.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Could not send a password reset link.');
     }
   };
 

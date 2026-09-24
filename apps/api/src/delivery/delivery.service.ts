@@ -3,19 +3,71 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Cron } from '@nestjs/schedule';
-import { OrderStatus, DeliveryPartnerStatus } from '@prisma/client';
+import { OrderStatus, DeliveryPartnerStatus, Prisma } from '@prisma/client';
+import { EarningsPeriod } from './dto/earnings-query.dto';
+
+const PAYOUT_SUMMARY_SELECT = {
+  id: true,
+  amount: true,
+  status: true,
+  periodStart: true,
+  periodEnd: true,
+  paidAt: true,
+  createdAt: true,
+} as const;
+
+type PayoutSummary = Prisma.PayoutGetPayload<{
+  select: typeof PAYOUT_SUMMARY_SELECT;
+}>;
 
 function generateOtp(): string {
   return crypto.randomInt(100000, 999999).toString();
 }
 
 const AUTO_ASSIGN_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+// Flat delivery-partner fee charged per completed delivery (rupees).
+// Single source of truth for earnings + weekly payouts in this module —
+// mirrors the payments module's own DELIVERY_FEE so the two never diverge.
+export const DELIVERY_FEE = 40;
+
+// The platform is India-only (Hyderabad/Vijayawada; Asia/Kolkata = UTC+05:30).
+// All financial period windows are IST-correct: boundaries are computed in IST
+// and converted back to UTC for Prisma queries. No date library required.
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function startOfTodayIst(): Date {
+  const istMs = Date.now() + IST_OFFSET_MS;
+  const ist = new Date(istMs);
+  const startIst = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate());
+  return new Date(startIst - IST_OFFSET_MS);
+}
+
+function startOfWeekIst(): Date {
+  const istMs = Date.now() + IST_OFFSET_MS;
+  const ist = new Date(istMs);
+  // Week starts Sunday (matches the pre-existing week definition).
+  const startIst = Date.UTC(
+    ist.getUTCFullYear(),
+    ist.getUTCMonth(),
+    ist.getUTCDate() - ist.getUTCDay(),
+  );
+  return new Date(startIst - IST_OFFSET_MS);
+}
+
+function startOfMonthIst(): Date {
+  const istMs = Date.now() + IST_OFFSET_MS;
+  const ist = new Date(istMs);
+  const startIst = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1);
+  return new Date(startIst - IST_OFFSET_MS);
+}
 
 function haversineDistance(
   lat1: number, lng1: number,
@@ -30,6 +82,23 @@ function haversineDistance(
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Map a live DeliveryAssignment's OrderVendorGroup status to the
+ * delivery-app vocabulary. The DB OrderStatus enum and the mobile
+ * DeliveryStatus union both exist — this is the explicit bridge between
+ * them (no `as` casts hiding mismatched strings).
+ *
+ * DB:      ASSIGNED_TO_DELIVERY | PICKED_UP | OUT_FOR_DELIVERY | DELIVERED
+ * Mobile:  ASSIGNED              PICKING_UP  IN_TRANSIT         DELIVERED
+ */
+function mapActiveStatus(assignment: any): string {
+  const groupStatus = assignment.orderVendorGroup.status;
+  if (groupStatus === OrderStatus.OUT_FOR_DELIVERY) return 'IN_TRANSIT';
+  if (groupStatus === OrderStatus.PICKED_UP) return 'PICKING_UP';
+  if (groupStatus === OrderStatus.DELIVERED) return 'DELIVERED';
+  return 'ASSIGNED';
 }
 
 @Injectable()
@@ -128,6 +197,8 @@ export class DeliveryService {
       status: { in: [OrderStatus.READY_FOR_PICKUP] },
       vendor: { zoneId: partner.zoneId },
       delivery: null,
+      // Never re-offer a group the partner has already declined.
+      rejections: { none: { deliveryPartnerId: partner.id } },
     };
 
     const [groups, total] = await Promise.all([
@@ -181,7 +252,9 @@ export class DeliveryService {
       this.prisma.orderVendorGroup.count({ where }),
     ]);
 
-    const items = groups.map((g) => this.formatOrderForDelivery(g, 'READY_FOR_DELIVERY'));
+    const items = groups.map((g) =>
+      this.formatOrderForDelivery(g, g.status),
+    );
 
     return {
       items,
@@ -263,7 +336,7 @@ export class DeliveryService {
     const items = assignments.map((a) => {
       const formatted = this.formatOrderForDelivery(
         a.orderVendorGroup,
-        a.pickedUpAt ? 'IN_TRANSIT' : 'PICKED_UP',
+        mapActiveStatus(a),
       );
       formatted.deliveryAssignment = {
         id: a.id,
@@ -375,9 +448,9 @@ export class DeliveryService {
   }
 
   /**
-   * Format an OrderVendorGroup into the flat shape the delivery app expects.
-   */
-  private formatOrderForDelivery(group: any, deliveryStatus: string) {
+ * Format an OrderVendorGroup into the flat shape the delivery app expects.
+ */
+private formatOrderForDelivery(group: any, deliveryStatus: string) {
     const order = group.order;
     const totalEarnings = group.items.reduce(
       (sum: number, item: any) =>
@@ -387,12 +460,13 @@ export class DeliveryService {
 
     return {
       id: group.id,
+      groupId: group.id,
       orderId: order.id,
       orderNumber: order.orderNo,
       status: deliveryStatus,
       total: Number(order.totalAmount),
       subtotal: Number(group.subtotal),
-      deliveryFee: 40,
+      deliveryFee: DELIVERY_FEE,
       totalEarnings,
       createdAt: order.createdAt,
       paymentMethod: order.paymentMethod,
@@ -552,6 +626,187 @@ export class DeliveryService {
       },
       vendor: assignment.orderVendorGroup.vendor,
     };
+  }
+
+  /**
+   * POST /delivery/claim
+   * A delivery partner accepts a delivery request (an OrderVendorGroup in
+   * READY_FOR_PICKUP with no assignment yet) by group id. Zone check first,
+   * then a transactional claim so two partners can never grab the same group:
+   * the winning updateMany (status READY_FOR_PICKUP & no assignment) is the
+   * lock; a losing claim rolls back and gets 409.
+   */
+  async claimOrder(userId: string, orderVendorGroupId: string) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const group = await this.prisma.orderVendorGroup.findUnique({
+      where: { id: orderVendorGroupId },
+      include: {
+        vendor: { select: { id: true, storeName: true, zoneId: true } },
+        delivery: true,
+        order: {
+          select: {
+            id: true,
+            orderNo: true,
+            totalAmount: true,
+            paymentMethod: true,
+            createdAt: true,
+            user: { select: { id: true, name: true, phone: true } },
+            address: {
+              select: {
+                fullAddress: true,
+                city: true,
+                state: true,
+                pincode: true,
+                lat: true,
+                lng: true,
+              },
+            },
+          },
+        },
+        items: {
+          include: {
+            product: { select: { id: true, name: true, images: true, unit: true } },
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Delivery request not found');
+    }
+
+    if (group.vendor.zoneId !== partner.zoneId) {
+      throw new ForbiddenException(
+        'This delivery request is outside your zone',
+      );
+    }
+
+    if (group.status !== OrderStatus.READY_FOR_PICKUP) {
+      throw new ConflictException(
+        `Delivery request is no longer available (current status: ${group.status})`,
+      );
+    }
+
+    if (group.delivery) {
+      throw new ConflictException('Delivery request has already been accepted');
+    }
+
+    const otp = generateOtp();
+
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      // The claim lock: only transitions if the group is still READY_FOR_PICKUP
+      // AND has no assignment. A concurrent claim by another partner updates 0
+      // rows and we roll back with 409.
+      const claimed = await tx.orderVendorGroup.updateMany({
+        where: {
+          id: group.id,
+          status: OrderStatus.READY_FOR_PICKUP,
+          delivery: null,
+        },
+        data: { status: OrderStatus.ASSIGNED_TO_DELIVERY },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException(
+          'Delivery request has already been accepted',
+        );
+      }
+
+      const created = await tx.deliveryAssignment.create({
+        data: {
+          orderVendorGroupId: group.id,
+          deliveryPartnerId: partner.id,
+          otp,
+        },
+      });
+
+      await tx.deliveryPartner.update({
+        where: { id: partner.id },
+        data: { status: DeliveryPartnerStatus.ON_DELIVERY },
+      });
+
+      return created;
+    });
+
+    const formatted = this.formatOrderForDelivery(group, 'ASSIGNED');
+    formatted.deliveryAssignment = {
+      id: assignment.id,
+      assignedAt: assignment.assignedAt,
+      pickedUpAt: null,
+      deliveredAt: null,
+    };
+
+    return formatted;
+  }
+
+  /**
+   * POST /delivery/reject
+   * A partner declines a delivery request. The decline is persisted (one row
+   * per partner+group) so getNewOrders stops offering it to them, and — if the
+   * partner had already been assigned the group but hasn't picked up — the
+   * assignment is released back to READY_FOR_PICKUP for another partner.
+   * Idempotent: repeating the same decline is a no-op.
+   */
+  async declineOrder(
+    userId: string,
+    orderVendorGroupId: string,
+    reason?: string,
+  ) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    // Persist the decline (upsert = repeat-call safe).
+    await this.prisma.deliveryRejection.upsert({
+      where: {
+        deliveryPartnerId_orderVendorGroupId: {
+          deliveryPartnerId: partner.id,
+          orderVendorGroupId,
+        },
+      },
+      create: {
+        deliveryPartnerId: partner.id,
+        orderVendorGroupId,
+        reason: reason || null,
+      },
+      update: {},
+    });
+
+    // Release any assignment the partner holds on this group that hasn't been
+    // picked up yet.
+    const assignment = await this.prisma.deliveryAssignment.findFirst({
+      where: {
+        orderVendorGroupId,
+        deliveryPartnerId: partner.id,
+        pickedUpAt: null,
+      },
+    });
+
+    if (assignment) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.deliveryAssignment.delete({
+          where: { id: assignment.id },
+        });
+
+        await tx.orderVendorGroup.update({
+          where: { id: orderVendorGroupId },
+          data: { status: OrderStatus.READY_FOR_PICKUP },
+        });
+
+        const activeCount = await tx.deliveryAssignment.count({
+          where: {
+            deliveryPartnerId: partner.id,
+            deliveredAt: null,
+          },
+        });
+        if (activeCount === 0) {
+          await tx.deliveryPartner.update({
+            where: { id: partner.id },
+            data: { status: DeliveryPartnerStatus.AVAILABLE },
+          });
+        }
+      });
+    }
+
+    return { message: 'Delivery request declined', success: true };
   }
 
   /**
@@ -730,7 +985,10 @@ export class DeliveryService {
       where: { id: orderId },
       include: {
         vendorGroups: {
-          include: { items: true },
+          include: {
+            items: true,
+            delivery: { select: { deliveryPartnerId: true } },
+          },
         },
       },
     });
@@ -817,10 +1075,11 @@ export class DeliveryService {
       throw new NotFoundException('Order not found');
     }
 
-    // Find the delivery assignment for this partner on this order
     const vendorGroupIds = order.vendorGroups.map((g: any) => g.id);
 
-    const assignment = await this.prisma.deliveryAssignment.findFirst({
+    // Prefer the pending (not-yet-picked-up) assignment for a fresh OTP check;
+    // fall back to an already-picked-up one only for the idempotent retry path.
+    let assignment = await this.prisma.deliveryAssignment.findFirst({
       where: {
         orderVendorGroupId: { in: vendorGroupIds },
         deliveryPartnerId: partner.id,
@@ -828,9 +1087,26 @@ export class DeliveryService {
       },
     });
 
+    // Idempotent short-circuit: OTP was already verified on a prior call.
+    if (!assignment) {
+      assignment = await this.prisma.deliveryAssignment.findFirst({
+        where: {
+          orderVendorGroupId: { in: vendorGroupIds },
+          deliveryPartnerId: partner.id,
+          pickedUpAt: { not: null },
+        },
+      });
+      if (assignment) {
+        return {
+          message: 'Pickup already verified',
+          pickedUpAt: assignment.pickedUpAt,
+        };
+      }
+    }
+
     if (!assignment) {
       throw new NotFoundException(
-        'No pending delivery assignment found for this order',
+        'No delivery assignment found for this order',
       );
     }
 
@@ -899,6 +1175,11 @@ export class DeliveryService {
       const group = await tx.orderVendorGroup.findUnique({
         where: { id: assignment.orderVendorGroupId },
       });
+      // Idempotent no-op: group already out for delivery (prior successful call
+      // or a concurrent startTransit won the race).
+      if (group?.status === OrderStatus.OUT_FOR_DELIVERY) {
+        return assignment;
+      }
       if (group?.status !== OrderStatus.PICKED_UP) {
         throw new BadRequestException(
           `Cannot start transit: vendor group is in ${group?.status} status, expected ${OrderStatus.PICKED_UP}`,
@@ -949,13 +1230,32 @@ export class DeliveryService {
 
     const vendorGroupIds = order.vendorGroups.map((g: any) => g.id);
 
-    const assignment = await this.prisma.deliveryAssignment.findFirst({
+    // Prefer the active (undelivered) assignment for the state-machine check;
+    // fall back to an already-delivered one only for the idempotent retry path.
+    let assignment = await this.prisma.deliveryAssignment.findFirst({
       where: {
         orderVendorGroupId: { in: vendorGroupIds },
         deliveryPartnerId: partner.id,
         deliveredAt: null,
       },
     });
+
+    // Idempotent short-circuit: delivery was already completed on a prior call.
+    if (!assignment) {
+      assignment = await this.prisma.deliveryAssignment.findFirst({
+        where: {
+          orderVendorGroupId: { in: vendorGroupIds },
+          deliveryPartnerId: partner.id,
+          deliveredAt: { not: null },
+        },
+      });
+      if (assignment) {
+        return {
+          message: 'Delivery already completed',
+          deliveredAt: assignment.deliveredAt,
+        };
+      }
+    }
 
     if (!assignment) {
       throw new NotFoundException(
@@ -971,6 +1271,10 @@ export class DeliveryService {
         where: { id: assignment.orderVendorGroupId },
       });
       if (group?.status !== OrderStatus.OUT_FOR_DELIVERY) {
+        // Idempotent no-op: a concurrent completeDelivery already delivered it.
+        if (group?.status === OrderStatus.DELIVERED) {
+          return assignment;
+        }
         throw new BadRequestException(
           `Cannot deliver: vendor group is in ${group?.status} status, expected ${OrderStatus.OUT_FOR_DELIVERY}. Start transit first.`,
         );
@@ -1127,36 +1431,40 @@ export class DeliveryService {
   }
 
   /**
-   * GET /delivery/earnings
+   * GET /delivery/earnings?period=today|week|month|all
    * Calculate earnings for a delivery partner across all time windows.
-   * Returns today, thisWeek, thisMonth, allTime, totalDeliveries, averagePerDelivery.
+   *
+   * One stable response contract for every period value:
+   *   period             — echoed requested period ('all' when omitted)
+   *   totalEarnings      — earnings for the requested period (rupees)
+   *   deliveryCount      — completed deliveries in the requested period
+   *   averagePerDelivery — totalEarnings / deliveryCount for the period
+   *   today/thisWeek/thisMonth/allTime — full breakdown (rupees)
+   *   totalDeliveries    — all-time completed delivery count
+   *
+   * All windows are IST. A partner with no deliveries gets zeros, never an error.
    */
-  async getEarnings(userId: string, period?: 'today' | 'week' | 'month') {
+  async getEarnings(userId: string, period?: EarningsPeriod) {
     const partner = await this.getPartnerByUserId(userId);
-    const DELIVERY_FEE = 40;
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const buildWhere = (deliveredFrom?: Date) => ({
       deliveryPartnerId: partner.id,
-      deliveredAt: deliveredFrom
-        ? { gte: deliveredFrom, not: null }
-        : { not: null },
+      deliveredAt: deliveredFrom ? { gte: deliveredFrom } : { not: null },
     });
 
-    const computeEarnings = (assignments: any[]) => {
+    const computeEarnings = (
+      assignments: Array<{
+        orderVendorGroup: {
+          items: Array<{ priceAtPurchase: Prisma.Decimal; quantity: number }>;
+        } | null;
+      }>,
+    ) => {
       const itemTotal = assignments.reduce((sum, a) => {
-        const groupTotal = a.orderVendorGroup.items.reduce(
-          (s: number, item: any) => s + Number(item.priceAtPurchase) * item.quantity,
-          0,
-        );
+        const groupTotal =
+          a.orderVendorGroup?.items.reduce(
+            (s: number, item) => s + Number(item.priceAtPurchase) * item.quantity,
+            0,
+          ) ?? 0;
         return sum + groupTotal;
       }, 0);
       return itemTotal + assignments.length * DELIVERY_FEE;
@@ -1172,39 +1480,18 @@ export class DeliveryService {
       },
     };
 
-    if (period) {
-      const dateMap: Record<string, Date> = {
-        today: startOfToday,
-        week: startOfWeek,
-        month: startOfMonth,
-      };
-      const filtered = await this.prisma.deliveryAssignment.findMany({
-        where: buildWhere(dateMap[period]),
-        include,
-      });
-
-      const totalDeliveries = filtered.length;
-      const earnings = computeEarnings(filtered);
-      return {
-        earnings,
-        totalDeliveries,
-        averagePerDelivery: totalDeliveries > 0 ? earnings / totalDeliveries : 0,
-        period,
-      };
-    }
-
     const [todayDeliveries, weekDeliveries, monthDeliveries, allDeliveries] =
       await Promise.all([
         this.prisma.deliveryAssignment.findMany({
-          where: buildWhere(startOfToday),
+          where: buildWhere(startOfTodayIst()),
           include,
         }),
         this.prisma.deliveryAssignment.findMany({
-          where: buildWhere(startOfWeek),
+          where: buildWhere(startOfWeekIst()),
           include,
         }),
         this.prisma.deliveryAssignment.findMany({
-          where: buildWhere(startOfMonth),
+          where: buildWhere(startOfMonthIst()),
           include,
         }),
         this.prisma.deliveryAssignment.findMany({
@@ -1219,13 +1506,182 @@ export class DeliveryService {
     const allTime = computeEarnings(allDeliveries);
     const totalDeliveries = allDeliveries.length;
 
+    const requested = period || 'all';
+    const periodSlice = {
+      today: { totalEarnings: today, deliveryCount: todayDeliveries.length },
+      week: { totalEarnings: thisWeek, deliveryCount: weekDeliveries.length },
+      month: { totalEarnings: thisMonth, deliveryCount: monthDeliveries.length },
+      all: { totalEarnings: allTime, deliveryCount: totalDeliveries },
+    }[requested];
+
     return {
+      period: requested,
+      totalEarnings: periodSlice.totalEarnings,
+      deliveryCount: periodSlice.deliveryCount,
+      averagePerDelivery:
+        periodSlice.deliveryCount > 0
+          ? periodSlice.totalEarnings / periodSlice.deliveryCount
+          : 0,
       today,
       thisWeek,
       thisMonth,
       allTime,
       totalDeliveries,
-      averagePerDelivery: totalDeliveries > 0 ? allTime / totalDeliveries : 0,
+    };
+  }
+
+  /**
+   * GET /delivery/transactions
+   * Paginated earnings ledger for the authenticated partner, derived from
+   * completed DeliveryAssignments (the persisted delivery record) — no
+   * fabricated financial rows. Each transaction = one completed delivery,
+   * valued exactly like getEarnings (items total + DELIVERY_FEE).
+   */
+  async getDeliveryTransactions(userId: string, page = 1, limit = 20) {
+    const partner = await this.getPartnerByUserId(userId);
+    const skip = (page - 1) * limit;
+    const where = { deliveryPartnerId: partner.id, deliveredAt: { not: null } };
+
+    const [assignments, total] = await Promise.all([
+      this.prisma.deliveryAssignment.findMany({
+        where,
+        include: {
+          orderVendorGroup: {
+            select: {
+              order: { select: { id: true, orderNo: true } },
+              items: {
+                select: { priceAtPurchase: true, quantity: true },
+              },
+            },
+          },
+        },
+        orderBy: { deliveredAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.deliveryAssignment.count({ where }),
+    ]);
+
+    return {
+      data: assignments.map((a) => this.formatDeliveryTransaction(a)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * GET /delivery/transactions/:id
+   * Single transaction (completed delivery) owned by the authenticated partner.
+   * 404 when the assignment does not exist OR belongs to another partner —
+   * existence is never leaked cross-partner.
+   */
+  async getDeliveryTransaction(userId: string, id: string) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const assignment = await this.prisma.deliveryAssignment.findFirst({
+      where: { id, deliveryPartnerId: partner.id, deliveredAt: { not: null } },
+      include: {
+        orderVendorGroup: {
+          select: {
+            order: { select: { id: true, orderNo: true } },
+            items: {
+              select: { priceAtPurchase: true, quantity: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    return this.formatDeliveryTransaction(assignment);
+  }
+
+  /**
+   * GET /delivery/payouts
+   * Paginated payout history for the authenticated partner (Payout rows created
+   * by the weekly cron), newest first. Empty history returns [] — never an error.
+   */
+  async getDeliveryPayouts(userId: string, page = 1, limit = 20) {
+    const partner = await this.getPartnerByUserId(userId);
+    const skip = (page - 1) * limit;
+    const where = { deliveryPartnerId: partner.id };
+
+    const [payouts, total] = await Promise.all([
+      this.prisma.payout.findMany({
+        where,
+        select: PAYOUT_SUMMARY_SELECT,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.payout.count({ where }),
+    ]);
+
+    return {
+      data: payouts.map((p) => this.formatPayout(p)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * GET /delivery/payouts/:id
+   * Single payout owned by the authenticated partner. 404 when the payout does
+   * not exist or belongs to another partner — existence is not leaked.
+   */
+  async getDeliveryPayout(userId: string, id: string) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const payout = await this.prisma.payout.findFirst({
+      where: { id, deliveryPartnerId: partner.id },
+      select: PAYOUT_SUMMARY_SELECT,
+    });
+
+    if (!payout) {
+      throw new NotFoundException('Payout not found');
+    }
+
+    return this.formatPayout(payout);
+  }
+
+  private formatDeliveryTransaction(a: {
+    id: string;
+    deliveredAt: Date | null;
+    orderVendorGroup: {
+      order: { id: string; orderNo: string } | null;
+      items: Array<{ priceAtPurchase: Prisma.Decimal; quantity: number }>;
+    } | null;
+  }) {
+    const items = a.orderVendorGroup?.items ?? [];
+    const itemsTotal = items.reduce(
+      (sum, item) => sum + Number(item.priceAtPurchase) * item.quantity,
+      0,
+    );
+    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    return {
+      id: a.id,
+      orderId: a.orderVendorGroup?.order?.id ?? null,
+      orderNumber: a.orderVendorGroup?.order?.orderNo ?? null,
+      itemsTotal,
+      deliveryFee: DELIVERY_FEE,
+      amount: itemsTotal + DELIVERY_FEE,
+      itemCount,
+      deliveredAt: a.deliveredAt,
+      status: 'DELIVERED',
+    };
+  }
+
+  private formatPayout(p: PayoutSummary) {
+    return {
+      id: p.id,
+      amount: Number(p.amount),
+      status: p.status,
+      periodStart: p.periodStart,
+      periodEnd: p.periodEnd,
+      paidAt: p.paidAt,
+      createdAt: p.createdAt,
     };
   }
 
@@ -1237,18 +1693,16 @@ export class DeliveryService {
    */
   @Cron('5 0 * * 1')
   async processWeeklyPayouts() {
-    const DELIVERY_FEE = 40;
-    const now = new Date();
-
-    // Default: last week (Mon 00:00 → Sun 23:59:59.999)
-    const endOfLastWeek = new Date(now);
-    endOfLastWeek.setDate(now.getDate() - now.getDay());
-    endOfLastWeek.setHours(0, 0, 0, 0);
-    endOfLastWeek.setMilliseconds(endOfLastWeek.getMilliseconds() - 1);
-
-    const startOfLastWeek = new Date(endOfLastWeek);
-    startOfLastWeek.setDate(endOfLastWeek.getDate() - 6);
-    startOfLastWeek.setHours(0, 0, 0, 0);
+    // Last completed week in IST, Sunday-start (Sun 00:00 → Sat 23:59:59.999).
+    const istMs = Date.now() + IST_OFFSET_MS;
+    const ist = new Date(istMs);
+    const thisSundayIst = Date.UTC(
+      ist.getUTCFullYear(),
+      ist.getUTCMonth(),
+      ist.getUTCDate() - ist.getUTCDay(),
+    );
+    const endOfLastWeek = new Date(thisSundayIst - 1);
+    const startOfLastWeek = new Date(thisSundayIst - 7 * 24 * 60 * 60 * 1000);
 
     // Fetch all completed deliveries in the period
     const completedAssignments = await this.prisma.deliveryAssignment.findMany({
