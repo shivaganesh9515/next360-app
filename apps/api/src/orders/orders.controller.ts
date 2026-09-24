@@ -128,6 +128,46 @@ export class OrdersController {
     return this.deliveryService.assignOrder(id, dto.deliveryPartnerId);
   }
 
+  @Post(':id/accept')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  acceptDelivery(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.acceptOrder(userId, id);
+  }
+
+  @Post(':id/start-pickup')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  startPickup(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.startPickup(userId, id);
+  }
+
+  @Post(':id/arrived-pickup')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  arrivedPickup(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.arrivedAtPickup(userId, id);
+  }
+
+  @Post(':id/arrived-customer')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  arrivedCustomer(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.arrivedAtCustomer(userId, id);
+  }
+
   @Post(':id/reject')
   @Roles(UserRole.DELIVERY_PARTNER)
   @HttpCode(HttpStatus.OK)

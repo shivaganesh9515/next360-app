@@ -93,7 +93,7 @@ export function IncomingAssignmentModal() {
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>PICKUP</Text>
                 <Text style={styles.rowValue} numberOfLines={2}>
-                  {currentOrder.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}
+                  {currentOrder.vendor?.storeName || currentOrder.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}
                 </Text>
               </View>
             </View>
@@ -103,7 +103,7 @@ export function IncomingAssignmentModal() {
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>DROP</Text>
                 <Text style={styles.rowValue} numberOfLines={2}>
-                  {currentOrder.address?.street || 'Customer location'}
+                  {currentOrder.address?.fullAddress || currentOrder.address?.street || 'Customer location'}
                 </Text>
               </View>
             </View>

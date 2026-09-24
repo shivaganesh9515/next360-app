@@ -129,7 +129,7 @@ function OrderCard({ order, index = 0 }: { order: any; index?: number }) {
           <View style={[styles.locDot, { backgroundColor: Colors.primary }]} />
           <View style={styles.locInfo}>
             <Text style={styles.locLabel}>PICKUP</Text>
-            <Text style={styles.locText} numberOfLines={1}>{order.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}</Text>
+            <Text style={styles.locText} numberOfLines={1}>{order.vendor?.storeName || order.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}</Text>
           </View>
         </View>
         <View style={styles.locLine} />
@@ -137,7 +137,7 @@ function OrderCard({ order, index = 0 }: { order: any; index?: number }) {
           <View style={[styles.locDot, { backgroundColor: Colors.danger }]} />
           <View style={styles.locInfo}>
             <Text style={styles.locLabel}>DROP</Text>
-            <Text style={styles.locText} numberOfLines={1}>{order.address?.street || 'Customer location'}</Text>
+            <Text style={styles.locText} numberOfLines={1}>{order.address?.fullAddress || order.address?.street || 'Customer location'}</Text>
           </View>
         </View>
       </View>

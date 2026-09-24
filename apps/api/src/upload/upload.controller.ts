@@ -57,4 +57,14 @@ export class UploadController {
     }
     return this.uploadService.uploadImage(file, 'vendors');
   }
+
+  @Post('delivery-proof')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDeliveryProof(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.uploadService.uploadImage(file, 'delivery-proofs');
+  }
 }

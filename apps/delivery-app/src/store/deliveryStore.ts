@@ -14,14 +14,23 @@ interface Order {
     phone: string;
   };
   address?: {
-    street: string;
+    fullAddress?: string;
+    street?: string;
     city: string;
     state: string;
     pincode: string;
     lat?: number;
     lng?: number;
   };
+  vendor?: {
+    id: string;
+    storeName: string;
+    address?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
   vendorGroups?: any[];
+  items?: any[];
 }
 
 interface Earnings {
@@ -32,10 +41,18 @@ interface Earnings {
   totalDeliveries: number;
 }
 
-// Safety net: at most one background refetch per 60s, plus a 60s
-// interval while the channel is alive. Realtime events otherwise only
-// patch the changed order in place — never refetch both lists per event.
-const SAFETY_REFETCH_MS = 60000;
+interface DashboardStats {
+  newOrders: number;
+  active: number;
+  deliveredToday: number;
+  deliveredAll: number;
+  isAvailable: boolean;
+}
+
+// Safety net: at most one background refetch per 20s. Realtime events only
+// trigger a refetch of the affected list — they never merge raw table rows
+// into the UI because the pool/active lists are enriched shapes, not rows.
+const SAFETY_REFETCH_MS = 20000;
 let lastSafetyRefetch = 0;
 let safetyInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -52,6 +69,7 @@ interface DeliveryState {
   activeDeliveries: Order[];
   deliveryHistory: Order[];
   earnings: Earnings | null;
+  dashboardStats: DashboardStats | null;
   isLoading: boolean;
   isAvailable: boolean;
   realtimeChannel: any;
@@ -61,9 +79,9 @@ interface DeliveryState {
   fetchActiveDeliveries: () => Promise<void>;
   fetchDeliveryHistory: (params?: any) => Promise<void>;
   fetchEarnings: (period?: string) => Promise<void>;
+  fetchDashboardStats: () => Promise<void>;
   acceptOrder: (orderId: string) => Promise<void>;
   rejectOrder: (orderId: string) => Promise<void>;
-  updateDeliveryStatus: (orderId: string, status: string, data?: any) => Promise<void>;
   verifyPickupOTP: (orderId: string, otp: string) => Promise<void>;
   setAvailability: (available: boolean) => Promise<void>;
   setupRealtime: () => void;
@@ -75,6 +93,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   activeDeliveries: [],
   deliveryHistory: [],
   earnings: null,
+  dashboardStats: null,
   isLoading: false,
   isAvailable: true,
   realtimeChannel: null,
@@ -153,17 +172,12 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     }
   },
 
-  updateDeliveryStatus: async (orderId: string, status: string, data?: any) => {
+  fetchDashboardStats: async () => {
     try {
-      await deliveryApi.updateDeliveryStatus(orderId, status, data);
-      // Refresh both lists
-      await Promise.all([
-        get().fetchActiveDeliveries(),
-        get().fetchNewOrders(),
-      ]);
+      const res: any = await deliveryApi.getDashboardStats();
+      set({ dashboardStats: res });
     } catch (error) {
-      console.error('Update delivery status error:', error);
-      throw error;
+      console.error('Fetch dashboard stats error:', error);
     }
   },
 
@@ -188,42 +202,36 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   setupRealtime: () => {
+    // Pool & active list are both keyed on OrderVendorGroup (one record per
+    // vendor-group order card). A vendor marking "Ready for Pickup" sets the
+    // group's status to READY_FOR_PICKUP -> the INSERT/UPDATE fires here and
+    // the order surfaces in the pool. Status advances (ACCEPTED → ... →
+    // DELIVERED) update the same table, so a single UPDATE channel keeps the
+    // active list fresh. Rows aren't merged directly - the lists are enriched
+    // shapes, so we just refetch (throttled).
     const channel = supabase
-      .channel('delivery-orders')
+      .channel('delivery-orders-v2')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'orders',
-        filter: 'status=eq.READY_FOR_DELIVERY',
-      }, (payload) => {
-        // New order available
-        const newOrder = payload.new as Order;
-        set(state => ({
-          newOrders: [newOrder, ...state.newOrders],
-        }));
+        table: 'OrderVendorGroup',
+        filter: 'status=eq.READY_FOR_PICKUP',
+      }, () => {
+        void get().fetchNewOrders();
       })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'orders',
-      }, (payload) => {
-        // Targeted update: patch only the changed order in place from the
-        // realtime payload. A full refetch runs at most every 60s as safety.
-        const updated = payload.new as Order;
-        set(state => {
-          const patch = (list: Order[]) =>
-            list.some(o => o.id === updated.id)
-              ? list.map(o => (o.id === updated.id ? { ...o, ...updated } : o))
-              : list;
-          const newOrders = patch(state.newOrders);
-          return {
-            newOrders:
-              newOrders === state.newOrders && updated.status === 'READY_FOR_DELIVERY'
-                ? [updated, ...state.newOrders]
-                : newOrders,
-            activeDeliveries: patch(state.activeDeliveries),
-          };
-        });
+        table: 'OrderVendorGroup',
+        filter: 'status=eq.READY_FOR_PICKUP',
+      }, () => {
+        void get().fetchNewOrders();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'OrderVendorGroup',
+      }, () => {
         runSafetyRefetch(get);
       })
       .subscribe();

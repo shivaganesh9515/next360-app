@@ -110,9 +110,11 @@ export const deliveryApi = {
   getNewOrders: (params?: any) =>
     api.get<any>('/delivery/new-orders', params),
 
-  // Accept/Reject
+  // Accept/Reject — Accept claims the order from the delivery pool
+  // (POST /orders/:id/accept). The id here is the vendor-group id shown in
+  // the pool; the backend routes on it directly.
   acceptOrder: (orderId: string) =>
-    api.post<any>(`/orders/${orderId}/assign`, {}),
+    api.post<any>(`/orders/${orderId}/accept`),
 
   rejectOrder: (orderId: string) =>
     api.post<any>(`/orders/${orderId}/reject`, {}),
@@ -121,14 +123,25 @@ export const deliveryApi = {
   getActiveDeliveries: (params?: any) =>
     api.get<any>('/delivery/active', params),
 
-  // Status Updates — uses the DP-scoped deliver endpoint instead of the
-  // admin-only PATCH /orders/:id/status, which would throw 403 for a
-  // DELIVERY_PARTNER role. The backend's completeDelivery handles the
-  // transition from PICKED_UP/IN_TRANSIT → DELIVERED.
-  updateDeliveryStatus: (orderId: string, status: string, data?: any) =>
-    api.post<any>(`/orders/${orderId}/deliver`, { status, ...data }),
+  // PDF delivery lifecycle status advances (all keyed on the vendor-group id)
+  startPickup: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/start-pickup`),
 
-  // Verify Pickup OTP
+  arrivedAtPickup: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/arrived-pickup`),
+
+  startTransit: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/start-transit`),
+
+  arrivedAtCustomer: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/arrived-customer`),
+
+  // Complete the delivery (verification/handover done) — backend accepts
+  // OUT_FOR_DELIVERY or ARRIVED_AT_CUSTOMER -> DELIVERED
+  completeDelivery: (orderId: string, data?: any) =>
+    api.post<any>(`/orders/${orderId}/deliver`, data),
+
+  // Verify Pickup OTP (6-digit code the vendor shares)
   verifyPickupOTP: (orderId: string, otp: string) =>
     api.post<any>(`/orders/${orderId}/verify-pickup`, { otp }),
 
@@ -140,6 +153,10 @@ export const deliveryApi = {
   getEarnings: (params?: any) =>
     api.get<any>('/delivery/earnings', params),
 
+  // Dashboard glance stats (new orders, active, delivered counts)
+  getDashboardStats: () =>
+    api.get<any>('/delivery/dashboard'),
+
   // Availability
   setAvailability: (isAvailable: boolean) =>
     api.patch<any>('/delivery/availability', { isAvailable }),
@@ -148,11 +165,9 @@ export const deliveryApi = {
   updateLocation: (lat: number, lng: number) =>
     api.patch<any>('/delivery/location', { lat, lng }),
 
-  // Vehicle/Zone setup (first-time, or edited later from Profile). Endpoint
-  // doesn't exist yet — see delivery-partners module in CLAUDE.md's backend
-  // task list — but the client call is real, not a stub.
+  // Vehicle/Zone setup (first-time, or edited later from Profile)
   setupProfile: (data: { vehicleType: string; zoneName: string }) =>
-    api.post<any>('/delivery-partners/setup', data),
+    api.post<any>('/delivery/setup', data),
 
   // File upload (proof of delivery photos, etc.)
   upload: async <T>(path: string, formData: FormData): Promise<T> =>

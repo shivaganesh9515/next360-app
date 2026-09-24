@@ -12,7 +12,8 @@ const PERIODS = [
   { key: 'all', label: 'All Time' },
 ] as const;
 
-const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
+// Earnings arrive from the backend already in rupees.
+const formatCurrency = (amount: number) => `₹${Math.round(amount).toLocaleString('en-IN')}`;
 
 export default function EarningsScreen() {
   const { earnings, fetchEarnings, isLoading } = useDeliveryStore();

@@ -17,8 +17,8 @@ export default function DashboardScreen() {
   const { user } = useAuthStore();
   const {
     isAvailable, setAvailability,
-    newOrders, activeDeliveries,
-    fetchNewOrders, fetchActiveDeliveries, isLoading,
+    newOrders, activeDeliveries, dashboardStats,
+    fetchNewOrders, fetchActiveDeliveries, fetchDashboardStats, isLoading,
   } = useDeliveryStore();
 
   const [refreshing, setRefreshing] = React.useState(false);
@@ -32,11 +32,12 @@ export default function DashboardScreen() {
   useEffect(() => {
     fetchNewOrders();
     fetchActiveDeliveries();
+    fetchDashboardStats();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchNewOrders(), fetchActiveDeliveries()]);
+    await Promise.all([fetchNewOrders(), fetchActiveDeliveries(), fetchDashboardStats()]);
     setRefreshing(false);
   };
 
@@ -128,7 +129,7 @@ export default function DashboardScreen() {
               <View style={[styles.statIconWrap, { backgroundColor: Colors.primaryLight }]}>
                 <Ionicons name="checkmark-circle-outline" size={20} color={Colors.primary} />
               </View>
-              <Text style={styles.statNumber}>{user?.completedDeliveries || 0}</Text>
+              <Text style={styles.statNumber}>{dashboardStats?.deliveredAll ?? user?.completedDeliveries ?? 0}</Text>
               <Text style={styles.statLabel}>Delivered</Text>
             </View>
           </View>
@@ -224,14 +225,14 @@ function OrderCard({ order, type, index = 0 }: { order: any; type: 'new' | 'acti
         <View style={styles.locationRow}>
           <View style={[styles.locDot, { backgroundColor: Colors.primary }]} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {order.vendorGroups?.[0]?.vendor?.name || 'Pickup location'}
+            {order.vendor?.storeName || order.vendorGroups?.[0]?.vendor?.name || 'Pickup location'}
           </Text>
         </View>
         <View style={styles.locLine} />
         <View style={styles.locationRow}>
           <View style={[styles.locDot, { backgroundColor: Colors.danger }]} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {order.address?.street || 'Delivery location'}
+            {order.address?.fullAddress || order.address?.street || 'Delivery location'}
           </Text>
         </View>
       </View>

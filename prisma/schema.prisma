@@ -28,14 +28,22 @@ enum UserRole {
   ADMIN
 }
 
+// Order/delivery lifecycle. The delivery-partner leg mirrors the PDF workflow:
+// READY_FOR_PICKUP (delivery pool) -> ACCEPTED -> GOING_TO_PICKUP ->
+// ARRIVED_AT_PICKUP -> PICKED_UP -> OUT_FOR_DELIVERY -> ARRIVED_AT_CUSTOMER ->
+// DELIVERED. ASSIGNED_TO_DELIVERY remains for the legacy admin-assign path.
 enum OrderStatus {
   PLACED
   CONFIRMED
   PACKED
   READY_FOR_PICKUP
   ASSIGNED_TO_DELIVERY
+  ACCEPTED
+  GOING_TO_PICKUP
+  ARRIVED_AT_PICKUP
   PICKED_UP
   OUT_FOR_DELIVERY
+  ARRIVED_AT_CUSTOMER
   DELIVERED
   CANCELLED
   REFUNDED

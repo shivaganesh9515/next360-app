@@ -10,7 +10,42 @@ import { useDeliveryStore } from '../../store/deliveryStore';
 import { formatDeliveryFee } from '../../lib/pricing';
 import { deliveryApi } from '../../lib/api';
 
-type DeliveryStatus = 'ASSIGNED' | 'PICKING_UP' | 'IN_TRANSIT' | 'DELIVERED';
+// Backend group statuses, in the order they progress along the PDF lifecycle:
+//   READY_FOR_PICKUP (pool) → ACCEPTED → GOING_TO_PICKUP → ARRIVED_AT_PICKUP
+//   → PICKED_UP → OUT_FOR_DELIVERY → ARRIVED_AT_CUSTOMER → DELIVERED
+// ASSIGNED_TO_DELIVERY is the legacy admin-assigned state; treated here as
+// the same "claimed, not yet heading to pickup" step as ACCEPTED.
+type DeliveryStatus =
+  | 'ACCEPTED'
+  | 'ASSIGNED_TO_DELIVERY'
+  | 'GOING_TO_PICKUP'
+  | 'ARRIVED_AT_PICKUP'
+  | 'PICKED_UP'
+  | 'OUT_FOR_DELIVERY'
+  | 'ARRIVED_AT_CUSTOMER'
+  | 'DELIVERED';
+
+const STATUS_STEPS: { key: DeliveryStatus; label: string; icon: string }[] = [
+  { key: 'ACCEPTED', label: 'Accepted', icon: 'checkmark-circle' },
+  { key: 'GOING_TO_PICKUP', label: 'To Pickup', icon: 'navigate' },
+  { key: 'ARRIVED_AT_PICKUP', label: 'At Pickup', icon: 'location' },
+  { key: 'PICKED_UP', label: 'Collected', icon: 'cube' },
+  { key: 'OUT_FOR_DELIVERY', label: 'To Customer', icon: 'car' },
+  { key: 'ARRIVED_AT_CUSTOMER', label: 'At Customer', icon: 'home' },
+  { key: 'DELIVERED', label: 'Delivered', icon: 'flag' },
+];
+
+// Map backend status onto the step list. ASSIGNED_TO_DELIVERY overlaps ACCEPTED.
+const STATUS_INDEX: Record<DeliveryStatus, number> = {
+  ACCEPTED: 0,
+  ASSIGNED_TO_DELIVERY: 0,
+  GOING_TO_PICKUP: 1,
+  ARRIVED_AT_PICKUP: 2,
+  PICKED_UP: 3,
+  OUT_FOR_DELIVERY: 4,
+  ARRIVED_AT_CUSTOMER: 5,
+  DELIVERED: 6,
+};
 
 const LOCATION_PUSH_INTERVAL_MS = 15000;
 const LOCATION_PUSH_DISTANCE_M = 50;
@@ -18,18 +53,18 @@ const LOCATION_PUSH_DISTANCE_M = 50;
 export default function DeliveryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { activeDeliveries, fetchActiveDeliveries, updateDeliveryStatus, verifyPickupOTP, isLoading } = useDeliveryStore();
+  const { activeDeliveries, fetchActiveDeliveries, verifyPickupOTP, isLoading } = useDeliveryStore();
   const [order, setOrder] = useState<any>(null);
-  const [currentStatus, setCurrentStatus] = useState<DeliveryStatus>('ASSIGNED');
+  const [currentStatus, setCurrentStatus] = useState<DeliveryStatus>('ACCEPTED');
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [otp, setOtp] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [proofPhoto, setProofPhoto] = useState<string | null>(null);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showSkipModal, setShowSkipModal] = useState(false);
-  const [skipReason, setSkipReason] = useState('');  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [skipReason, setSkipReason] = useState('');
+  const [showFailureModal, setShowFailureModal] = useState(false);
   const [failureReason, setFailureReason] = useState('');
   const [failureDetails, setFailureDetails] = useState('');
 
@@ -49,10 +84,8 @@ export default function DeliveryDetailScreen() {
   }, []);
 
   // Push the courier's position periodically while a delivery is active, per
-  // the CLAUDE.md real-time tracking design (partner pushes lat/lng, no
-  // polling on the read side). The endpoint may not exist server-side yet —
-  // that failure is swallowed so it doesn't interrupt the delivery flow; the
-  // client-side push loop itself was previously missing entirely.
+  // the real-time tracking design (partner pushes lat/lng, no polling on the
+  // read side). Failures are swallowed so the flow is never interrupted.
   useEffect(() => {
     if (currentStatus === 'DELIVERED') return;
 
@@ -84,43 +117,74 @@ export default function DeliveryDetailScreen() {
     };
   }, [currentStatus, id]);
 
+  // Sync from the active-deliveries store. If this delivery isn't in the list
+  // (e.g. app was killed mid-delivery), refetch once so interrupted deliveries
+  // are resumed from their actual backend status.
   useEffect(() => {
-    if (activeDeliveries.length > 0 && id) {
+    if (!id) return;
+    if (activeDeliveries.length > 0) {
+      const found = activeDeliveries.find(o => o.id === id);
+      if (found) {
+        setOrder(found);
+        setCurrentStatus(found.status as DeliveryStatus);
+        return;
+      }
+    }
+    fetchActiveDeliveries().then(() => {
       const found = activeDeliveries.find(o => o.id === id);
       if (found) {
         setOrder(found);
         setCurrentStatus(found.status as DeliveryStatus);
       }
-    }
+    });
   }, [activeDeliveries, id]);
 
-  const handleStatusUpdate = async (newStatus: DeliveryStatus) => {
-    if (newStatus === 'PICKING_UP') {
-      setShowOTPModal(true);
-      return;
-    }
-
+  const advanceStatus = async (next: DeliveryStatus) => {
     setIsProcessing(true);
     try {
-      await updateDeliveryStatus(id!, newStatus);
-      setCurrentStatus(newStatus);
-      if (newStatus === 'DELIVERED') {
+      await handleAdvance(next);
+      setCurrentStatus(next);
+      if (next === 'DELIVERED') {
         router.replace(
           order?.deliveryFee != null
             ? `/delivery/complete?earning=${order.deliveryFee}`
             : '/delivery/complete',
         );
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update delivery status');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to update status. Please retry.');
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const handleAdvance = async (next: DeliveryStatus) => {
+    if (!id) return;
+    switch (next) {
+      case 'GOING_TO_PICKUP':
+        await deliveryApi.startPickup(id);
+        break;
+      case 'ARRIVED_AT_PICKUP':
+        await deliveryApi.arrivedAtPickup(id);
+        break;
+      case 'OUT_FOR_DELIVERY':
+        await deliveryApi.startTransit(id);
+        break;
+      case 'ARRIVED_AT_CUSTOMER':
+        await deliveryApi.arrivedAtCustomer(id);
+        break;
+      case 'DELIVERED':
+        await deliveryApi.completeDelivery(id, undefined);
+        break;
+      default:
+        break; // ACCEPTED — nothing to call, entry state
+    }
+    await fetchActiveDeliveries();
+  };
+
   const handleVerifyOTP = async () => {
-    if (otp.length !== 4) {
-      Alert.alert('Error', 'Please enter a valid 4-digit OTP');
+    if (otp.length !== 6) {
+      Alert.alert('Error', 'Please enter the 6-digit OTP');
       return;
     }
 
@@ -129,8 +193,8 @@ export default function DeliveryDetailScreen() {
       await verifyPickupOTP(id!, otp);
       setShowOTPModal(false);
       setOtp('');
-      setCurrentStatus('IN_TRANSIT');
-      Alert.alert('OTP Verified', 'You can now proceed with the delivery');
+      setCurrentStatus('PICKED_UP');
+      Alert.alert('Pickup Verified', 'Order collected — start delivery to the customer');
     } catch (error) {
       Alert.alert('Error', 'Invalid OTP. Please try again.');
     } finally {
@@ -139,26 +203,13 @@ export default function DeliveryDetailScreen() {
   };
 
   const getStatusSteps = () => {
-    const steps = [
-      { key: 'ASSIGNED', label: 'Assigned', icon: 'checkmark-circle' },
-      { key: 'PICKING_UP', label: 'Picking Up', icon: 'location' },
-      { key: 'IN_TRANSIT', label: 'In Transit', icon: 'car' },
-      { key: 'DELIVERED', label: 'Delivered', icon: 'flag' },
-    ];
+    const currentIndex = STATUS_INDEX[currentStatus] != null ? STATUS_INDEX[currentStatus] : 0;
 
-    const statusOrder: Record<DeliveryStatus, number> = {
-      ASSIGNED: 0,
-      PICKING_UP: 1,
-      IN_TRANSIT: 2,
-      DELIVERED: 3,
-    };
-
-    const currentIndex = statusOrder[currentStatus] || 0;
-
-    return steps.map((step, index) => ({
+    return STATUS_STEPS.map((step, index) => ({
       ...step,
       isActive: index <= currentIndex,
       isCurrent: index === currentIndex,
+      key: step.key as string + index,
     }));
   };
 
@@ -169,7 +220,7 @@ export default function DeliveryDetailScreen() {
   };
 
   // Number masking for privacy — show only last 4 digits on screen
-  // but still place the real call when tapped (per CLAUDE.md spec)
+  // but still place the real call when tapped.
   const maskedPhone = order?.user?.phone
     ? `${order.user.phone.slice(0, -4).replace(/\d/g, '*')}${order.user.phone.slice(-4)}`
     : null;
@@ -190,35 +241,27 @@ export default function DeliveryDetailScreen() {
     }
   };
 
-  const handleCompleteWithPhoto = async (opts?: { skipped?: boolean; reason?: string }) => {
+  const uploadProofPhoto = async () => {
+    if (!proofPhoto) return;
+    const formData = new FormData();
+    const filename = proofPhoto.split('/').pop() || 'delivery-proof.jpg';
+    formData.append('file', { uri: proofPhoto, name: filename, type: 'image/jpeg' } as any);
+    await deliveryApi.upload('/upload/delivery-proof', formData);
+  };
+
+  const handleComplete = async () => {
     setUploadError(null);
     setIsProcessing(true);
     try {
-      // Upload proof photo if taken. A failed upload BLOCKS completion —
-      // it is never swallowed — until retry succeeds or the partner
-      // explicitly skips with a recorded reason.
-      if (proofPhoto && !opts?.skipped) {
-        const formData = new FormData();
-        const filename = proofPhoto.split('/').pop() || 'delivery-proof.jpg';
-        formData.append('file', { uri: proofPhoto, name: filename, type: 'image/jpeg' } as any);
+      if (proofPhoto) {
         try {
-          await deliveryApi.upload('/upload', formData);
+          await uploadProofPhoto();
         } catch (uploadErr: any) {
           setUploadError(uploadErr?.message || 'Photo upload failed. Check your connection and retry.');
           return;
         }
       }
-      await updateDeliveryStatus(
-        id!,
-        'DELIVERED',
-        opts?.skipped ? { proofSkipped: true, skipReason: opts.reason } : undefined,
-      );
-      setCurrentStatus('DELIVERED');
-      router.replace(
-        order?.deliveryFee != null
-          ? `/delivery/complete?earning=${order.deliveryFee}`
-          : '/delivery/complete',
-      );
+      await advanceToDelivered();
     } catch (error) {
       Alert.alert('Error', 'Failed to complete delivery');
     } finally {
@@ -226,12 +269,35 @@ export default function DeliveryDetailScreen() {
     }
   };
 
-  const handleConfirmSkipUpload = async () => {
+  const handleCompleteSkipped = async () => {
     const reason = skipReason.trim();
     if (!reason) return;
     setShowSkipModal(false);
     setSkipReason('');
-    await handleCompleteWithPhoto({ skipped: true, reason });
+    setIsProcessing(true);
+    try {
+      await advanceToDelivered();
+      setUploadError(null);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to complete delivery');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Complete without proof — no upload needed unless one was taken and
+  // hasn't uploaded yet; the reason field is kept for the audit trail on the
+  // skipped-photo path but the backend completes on the status transition.
+  const advanceToDelivered = async () => {
+    if (!id) return;
+    await deliveryApi.completeDelivery(id, { proofSkipped: !proofPhoto, skipReason: skipReason || undefined });
+    await fetchActiveDeliveries();
+    setCurrentStatus('DELIVERED');
+    router.replace(
+      order?.deliveryFee != null
+        ? `/delivery/complete?earning=${order.deliveryFee}`
+        : '/delivery/complete',
+    );
   };
 
   if (!order) {
@@ -244,6 +310,9 @@ export default function DeliveryDetailScreen() {
   }
 
   const statusSteps = getStatusSteps();
+  const pickup = order.vendor || order.vendorGroups?.[0]?.vendor;
+  const drop = order.address;
+  const inTransit = currentStatus === 'OUT_FOR_DELIVERY' || currentStatus === 'ARRIVED_AT_CUSTOMER';
 
   return (
     <View style={styles.container}>
@@ -253,16 +322,16 @@ export default function DeliveryDetailScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Enter Pickup OTP</Text>
             <Text style={styles.modalSubtitle}>
-              Ask the vendor for the 4-digit OTP to confirm pickup
+              Ask the vendor for the 6-digit OTP to confirm pickup
             </Text>
             <TextInput
               style={styles.otpInput}
               value={otp}
               onChangeText={setOtp}
-              placeholder="••••"
+              placeholder="••••••"
               placeholderTextColor="#D1D5DB"
               keyboardType="number-pad"
-              maxLength={4}
+              maxLength={6}
               secureTextEntry
             />
             <View style={styles.modalActions}>
@@ -297,26 +366,26 @@ export default function DeliveryDetailScreen() {
       <DeliveryMap
         style={styles.map}
         initialRegion={{
-          latitude: order.address?.lat || order.vendorGroups?.[0]?.vendor?.lat || 17.385,
-          longitude: order.address?.lng || order.vendorGroups?.[0]?.vendor?.lng || 78.4867,
+          latitude: drop?.lat || pickup?.lat || 17.385,
+          longitude: drop?.lng || pickup?.lng || 78.4867,
           latitudeDelta: 0.08,
           longitudeDelta: 0.08,
         }}
         markers={[
-          ...(order.vendorGroups?.[0]?.vendor?.lat && order.vendorGroups?.[0]?.vendor?.lng ? [{
+          ...(pickup?.lat && pickup?.lng ? [{
             key: 'pickup',
-            latitude: order.vendorGroups[0].vendor.lat,
-            longitude: order.vendorGroups[0].vendor.lng,
+            latitude: pickup.lat,
+            longitude: pickup.lng,
             title: 'Pickup',
-            description: order.vendorGroups[0].vendor.name,
+            description: pickup.storeName || pickup.name,
             pinColor: '#10B981',
           }] : []),
-          ...(order.address?.lat && order.address?.lng ? [{
+          ...(drop?.lat && drop?.lng ? [{
             key: 'drop',
-            latitude: order.address.lat,
-            longitude: order.address.lng,
+            latitude: drop.lat,
+            longitude: drop.lng,
             title: 'Drop',
-            description: order.address.street,
+            description: drop.fullAddress || drop.street,
             pinColor: '#EF4444',
           }] : []),
           ...(deviceLocation ? [{
@@ -329,9 +398,8 @@ export default function DeliveryDetailScreen() {
         ] as DeliveryMapMarker[]}
       />
 
-      {/* Compact status strip overlaid on the map — active dot springs
-          with a scale pulse when the status advances, making the state
-          transition feel tactile instead of instant. */}
+      {/* Compact status strip overlaid on the map — 7 dots, one per PDF step.
+          The active dot springs with a scale pulse on advance. */}
       <View style={styles.statusStrip}>
         {statusSteps.map((step, index) => {
           const lastActiveIdx = statusSteps.reduce((last, s, i) => s.isActive ? i : last, -1);
@@ -377,10 +445,10 @@ export default function DeliveryDetailScreen() {
               <View style={styles.locationInfo}>
                 <Text style={styles.locationLabel}>PICKUP</Text>
                 <Text style={styles.locationText}>
-                  {order.vendorGroups?.[0]?.vendor?.name || 'Vendor location'}
+                  {pickup?.storeName || pickup?.name || 'Vendor location'}
                 </Text>
                 <Text style={styles.locationAddress}>
-                  {order.vendorGroups?.[0]?.vendor?.address || 'Address not available'}
+                  {pickup?.address || 'Address not available'}
                 </Text>
               </View>
             </View>
@@ -393,7 +461,7 @@ export default function DeliveryDetailScreen() {
                   {order.user?.name || 'Customer'}
                 </Text>
                 <Text style={styles.locationAddress}>
-                  {order.address?.street || 'Address not available'}
+                  {drop?.fullAddress || drop?.street || 'Address not available'}
                 </Text>
               </View>
             </View>
@@ -430,7 +498,7 @@ export default function DeliveryDetailScreen() {
             )}
 
             {/* Proof of delivery photo — capture before marking delivered */}
-            {currentStatus === 'IN_TRANSIT' && (
+            {inTransit && (
               <View style={{ marginTop: 12 }}>
                 <TouchableOpacity style={styles.cameraButton} onPress={handleTakeProofPhoto}>
                   {proofPhoto ? (
@@ -513,7 +581,7 @@ export default function DeliveryDetailScreen() {
                       details: failureDetails || undefined,
                     });
                     setShowFailureModal(false);
-                    Alert.alert('Reported', 'Delivery issue has been reported. You will be assigned to the next available order.');
+                    Alert.alert('Reported', 'Delivery issue has been reported. The request returns to the pool.');
                     router.replace('/(tabs)');
                   } catch (error: any) {
                     Alert.alert('Error', error.message || 'Failed to report issue');
@@ -535,7 +603,7 @@ export default function DeliveryDetailScreen() {
       </Modal>
 
       {/* Skip-upload modal — completing without proof requires a reason,
-          which is sent with the status update for the audit trail. */}
+          carried on the delivery-complete call for the audit trail. */}
       <Modal visible={showSkipModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -563,7 +631,7 @@ export default function DeliveryDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalConfirm, (!skipReason.trim() || isProcessing) && styles.modalConfirmDisabled]}
-                onPress={handleConfirmSkipUpload}
+                onPress={handleCompleteSkipped}
                 disabled={!skipReason.trim() || isProcessing}
               >
                 {isProcessing ? (
@@ -579,10 +647,10 @@ export default function DeliveryDetailScreen() {
 
       {/* Action Buttons */}
       <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-        {currentStatus === 'ASSIGNED' && (
+        {(currentStatus === 'ACCEPTED' || currentStatus === 'ASSIGNED_TO_DELIVERY') && (
           <TouchableOpacity
             style={[styles.actionButton, styles.primaryButton]}
-            onPress={() => handleStatusUpdate('PICKING_UP')}
+            onPress={() => advanceStatus('GOING_TO_PICKUP')}
             disabled={isProcessing}
           >
             {isProcessing ? (
@@ -596,7 +664,69 @@ export default function DeliveryDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {currentStatus === 'IN_TRANSIT' && (
+        {currentStatus === 'GOING_TO_PICKUP' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={() => advanceStatus('ARRIVED_AT_PICKUP')}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="location-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>I've Reached Pickup</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {currentStatus === 'ARRIVED_AT_PICKUP' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={() => setShowOTPModal(true)}
+            disabled={isProcessing}
+          >
+            <Ionicons name="cube-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>Collect Order (OTP)</Text>
+          </TouchableOpacity>
+        )}
+
+        {currentStatus === 'PICKED_UP' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={() => advanceStatus('OUT_FOR_DELIVERY')}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="car-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Start Delivery</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {currentStatus === 'OUT_FOR_DELIVERY' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={() => advanceStatus('ARRIVED_AT_CUSTOMER')}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="home-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>I've Reached Customer</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {currentStatus === 'ARRIVED_AT_CUSTOMER' && (
           <>
             {/* Upload error banner — completion stays blocked until the
                 partner retries (primary action) or skips with a reason. */}
@@ -609,7 +739,7 @@ export default function DeliveryDetailScreen() {
                 <View style={styles.uploadErrorActions}>
                   <TouchableOpacity
                     style={styles.retryButton}
-                    onPress={() => handleCompleteWithPhoto()}
+                    onPress={() => handleComplete()}
                     disabled={isProcessing}
                     activeOpacity={0.85}
                   >
@@ -624,7 +754,7 @@ export default function DeliveryDetailScreen() {
             )}
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
-              onPress={() => handleCompleteWithPhoto()}
+              onPress={() => handleComplete()}
               disabled={isProcessing}
             >
               {isProcessing ? (
@@ -647,10 +777,10 @@ export default function DeliveryDetailScreen() {
           </>
         )}
 
-        {/* Once a delivery is picked up and in transit, the courier must stay
-            in this screen — no exit route back to the tab bar/dashboard,
-            per the "no nav during an active delivery" design rule. */}
-        {currentStatus === 'ASSIGNED' && (
+        {/* Once a delivery is picked up, the courier must stay on screen —
+            no exit route back to the tab bar, per the "no nav during an
+            active delivery" design rule. */}
+        {currentStatus === 'ACCEPTED' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.secondaryButton]}
             onPress={() => router.push('/(tabs)')}
@@ -845,7 +975,6 @@ const styles = StyleSheet.create({
   maskedPhone: {
     fontSize: 13,
     color: '#6B7280',
-    // System monospace — the JetBrainsMono expo-font was never loaded.
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginLeft: 28,
     marginTop: 2,
@@ -911,7 +1040,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6B7280',
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

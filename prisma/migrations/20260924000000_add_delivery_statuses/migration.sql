@@ -1,0 +1,10 @@
+-- Extend OrderStatus to match the PDF delivery lifecycle.
+-- Delivery partner flow: READY_FOR_PICKUP (pool) -> ACCEPTED -> GOING_TO_PICKUP
+-- -> ARRIVED_AT_PICKUP -> PICKED_UP -> OUT_FOR_DELIVERY -> ARRIVED_AT_CUSTOMER
+-- -> DELIVERED.
+
+-- AlterEnum
+ALTER TYPE "OrderStatus" ADD VALUE 'ACCEPTED';
+ALTER TYPE "OrderStatus" ADD VALUE 'GOING_TO_PICKUP';
+ALTER TYPE "OrderStatus" ADD VALUE 'ARRIVED_AT_PICKUP';
+ALTER TYPE "OrderStatus" ADD VALUE 'ARRIVED_AT_CUSTOMER';

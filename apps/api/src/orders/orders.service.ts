@@ -11,23 +11,51 @@ import { OffersService } from '../offers/offers.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralsService } from '../referrals/referrals.service';
+import { DeliveryService } from '../delivery/delivery.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
 
-// Valid order status transitions (status machine) — 10-state model
-// Added READY_FOR_PICKUP between PACKED and ASSIGNED_TO_DELIVERY so
-// the vendor has a distinct "ready for pickup" handshake that triggers
-// the delivery partner assignment flow (instead of PACKED silently
-// advancing straight into ASSIGNED_TO_DELIVERY without vendor signalling).
+// Valid order status transitions (status machine) — mirrors the PDF delivery
+// lifecycle. READY_FOR_PICKUP is the delivery pool: a vendor marking an order
+// "ready" pushes it there. A delivery partner's ACCEPT claims it (creating the
+// assignment), after which the flow walks GOING_TO_PICKUP -> ARRIVED_AT_PICKUP
+// -> PICKED_UP -> OUT_FOR_DELIVERY -> ARRIVED_AT_CUSTOMER -> DELIVERED.
+// READY_FOR_PICKUP is also an allowed "release" target (reject/failure), so the
+// order returns to the pool for other partners.
 const VALID_TRANSITIONS: Record<string, string[]> = {
   [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
   [OrderStatus.CONFIRMED]: [OrderStatus.PACKED, OrderStatus.CANCELLED],
   [OrderStatus.PACKED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
-  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.ASSIGNED_TO_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.ASSIGNED_TO_DELIVERY]: [OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
-  [OrderStatus.PICKED_UP]: [OrderStatus.OUT_FOR_DELIVERY],
-  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
+  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
+  [OrderStatus.ASSIGNED_TO_DELIVERY]: [
+    OrderStatus.ACCEPTED,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.PICKED_UP,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.ACCEPTED]: [
+    OrderStatus.GOING_TO_PICKUP,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.GOING_TO_PICKUP]: [
+    OrderStatus.ARRIVED_AT_PICKUP,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.ARRIVED_AT_PICKUP]: [
+    OrderStatus.PICKED_UP,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.PICKED_UP]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
+  [OrderStatus.OUT_FOR_DELIVERY]: [
+    OrderStatus.ARRIVED_AT_CUSTOMER,
+    OrderStatus.DELIVERED,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.ARRIVED_AT_CUSTOMER]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [OrderStatus.REFUNDED],
   [OrderStatus.REFUNDED]: [],
@@ -58,6 +86,7 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly loyaltyService: LoyaltyService,
     private readonly referralsService: ReferralsService,
+    private readonly deliveryService: DeliveryService,
   ) {}
 
   /**
@@ -631,6 +660,16 @@ export class OrdersService {
       // parent stale. Most-advanced-active wins; DELIVERED only when all are.
       await this.recomputeParentStatus(orderId);
 
+      // Entering the delivery pool: kick off the auto-assign engine (nearest
+      // available partner). Non-blocking — vendor PATCH never waits on it; if
+      // no partner is available the group stays in the pool for manual accept
+      // and auto-assign schedules its own retries.
+      if (dto.status === OrderStatus.READY_FOR_PICKUP) {
+        this.deliveryService.autoAssign(vendorGroupId).catch((error: any) =>
+          this.logger.error(`Auto-assign kick-off failed for group ${vendorGroupId}: ${error.message}`),
+        );
+      }
+
       return updatedGroup;
     }
 
@@ -722,9 +761,13 @@ export class OrdersService {
       [OrderStatus.PACKED]: 2,
       [OrderStatus.READY_FOR_PICKUP]: 3,
       [OrderStatus.ASSIGNED_TO_DELIVERY]: 4,
-      [OrderStatus.PICKED_UP]: 5,
-      [OrderStatus.OUT_FOR_DELIVERY]: 6,
-      [OrderStatus.DELIVERED]: 7,
+      [OrderStatus.ACCEPTED]: 5,
+      [OrderStatus.GOING_TO_PICKUP]: 6,
+      [OrderStatus.ARRIVED_AT_PICKUP]: 7,
+      [OrderStatus.PICKED_UP]: 8,
+      [OrderStatus.OUT_FOR_DELIVERY]: 9,
+      [OrderStatus.ARRIVED_AT_CUSTOMER]: 10,
+      [OrderStatus.DELIVERED]: 11,
       [OrderStatus.CANCELLED]: -1,
       [OrderStatus.REFUNDED]: -2,
     };

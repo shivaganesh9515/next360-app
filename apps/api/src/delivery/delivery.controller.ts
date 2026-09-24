@@ -54,6 +54,11 @@ export class DeliveryController {
     );
   }
 
+  @Get('dashboard')
+  getDashboardStats(@CurrentUser('id') userId: string) {
+    return this.deliveryService.getDashboardStats(userId);
+  }
+
   @Get('active')
   getActiveDeliveries(
     @CurrentUser('id') userId: string,
