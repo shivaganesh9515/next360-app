@@ -21,12 +21,12 @@ export default function EarningsScreen() {
   const summaryAnim = useSpringEntrance(0);
 
   useEffect(() => {
-    fetchEarnings(period);
-  }, [period]);
+    fetchEarnings();
+  }, [fetchEarnings]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchEarnings(period);
+    await fetchEarnings();
     setRefreshing(false);
   };
 

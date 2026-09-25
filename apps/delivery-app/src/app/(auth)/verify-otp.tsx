@@ -1,19 +1,53 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Animated,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, type Href, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
+const RESEND_COOLDOWN_SECONDS = 60;
+
 export default function VerifyOtpScreen() {
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, sentAt } = useLocalSearchParams<{ phone: string; sentAt?: string }>();
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { verifyPhoneOtp, sendPhoneOtp } = useAuthStore();
+  const [isResending, setIsResending] = useState(false);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { verifyPhoneOtp, sendPhoneOtp, getEntryRoute } = useAuthStore();
   const fadeAnim = useSpringEntrance(0);
+
+  const initialRemaining = useMemo(() => {
+    const ts = Number(sentAt);
+    if (!Number.isFinite(ts) || ts <= 0) return 0;
+    const elapsed = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    return Math.max(0, RESEND_COOLDOWN_SECONDS - elapsed);
+  }, [sentAt]);
+
+  const [cooldown, setCooldown] = useState(initialRemaining);
+
+  const startCooldown = useCallback((from: number = RESEND_COOLDOWN_SECONDS) => {
+    setCooldown(from);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    if (initialRemaining > 0) startCooldown(initialRemaining);
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, [initialRemaining, startCooldown]);
 
   const handleVerify = async () => {
     if (otp.length !== 6) {
@@ -23,20 +57,38 @@ export default function VerifyOtpScreen() {
     setIsLoading(true);
     try {
       await verifyPhoneOtp(phone, otp);
-      router.replace('/(tabs)');
+      router.replace(getEntryRoute() as Href);
     } catch (error: any) {
-      Alert.alert('Verification Failed', error.message || 'Invalid or expired code.');
+      const message = error?.message || '';
+      if (message.includes('expired')) {
+        Alert.alert('Code Expired', 'Your code has expired. Request a new one below.');
+      } else if (message.includes('Incorrect')) {
+        Alert.alert('Incorrect Code', 'That code is not correct. Check it and try again.');
+      } else {
+        Alert.alert('Verification Failed', message || 'Invalid or expired code.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResend = async () => {
+    if (cooldown > 0 || isResending) return;
+    setIsResending(true);
     try {
       await sendPhoneOtp(phone);
+      startCooldown();
       Alert.alert('Code sent', `A new verification code was sent to ${phone}.`);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not resend code.');
+      const message = error?.message || '';
+      if (message.includes('60 seconds')) {
+        Alert.alert('Too Soon', 'Please wait before requesting another code.');
+        startCooldown();
+      } else {
+        Alert.alert('Error', message || 'Could not resend code.');
+      }
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -102,8 +154,19 @@ export default function VerifyOtpScreen() {
         </TouchableOpacity>
 
         {/* Resend */}
-        <TouchableOpacity style={styles.resendLink} onPress={handleResend}>
-          <Text style={styles.resendText}>Didn't receive code? <Text style={styles.resendAction}>Resend</Text></Text>
+        <TouchableOpacity
+          style={styles.resendLink}
+          onPress={handleResend}
+          disabled={cooldown > 0 || isResending}
+        >
+          <Text style={styles.resendText}>
+            Didn't receive code?{' '}
+            {cooldown > 0 ? (
+              <Text style={styles.resendCooldown}>Resend in {cooldown}s</Text>
+            ) : (
+              <Text style={styles.resendAction}>{isResending ? 'Sending…' : 'Resend'}</Text>
+            )}
+          </Text>
         </TouchableOpacity>
       </Animated.View>
     </KeyboardAvoidingView>
@@ -215,6 +278,10 @@ const styles = StyleSheet.create({
   },
   resendAction: {
     color: Colors.primary,
+    fontWeight: '600',
+  },
+  resendCooldown: {
+    color: Colors.textTertiary,
     fontWeight: '600',
   },
 });

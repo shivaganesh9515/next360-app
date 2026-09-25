@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Animated,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
@@ -15,7 +15,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuthStore();
+  const { signIn, getEntryRoute } = useAuthStore();
 
   const fadeAnim = useSpringEntrance(0);
 
@@ -35,7 +35,7 @@ export default function LoginScreen() {
       },
       isLoading: false,
     });
-    router.replace('/(tabs)');
+    router.replace(useAuthStore.getState().getEntryRoute() as Href);
   };
 
   const handleForgotPassword = async () => {
@@ -59,7 +59,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       await signIn(email, password);
-      router.replace('/(tabs)');
+      router.replace(getEntryRoute() as Href);
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Invalid credentials.');
     } finally {

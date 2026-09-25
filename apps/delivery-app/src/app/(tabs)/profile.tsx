@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
@@ -9,7 +9,7 @@ import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
 import { useStaggeredEntrance, useSpringEntrance } from '../../hooks/useDeliveryAnimation';
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuthStore();
+  const { user, accountStatus, signOut } = useAuthStore();
   const { earnings, fetchEarnings } = useDeliveryStore();
   const headerAnim = useSpringEntrance(0);
   const statsAnim = useSpringEntrance(150);
@@ -19,21 +19,42 @@ export default function ProfileScreen() {
     fetchEarnings('all');
   }, []);
 
+  const doSignOut = async () => {
+    await signOut();
+    router.replace('/login');
+  };
+
   const handleSignOut = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm('Are you sure you want to sign out?')) {
+        void doSignOut();
+      }
+      return;
+    }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out', style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          router.replace('/(auth)/login');
-        },
-      },
+      { text: 'Sign Out', style: 'destructive', onPress: () => void doSignOut() },
     ]);
   };
 
+  const deleteAccountMessage =
+    'Per Google Play policy, submitting an account deletion request will permanently wipe your profile, vehicle details, KYC documents, and delivery history within 30 days.\n\nAre you sure you want to proceed?';
+
+  const doDeleteAccount = async () => {
+    try {
+      await deliveryApi.deleteAccount();
+      await signOut();
+      router.replace('/login');
+    } catch {
+      Alert.alert(
+        'Something went wrong',
+        'We could not process your deletion request right now. Please contact support.'
+      );
+    }
+  };
+
   const menuItems = [
-    { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: null },
+    { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: '/edit-profile' as any },
     { icon: 'car-outline', label: 'Vehicle Details', color: Colors.warning, route: '/vehicle-setup' as any },
     { icon: 'document-text-outline', label: 'Documents (KYC)', color: Colors.purple, route: '/kyc-documents' as any },
     { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.blue, route: '/privacy-policy' as any },
@@ -63,9 +84,14 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{user?.name || 'Delivery Partner'}</Text>
         <Text style={styles.phone}>{user?.phone || 'partner@next360.com'}</Text>
         <View style={styles.statusRow}>
-          <View style={styles.statusPill}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Active Partner</Text>
+          <View style={[styles.statusPill, accountStatus === 'INACTIVE' && styles.statusPillInactive]}>
+            <View style={[styles.statusDot, accountStatus === 'INACTIVE' && styles.statusDotInactive]} />
+            <Text style={[styles.statusText, accountStatus === 'INACTIVE' && styles.statusTextInactive]}>
+              {accountStatus === 'ACTIVE' && 'Active Partner'}
+              {accountStatus === 'SETUP' && 'Setup Required'}
+              {accountStatus === 'INACTIVE' && 'Account Inactive'}
+              {accountStatus === 'UNKNOWN' && 'Status Unavailable'}
+            </Text>
           </View>
         </View>
       </Animated.View>
@@ -94,6 +120,20 @@ export default function ProfileScreen() {
           <Text style={styles.statLabel}>This Week</Text>
         </View>
       </Animated.View>
+
+      {/* Vehicle Info */}
+      {user?.deliveryPartner?.vehicleType && (
+        <Animated.View style={[styles.vehicleCard, { opacity: menuAnim, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
+          <View style={[styles.menuIconWrap, { backgroundColor: Colors.warningLight }]}>
+            <Ionicons name="car-outline" size={20} color={Colors.warning} />
+          </View>
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleLabel}>Current Vehicle</Text>
+            <Text style={styles.vehicleValue}>{user?.deliveryPartner?.vehicleType || '—'}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+        </Animated.View>
+      )}
 
       {/* Menu */}
       <Animated.View style={[styles.menuCard, { opacity: menuAnim, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
@@ -129,29 +169,20 @@ export default function ProfileScreen() {
       <TouchableOpacity
         style={[styles.signOutBtn, { backgroundColor: Colors.dangerLight, borderColor: 'rgba(239, 68, 68, 0.3)', marginTop: 10 }]}
         onPress={() => {
-          Alert.alert(
-            'Delete Account & Data',
-            'Per Google Play policy, submitting an account deletion request will permanently wipe your profile, vehicle details, KYC documents, and delivery history within 30 days.\n\nAre you sure you want to proceed?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Request Deletion',
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    await deliveryApi.deleteAccount();
-                    await signOut();
-                    router.replace('/(auth)/login');
-                  } catch {
-                    Alert.alert(
-                      'Something went wrong',
-                      'We could not process your deletion request right now. Please contact support.'
-                    );
-                  }
-                },
-              },
-            ]
-          );
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            if (window.confirm(`Delete Account & Data\n\n${deleteAccountMessage}`)) {
+              void doDeleteAccount();
+            }
+            return;
+          }
+          Alert.alert('Delete Account & Data', deleteAccountMessage, [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Request Deletion',
+              style: 'destructive',
+              onPress: () => void doDeleteAccount(),
+            },
+          ]);
         }}
         activeOpacity={0.7}
       >
@@ -196,8 +227,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight, paddingHorizontal: 14, paddingVertical: 6,
     borderRadius: BorderRadius.pill, gap: 6,
   },
+  statusPillInactive: { backgroundColor: Colors.dangerLight },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  statusDotInactive: { backgroundColor: Colors.danger },
   statusText: { fontSize: 13, fontWeight: '600', color: Colors.primaryDark },
+  statusTextInactive: { color: Colors.danger },
   // Stats
   statsGrid: { flexDirection: 'row', padding: Spacing.lg, gap: 10 },
   statCard: {
@@ -213,6 +247,15 @@ const styles = StyleSheet.create({
   menuBorder: { borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   menuIconWrap: { width: 38, height: 38, borderRadius: BorderRadius.md, justifyContent: 'center', alignItems: 'center' },
   menuLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
+  // Vehicle info
+  vehicleCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: Colors.white, marginHorizontal: Spacing.lg, marginTop: Spacing.lg,
+    borderRadius: BorderRadius.lg, padding: Spacing.lg, ...Shadow.sm,
+  },
+  vehicleInfo: { flex: 1 },
+  vehicleLabel: { fontSize: 12, color: Colors.textTertiary, marginBottom: 2 },
+  vehicleValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   // Sign out
   signOutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException, GoneException } from '@nestjs/common';
+import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException, GoneException, ServiceUnavailableException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Redis from 'ioredis';
@@ -24,6 +24,7 @@ export class AuthService {
   private readonly otpFallback = new Map<string, { code: string; expiresAt: number }>();
   private static readonly OTP_TTL_SECONDS = 5 * 60; // 5 minutes
   private static readonly OTP_KEY_PREFIX = 'otp:';
+  private static readonly MAX_OTP_ATTEMPTS = 5; // failed tries before code is invalidated
 
   constructor(
     private prisma: PrismaService,
@@ -42,6 +43,13 @@ export class AuthService {
   }
 
   async signup(dto: SignupDto) {
+    // Email/password credentials are delegated to Supabase Auth. Fail closed
+    // when it is not configured so an account is never created without a
+    // verifiable credential.
+    if (!this.supabase) {
+      throw new ServiceUnavailableException('Email/password signup is unavailable: Supabase Auth is not configured');
+    }
+
     // Check if user already exists
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
@@ -89,9 +97,15 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    // Email/password verification is delegated to Supabase Auth. Fail closed
+    // when it is not configured so a JWT is never issued without a password
+    // check.
+    if (!this.supabase) {
+      throw new ServiceUnavailableException('Email/password login is unavailable: Supabase Auth is not configured');
+    }
+
     let supabaseUser: any = null;
 
-    // Authenticate with Supabase if configured
     if (this.supabase) {
       const { data, error } = await this.supabase.auth.signInWithPassword({
         email: dto.email,
@@ -132,19 +146,138 @@ export class AuthService {
     };
   }
 
-  // Zomato-style single phone-OTP flow for the customer app — send-otp +
-  // verify-otp-login together replace signup/login for that client entirely
-  // (email+password above stays as-is for vendor/admin, which still use it).
-  // DISABLED (2026-09): Customer app is Google-only + COD-only for MVP.
-  // Phone OTP (DLT/SMS) removed to save SMS spend — see PhoneAuthScreen
-  // ENABLE_PHONE_AUTH=false. Endpoints return 410 Gone so the partner audit
-  // OTP findings (brute-force, send abuse) are out of scope by design.
+  // Zomato-style single phone-OTP flow — send-otp + verify-otp-login together
+  // replace signup/login for that client entirely (email+password above stays
+  // as-is for vendor/admin, which still use it). The customer app is Google-only
+  // for MVP and never calls these; the delivery app uses them with
+  // role: DELIVERY_PARTNER.
+  //
+  // Restored + hardened from the pre-410 implementation (commit 0e1227d^):
+  // Redis-backed with in-memory fallback, 60s cooldown, 5-min expiry, single-use,
+  // SMS delivery (dev console log when no provider is configured), and a
+  // per-code brute-force attempt cap.
+  //
+  // SECURITY (REDIS): OTP codes are stored short-lived (300s TTL) and only in
+  // Redis/in-memory — never written to production logs. Attempt counters are
+  // also Redis-backed and invalidate the code after MAX_OTP_ATTEMPTS failures.
   async sendOtp(dto: SendOtpDto) {
-    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
+    // Anti-abuse: enforce 60-second cooldown between OTP sends per phone number
+    const cooldownKey = `otp:cooldown:${dto.phone}`;
+    try {
+      const existing = await this.redis.get(cooldownKey);
+      if (existing) {
+        throw new BadRequestException('Please wait 60 seconds before requesting a new code.');
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      // Redis unavailable — skip cooldown check in dev
+    }
+
+    const code = String(crypto.randomInt(100000, 999999));
+    const key = `${AuthService.OTP_KEY_PREFIX}${dto.phone}`;
+
+    try {
+      // Redis-backed: SET with TTL, falls back to in-memory on connection failure
+      await this.redis.set(key, code, 'EX', AuthService.OTP_TTL_SECONDS);
+      // Set 60-second cooldown to prevent SMS bombing
+      await this.redis.set(cooldownKey, '1', 'EX', 60);
+      // Reset the per-code brute-force attempt counter on a fresh send
+      await this.redis.del(`${key}:attempts`);
+    } catch (err) {
+      this.logger.warn('Redis unavailable for OTP, falling back to in-memory');
+      this.otpFallback.set(dto.phone, {
+        code,
+        expiresAt: Date.now() + AuthService.OTP_TTL_SECONDS * 1000,
+      });
+    }
+
+    // Send OTP via SMS provider (falls back to console log if no provider configured)
+    await this.smsService.sendOtp(dto.phone, code);
+
+    return { message: 'OTP sent' };
   }
 
   async verifyOtpLogin(dto: VerifyOtpLoginDto) {
-    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
+    const key = `${AuthService.OTP_KEY_PREFIX}${dto.phone}`;
+    const attemptsKey = `${key}:attempts`;
+    let code: string | null = null;
+
+    try {
+      code = await this.redis.get(key);
+
+      // Per-code brute-force cap: after MAX_OTP_ATTEMPTS failed tries the
+      // stored code is invalidated so the user must request a fresh one.
+      if (code) {
+        const attempts = Number((await this.redis.get(attemptsKey)) ?? '0');
+        if (attempts >= AuthService.MAX_OTP_ATTEMPTS) {
+          await this.redis.del(key);
+          await this.redis.del(attemptsKey);
+          throw new UnauthorizedException('Too many incorrect attempts. Request a new code and try again.');
+        }
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      // Redis unavailable — check in-memory fallback
+    }
+
+    // Also check in-memory fallback
+    if (!code) {
+      const fallback = this.otpFallback.get(dto.phone);
+      if (fallback && fallback.expiresAt > Date.now()) {
+        code = fallback.code;
+      }
+    }
+
+    if (!code) {
+      throw new UnauthorizedException('OTP expired or not requested. Request a new code and try again.');
+    }
+    if (code !== dto.otp) {
+      // Increment the attempt counter (best-effort; ignore Redis failures)
+      try {
+        const attempts = Number((await this.redis.get(attemptsKey)) ?? '0');
+        if (attempts + 1 >= AuthService.MAX_OTP_ATTEMPTS) {
+          await this.redis.del(key);
+          await this.redis.del(attemptsKey);
+        } else {
+          await this.redis.set(attemptsKey, String(attempts + 1), 'EX', AuthService.OTP_TTL_SECONDS);
+        }
+      } catch {
+        /* Redis unavailable — attempt cap is best-effort */
+      }
+      throw new UnauthorizedException('Incorrect code.');
+    }
+
+    // Delete used OTP from both stores
+    try {
+      await this.redis.del(key);
+      await this.redis.del(attemptsKey);
+    } catch { /* ignore */ }
+    this.otpFallback.delete(dto.phone);
+
+    let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    let isNewUser = false;
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { phone: dto.phone, role: dto.role ?? 'CUSTOMER' },
+      });
+      isNewUser = true;
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Send welcome notification for new users
+    if (isNewUser && user) {
+      this.notificationsService.sendWelcomeNotification(user.id).catch(() => {});
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, role: user.role });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+      isNewUser,
+    };
   }
 
   async getProfile(userId: string) {
@@ -310,6 +443,12 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
+    // Password resets are delegated to Supabase Auth. Fail closed instead of
+    // silently reporting success when it is not configured.
+    if (!this.supabase) {
+      throw new ServiceUnavailableException('Password reset is unavailable: Supabase Auth is not configured');
+    }
+
     if (this.supabase) {
       const { error } = await this.supabase.auth.resetPasswordForEmail(email);
       if (error) {
@@ -321,6 +460,12 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
+    // Password resets are delegated to Supabase Auth. Fail closed instead of
+    // silently reporting success when it is not configured.
+    if (!this.supabase) {
+      throw new ServiceUnavailableException('Password reset is unavailable: Supabase Auth is not configured');
+    }
+
     if (this.supabase) {
       const { error } = await this.supabase.auth.admin.updateUserById(token, {
         password: newPassword,

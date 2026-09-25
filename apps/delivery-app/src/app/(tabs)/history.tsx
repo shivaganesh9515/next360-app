@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -21,20 +21,52 @@ export default function HistoryScreen() {
   const statsAnim = useSpringEntrance(0);
 
   useEffect(() => {
-    fetchDeliveryHistory({ period: filter });
-  }, [filter]);
+    fetchDeliveryHistory();
+  }, [fetchDeliveryHistory]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDeliveryHistory({ period: filter });
+    await fetchDeliveryHistory();
     setRefreshing(false);
   };
+
+  const isSameLocalDay = (iso?: string) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    const now = new Date();
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  };
+
+  const isWithinLast7Days = (iso?: string) => {
+    if (!iso) return false;
+    const deliveredAt = new Date(iso).getTime();
+    const now = Date.now();
+    return deliveredAt <= now && now - deliveredAt <= 7 * 24 * 60 * 60 * 1000;
+  };
+
+  const filteredHistory = useMemo(() => {
+    type HistoryItem = (typeof deliveryHistory)[number] & {
+      deliveryAssignment?: { deliveredAt?: string };
+    };
+    const byDay = (o: HistoryItem) => o.deliveryAssignment?.deliveredAt;
+    if (filter === 'today') {
+      return deliveryHistory.filter((o) => isSameLocalDay(byDay(o)));
+    }
+    if (filter === 'week') {
+      return deliveryHistory.filter((o) => isWithinLast7Days(byDay(o)));
+    }
+    return deliveryHistory;
+  }, [deliveryHistory, filter]);
 
   const renderItem = ({ item, index }: { item: any; index: number }) => (
     <HistoryCard order={item} index={index} />
   );
 
-  const totalEarned = sumDeliveryFees(deliveryHistory.map((o) => o.deliveryFee));
+  const totalEarned = sumDeliveryFees(filteredHistory.map((o) => o.deliveryFee));
 
   return (
     <View style={styles.container}>
@@ -60,7 +92,7 @@ export default function HistoryScreen() {
           <Text style={styles.statIcon}>
             <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
           </Text>
-          <Text style={styles.statNumber}>{deliveryHistory.length}</Text>
+          <Text style={styles.statNumber}>{filteredHistory.length}</Text>
           <Text style={styles.statLabel}>Deliveries</Text>
         </View>
         <View style={styles.statDivider} />
@@ -71,7 +103,7 @@ export default function HistoryScreen() {
       </Animated.View>
 
       <FlatList
-        data={deliveryHistory}
+        data={filteredHistory}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

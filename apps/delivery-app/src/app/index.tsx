@@ -1,10 +1,10 @@
 import React from 'react';
-import { Redirect } from 'expo-router';
+import { Redirect, type Href } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function IndexScreen() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isLoading, getEntryRoute } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -14,9 +14,5 @@ export default function IndexScreen() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/phone-login" />;
-  }
-
-  return <Redirect href="/(tabs)" />;
+  return <Redirect href={getEntryRoute() as Href} />;
 }

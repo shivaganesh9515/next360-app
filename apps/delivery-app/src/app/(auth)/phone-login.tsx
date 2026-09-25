@@ -14,17 +14,17 @@ export default function PhoneLoginScreen() {
   const { sendPhoneOtp } = useAuthStore();
 
   const fadeAnim = useSpringEntrance(0);
-  const normalizedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
+  const phoneDigits = phone.replace(/\D/g, '');
 
   const handleSendOtp = async () => {
-    if (phone.replace(/\D/g, '').length < 10) {
+    if (phoneDigits.length < 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit phone number.');
       return;
     }
     setIsLoading(true);
     try {
-      await sendPhoneOtp(normalizedPhone);
-      router.push({ pathname: '/(auth)/verify-otp' as any, params: { phone: normalizedPhone } });
+      await sendPhoneOtp(phoneDigits);
+      router.push({ pathname: '/(auth)/verify-otp' as any, params: { phone: phoneDigits, sentAt: String(Date.now()) } });
     } catch (error: any) {
       Alert.alert('Could not send OTP', error.message || 'Please try again.');
     } finally {
@@ -73,7 +73,7 @@ export default function PhoneLoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.primaryButton, isLoading && styles.buttonDisabled, phone.replace(/\D/g, '').length >= 10 && styles.buttonReady]}
+            style={[styles.primaryButton, isLoading && styles.buttonDisabled, phoneDigits.length >= 10 && styles.buttonReady]}
             onPress={handleSendOtp}
             disabled={isLoading}
             activeOpacity={0.85}
@@ -89,7 +89,7 @@ export default function PhoneLoginScreen() {
         {/* Alternative */}
         <TouchableOpacity
           style={styles.switchLink}
-          onPress={() => router.push('/(auth)/login')}
+          onPress={() => router.push('/login')}
         >
           <Text style={styles.switchText}>Use email & password instead</Text>
         </TouchableOpacity>

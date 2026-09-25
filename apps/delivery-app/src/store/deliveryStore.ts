@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { deliveryApi } from '../lib/api';
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { useAuthStore } from './authStore';
 
 interface Order {
   id: string;
@@ -40,6 +41,7 @@ let lastSafetyRefetch = 0;
 let safetyInterval: ReturnType<typeof setInterval> | null = null;
 
 function runSafetyRefetch(get: () => DeliveryState) {
+  if (!useAuthStore.getState().isAuthenticated) return;
   const now = Date.now();
   if (now - lastSafetyRefetch < SAFETY_REFETCH_MS) return;
   lastSafetyRefetch = now;
@@ -68,6 +70,7 @@ interface DeliveryState {
   setAvailability: (available: boolean) => Promise<void>;
   setupRealtime: () => void;
   cleanupRealtime: () => void;
+  reset: () => void;
 }
 
 export const useDeliveryStore = create<DeliveryState>((set, get) => ({
@@ -80,6 +83,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   realtimeChannel: null,
 
   fetchNewOrders: async () => {
+    if (!useAuthStore.getState().isAuthenticated) return;
     set({ isLoading: true });
     try {
       const res: any = await deliveryApi.getNewOrders();
@@ -93,6 +97,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   fetchActiveDeliveries: async () => {
+    if (!useAuthStore.getState().isAuthenticated) return;
     set({ isLoading: true });
     try {
       const res: any = await deliveryApi.getActiveDeliveries();
@@ -118,9 +123,9 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     }
   },
 
-  fetchEarnings: async (period?: string) => {
+  fetchEarnings: async () => {
     try {
-      const res = await deliveryApi.getEarnings({ period: period || 'all' });
+      const res = await deliveryApi.getEarnings();
       set({ earnings: res });
     } catch (error) {
       console.error('Fetch earnings error:', error);
@@ -188,7 +193,10 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   setupRealtime: () => {
-    const channel = supabase
+    if (!isSupabaseConfigured()) {
+      set({ realtimeChannel: null });
+    } else {
+      const channel = supabase
       .channel('delivery-orders')
       .on('postgres_changes', {
         event: 'INSERT',
@@ -228,11 +236,12 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       })
       .subscribe();
 
+      set({ realtimeChannel: channel });
+    }
+
     if (safetyInterval) clearInterval(safetyInterval);
     lastSafetyRefetch = Date.now();
     safetyInterval = setInterval(() => runSafetyRefetch(get), SAFETY_REFETCH_MS);
-
-    set({ realtimeChannel: channel });
   },
 
   cleanupRealtime: () => {
@@ -245,5 +254,20 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       clearInterval(safetyInterval);
       safetyInterval = null;
     }
+  },
+
+  // Wipe all state (orders, earnings, availability, realtime subscription).
+  // Called on logout and on any 401-triggered session clear so a previous
+  // partner's data never leaks into the next session.
+  reset: () => {
+    get().cleanupRealtime();
+    set({
+      newOrders: [],
+      activeDeliveries: [],
+      deliveryHistory: [],
+      earnings: null,
+      isLoading: false,
+      isAvailable: true,
+    });
   },
 }));

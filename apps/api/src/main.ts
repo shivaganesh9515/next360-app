@@ -51,8 +51,21 @@ async function bootstrap() {
     }),
   );
 
+  // Delivery App local dev origins (Expo web on 8081, companion/metro dev on
+  // 8082) — merged with configured/production origins. A wildcard '*' origin
+  // can never be used together with credentials, so these are explicit.
+  const deliveryDevOrigins = [
+    'http://localhost:8081',
+    'http://localhost:8082',
+    'http://127.0.0.1:8081',
+    'http://127.0.0.1:8082',
+  ];
+
+  const configuredOrigins =
+    process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+    origin: Array.from(new Set([...configuredOrigins, ...deliveryDevOrigins])),
     credentials: true,
   });
 

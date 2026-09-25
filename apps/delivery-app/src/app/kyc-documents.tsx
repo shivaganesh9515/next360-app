@@ -4,9 +4,10 @@ import {
   TextInput, Alert, ActivityIndicator, Image, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { deliveryApi, API_BASE } from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 import { Colors, Spacing, BorderRadius, Shadow } from '../constants/theme';
 import { useSpringEntrance } from '../hooks/useDeliveryAnimation';
 
@@ -59,6 +60,8 @@ function getStatusIcon(status: KycStatus): keyof typeof Ionicons.glyphMap {
 }
 
 export default function KycDocumentsScreen() {
+  const { onboarding } = useLocalSearchParams<{ onboarding?: string }>();
+  const isOnboarding = onboarding === '1';
   const [kyc, setKyc] = useState<KycRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -71,6 +74,12 @@ export default function KycDocumentsScreen() {
   const fadeAnim = useSpringEntrance(0);
 
   useEffect(() => { loadKycStatus(); }, []);
+
+  const finishOnboarding = async () => {
+    const { loadProfile, getEntryRoute } = useAuthStore.getState();
+    await loadProfile();
+    router.replace(getEntryRoute() as any);
+  };
 
   const loadKycStatus = async () => {
     setLoading(true);
@@ -120,12 +129,34 @@ export default function KycDocumentsScreen() {
   };
 
   const handleSubmit = async () => {
+    if (kyc?.status === 'PENDING') {
+      if (isOnboarding) {
+        await finishOnboarding();
+      } else {
+        Alert.alert('Under Review', 'Your documents are already under review. We\'ll notify you once verification is complete.');
+      }
+      return;
+    }
+
+    if (kyc?.status === 'VERIFIED') {
+      if (isOnboarding) {
+        await finishOnboarding();
+      } else {
+        Alert.alert('Verified', 'Your KYC is already verified. No further action is needed.');
+      }
+      return;
+    }
+
     if (!documentType) { Alert.alert('Required', 'Select a document type.'); return; }
     setSubmitting(true);
     try {
       await deliveryApi.submitKycDocuments([{
         documentType, documentNumber: documentNumber || undefined, documentUrl: documentUrl || '',
       }]);
+      if (isOnboarding) {
+        await finishOnboarding();
+        return;
+      }
       Alert.alert('Submitted', 'Your documents have been submitted for review.', [{ text: 'OK', onPress: loadKycStatus }]);
     } catch (error: any) {
       Alert.alert('Submission failed', error.message || 'Try again later.');
@@ -152,6 +183,11 @@ export default function KycDocumentsScreen() {
             <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>KYC Verification</Text>
+          {isOnboarding && (
+            <View style={styles.stepPill}>
+              <Text style={styles.stepPillText}>Step 3 of 3</Text>
+            </View>
+          )}
         </View>
 
         {/* Status Banner */}
@@ -243,7 +279,7 @@ export default function KycDocumentsScreen() {
             )}
           </TouchableOpacity>
 
-          {documentUrl && (
+          {!!documentUrl && (
             <TouchableOpacity style={styles.removeBtn} onPress={() => setDocumentUrl('')}>
               <Ionicons name="close-circle" size={18} color={Colors.danger} />
               <Text style={styles.removeText}>Remove photo</Text>
@@ -263,7 +299,7 @@ export default function KycDocumentsScreen() {
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitDisabled, !documentType && styles.submitDisabled]}
           onPress={handleSubmit}
-          disabled={submitting || !documentType}
+          disabled={submitting || (!documentType && kyc?.status !== 'PENDING' && kyc?.status !== 'VERIFIED')}
           activeOpacity={0.85}
         >
           {submitting ? (
@@ -272,7 +308,13 @@ export default function KycDocumentsScreen() {
             <>
               <Ionicons name="shield-checkmark-outline" size={18} color={Colors.white} />
               <Text style={styles.submitText}>
-                {kyc?.status === 'REJECTED' ? 'Resubmit' : 'Submit for Review'}
+                {kyc?.status === 'REJECTED'
+                  ? 'Resubmit'
+                  : kyc?.status === 'PENDING'
+                    ? (isOnboarding ? 'Continue' : 'Under Review')
+                    : kyc?.status === 'VERIFIED'
+                      ? (isOnboarding ? 'Continue' : 'Verified')
+                      : 'Submit for Review'}
               </Text>
             </>
           )}
@@ -291,6 +333,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, padding: Spacing.lg, paddingTop: 60, backgroundColor: Colors.white },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  stepPill: {
+    marginLeft: 'auto', backgroundColor: Colors.primaryLight,
+    borderRadius: BorderRadius.pill, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  stepPillText: { fontSize: 12, fontWeight: '700', color: Colors.primaryDark, letterSpacing: 0.4 },
   // Status
   statusBanner: { flexDirection: 'row', alignItems: 'center', margin: Spacing.lg, padding: Spacing.lg, borderRadius: BorderRadius.lg, gap: 14 },
   statusIconWrap: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
