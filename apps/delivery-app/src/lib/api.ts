@@ -141,6 +141,20 @@ export const deliveryApi = {
   forgotPassword: (email: string) =>
     api.post<any>('/auth/forgot-password', { email }),
 
+  // Phone OTP — POST /auth/send-otp. Returns a confirmation message only; the
+  // 6-digit code is delivered via SMS (never returned by the API).
+  sendOtp: (phone: string) =>
+    api.post<{ message: string }>('/auth/send-otp', { phone }),
+
+  // Phone OTP verify + login — POST /auth/verify-otp-login. Verifies the SMS
+  // code, then returns { access_token, user, isNewUser } using the same NestJS
+  // JWT session as email/password login.
+  verifyOtpLogin: (phone: string, otp: string) =>
+    api.post<{ access_token: string; user: any; isNewUser: boolean }>(
+      '/auth/verify-otp-login',
+      { phone, otp },
+    ),
+
   // Profile
   getProfile: () => api.get<any>('/users/me'),
 

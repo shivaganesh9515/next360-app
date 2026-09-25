@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { deliveryApi, getAuthToken } from '../lib/api';
+import { deliveryApi, getAuthToken, setAuthToken } from '../lib/api';
+
+// The screens pass the display form "+91XXXXXXXXXX"; the backend send-otp /
+// verify-otp-login DTOs expect the plain 10-digit Indian number. Strip the
+// leading +91 before calling the API.
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+}
 
 interface User {
   id: string;
@@ -56,14 +64,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  sendPhoneOtp: async () => {
-    // Backend phone-OTP flow returns 410 Gone (disabled). No Supabase Auth here.
-    throw new Error('Phone OTP login is not available with local authentication.');
+  sendPhoneOtp: async (phone: string) => {
+    // Local NestJS phone-OTP flow (POST /auth/send-otp). The 6-digit code is
+    // delivered via SMS — never returned to the client.
+    await deliveryApi.sendOtp(normalizePhone(phone));
   },
 
-  verifyPhoneOtp: async () => {
-    // Backend phone-OTP flow returns 410 Gone (disabled). No Supabase Auth here.
-    throw new Error('Phone OTP login is not available with local authentication.');
+  verifyPhoneOtp: async (phone: string, otp: string) => {
+    try {
+      // POST /auth/verify-otp-login verifies the code and returns the NestJS
+      // JWT — stored with the same session mechanism as email/password login.
+      const data = await deliveryApi.verifyOtpLogin(normalizePhone(phone), otp);
+      if (data?.access_token) await setAuthToken(data.access_token);
+
+      // Role gate — identical to signIn(): only DELIVERY_PARTNER accounts
+      // can operate this app.
+      const profile = await deliveryApi.getProfile();
+      if (profile.role !== 'DELIVERY_PARTNER') {
+        await deliveryApi.signOut();
+        set({ user: null, session: null, isAuthenticated: false, isLoading: false });
+        throw new Error('This account is not registered as a delivery partner');
+      }
+
+      set({ user: profile, session: null, isAuthenticated: true, isLoading: false });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
   },
 
   signOut: async () => {

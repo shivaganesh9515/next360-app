@@ -132,19 +132,101 @@ export class AuthService {
     };
   }
 
-  // Zomato-style single phone-OTP flow for the customer app — send-otp +
-  // verify-otp-login together replace signup/login for that client entirely
-  // (email+password above stays as-is for vendor/admin, which still use it).
-  // DISABLED (2026-09): Customer app is Google-only + COD-only for MVP.
-  // Phone OTP (DLT/SMS) removed to save SMS spend — see PhoneAuthScreen
-  // ENABLE_PHONE_AUTH=false. Endpoints return 410 Gone so the partner audit
-  // OTP findings (brute-force, send abuse) are out of scope by design.
+  // Zomato-style single phone-OTP flow — POST /auth/send-otp generates a
+  // 6-digit code stored in Redis (in-memory Map fallback in dev/local) and
+  // sent via SmsService; POST /auth/verify-otp-login verifies it (single-use,
+  // 5-min expiry) then either logs an existing account straight in or
+  // provisions a new one on first verify (no separate signup). The code is
+  // NEVER returned by the API. New phone-only accounts are created with role
+  // CUSTOMER; the delivery app enforces DELIVERY_PARTNER client-side (see
+  // apps/delivery-app/src/store/authStore.ts verifyPhoneOtp role check).
   async sendOtp(dto: SendOtpDto) {
-    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
+    const code = crypto.randomInt(100000, 999999).toString();
+    await this.storeOtp(dto.phone, code);
+
+    const sent = await this.smsService.sendOtp(dto.phone, code);
+    // Honest failure in production when no SMS provider is configured. In
+    // dev/local the code is printed by SmsService (never in the API response)
+    // so verification can be exercised without an SMS plan.
+    if (!sent && process.env.NODE_ENV === 'production') {
+      throw new UnauthorizedException('Could not send OTP. Please try again.');
+    }
+
+    return { message: 'OTP sent successfully' };
   }
 
   async verifyOtpLogin(dto: VerifyOtpLoginDto) {
-    throw new GoneException('Phone OTP login is disabled. Please sign in with Google.');
+    const entry = await this.readOtp(dto.phone);
+    if (!entry) {
+      throw new UnauthorizedException('OTP expired or not requested. Request a new code and try again.');
+    }
+    if (entry.expiresAt < Date.now()) {
+      await this.deleteOtp(dto.phone);
+      throw new UnauthorizedException('OTP expired. Request a new code and try again.');
+    }
+    if (entry.code !== dto.otp) {
+      throw new UnauthorizedException('Incorrect code.');
+    }
+    // Single-use: consumed on first successful verify, so a replayed code fails.
+    await this.deleteOtp(dto.phone);
+
+    let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    let isNewUser = false;
+    if (!user) {
+      user = await this.prisma.user.create({ data: { phone: dto.phone, role: 'CUSTOMER' } });
+      isNewUser = true;
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    const token = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+    });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+      isNewUser,
+    };
+  }
+
+  private async storeOtp(phone: string, code: string): Promise<void> {
+    const key = `${AuthService.OTP_KEY_PREFIX}${phone}`;
+    const entry = { code, expiresAt: Date.now() + AuthService.OTP_TTL_SECONDS * 1000 };
+    try {
+      await this.redis.set(key, JSON.stringify(entry), 'EX', AuthService.OTP_TTL_SECONDS);
+    } catch {
+      // Redis down (dev/local) — in-memory fallback
+      this.otpFallback.set(key, entry);
+    }
+  }
+
+  private async readOtp(phone: string): Promise<{ code: string; expiresAt: number } | null> {
+    const key = `${AuthService.OTP_KEY_PREFIX}${phone}`;
+    try {
+      const raw = await this.redis.get(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { code: string; expiresAt: number };
+        if (parsed?.code && parsed.expiresAt) return parsed;
+      }
+    } catch {
+      // Redis down (dev/local) — fall through to in-memory fallback
+    }
+    return this.otpFallback.get(key) ?? null;
+  }
+
+  private async deleteOtp(phone: string): Promise<void> {
+    const key = `${AuthService.OTP_KEY_PREFIX}${phone}`;
+    try {
+      await this.redis.del(key);
+    } catch {
+      // Redis down (dev/local) — ignore
+    }
+    this.otpFallback.delete(key);
   }
 
   async getProfile(userId: string) {
