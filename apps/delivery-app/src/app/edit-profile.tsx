@@ -36,15 +36,12 @@ export default function EditProfileScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.title}>Edit Profile</Text>
-            <Text style={styles.subtitle}>Update the details customers see.</Text>
+        {/* Identity (the screen title comes from the stack header) */}
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{name.charAt(0).toUpperCase() || 'D'}</Text>
           </View>
+          <Text style={styles.email}>{user?.email || 'No email on file'}</Text>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -103,6 +100,9 @@ export default function EditProfileScreen() {
                 editable={false}
               />
             </View>
+            <Text style={styles.inputHint}>
+              Email and delivery zone cannot be changed here. Contact support if you need to update them.
+            </Text>
           </View>
 
           {/* Save */}
@@ -129,11 +129,14 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.lg, paddingHorizontal: Spacing.xxl, paddingTop: 60, paddingBottom: Spacing.lg },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center', ...Shadow.sm, marginTop: 4 },
-  headerTextWrap: { flex: 1 },
-  title: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.3 },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, marginTop: 4, lineHeight: 20 },
+  avatarWrap: { alignItems: 'center', paddingTop: Spacing.xxl },
+  avatar: {
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
+    ...Shadow.md,
+  },
+  avatarText: { fontSize: 34, fontWeight: '700', color: Colors.white },
+  email: { fontSize: 13, color: Colors.textSecondary, marginTop: Spacing.md },
   scroll: { paddingHorizontal: Spacing.xxl, paddingBottom: 40 },
   card: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, padding: Spacing.xxl, ...Shadow.md },
   cardTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },

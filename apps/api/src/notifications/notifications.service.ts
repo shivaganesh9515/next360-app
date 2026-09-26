@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { DeliveryPartnerStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -630,14 +631,64 @@ export class NotificationsService {
     orderId: string,
     storeName: string,
     storeType: string,
+    orderVendorGroupId?: string,
   ) {
     return this.notify(
       dpUserId,
       'New Delivery Available!',
       `Order from ${storeName} (${storeType}) is ready for pickup. Tap to accept.`,
       'NEW_DELIVERY',
-      { orderId, screen: 'NewOrders' },
+      { orderId, orderVendorGroupId, screen: 'NewOrders' },
     );
+  }
+
+  /**
+   * D0. New-order fan-out — notifies every AVAILABLE delivery partner in a
+   * zone that a vendor group is ready for pickup. Partners claim from the
+   * shared queue (first-come-first-served), so the push is a heads-up, not a
+   * reservation. The payload carries BOTH the parent orderId (used by the
+   * verify-pickup/start-transit/deliver endpoints) and the orderVendorGroupId
+   * (used to deep-link into the app's group-scoped screens).
+   */
+  async notifyAvailablePartnersInZone(
+    zoneId: string,
+    opts: {
+      orderId: string;
+      orderVendorGroupId: string;
+      orderNumber?: string;
+      storeName: string;
+      storeType: string;
+    },
+  ) {
+    const partners = await this.prisma.deliveryPartner.findMany({
+      where: {
+        zoneId,
+        status: DeliveryPartnerStatus.AVAILABLE,
+        user: { isActive: true },
+      },
+      select: { userId: true },
+    });
+    if (!partners.length) return 0;
+
+    const results = await Promise.all(
+      partners.map(({ userId }) =>
+        this.sendNewDeliveryRequestNotification(
+          userId,
+          opts.orderId,
+          opts.storeName,
+          opts.storeType,
+          opts.orderVendorGroupId,
+        ).catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error';
+          this.logger.error(
+            `Failed to send new-delivery notification to partner ${userId}: ${message}`,
+          );
+          return null;
+        }),
+      ),
+    );
+    return results.filter(Boolean).length;
   }
 
   /**

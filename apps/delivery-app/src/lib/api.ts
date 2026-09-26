@@ -116,6 +116,19 @@ export const api = {
 
   unregisterPushToken: () =>
     api.delete<any>('/notifications/unregister'),
+
+  // Notifications inbox — per-user, read-only views over the backend records
+  getNotifications: (params?: any) =>
+    api.get<any>('/notifications', params),
+
+  getNotificationUnreadCount: () =>
+    api.get<{ count: number }>('/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    api.patch<any>(`/notifications/${id}/read`),
+
+  markAllNotificationsRead: () =>
+    api.post<any>('/notifications/read-all'),
 };
 
 // Delivery-specific API methods
@@ -136,6 +149,9 @@ export const deliveryApi = {
     if (error) throw error;
     return;
   },
+
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
 
   // Phone OTP — bare 10-digit Indian number (no +91); backend DTO validates
   // /^[6-9]\d{9}$/. Successful verify-otp-login returns a backend-issued JWT
@@ -167,12 +183,15 @@ export const deliveryApi = {
   getNewOrders: (params?: any) =>
     api.get<any>('/delivery/new-orders', params),
 
-  // Accept/Reject
-  acceptOrder: (orderId: string) =>
-    api.post<any>(`/orders/${orderId}/assign`, {}),
+  // Accept/Decline. Both act on the OrderVendorGroup: the list payload's
+  // `id` IS the group id (the parent order id arrives as `orderId`). The old
+  // /orders/:id/assign is ADMIN-only and would 403 a delivery partner.
+  acceptOrder: (groupId: string) =>
+    api.post<any>('/delivery/claim', { groupId }),
 
-  rejectOrder: (orderId: string) =>
-    api.post<any>(`/orders/${orderId}/reject`, {}),
+  // Declines are persisted server-side so the group is not offered again.
+  rejectOrder: (groupId: string, reason?: string) =>
+    api.post<any>('/delivery/reject', { groupId, reason }),
 
   // Active Deliveries
   getActiveDeliveries: (params?: any) =>
@@ -185,9 +204,18 @@ export const deliveryApi = {
   updateDeliveryStatus: (orderId: string, status: string, data?: any) =>
     api.post<any>(`/orders/${orderId}/deliver`, { status, ...data }),
 
-  // Verify Pickup OTP
+  // Verify Pickup OTP. orderId here is the parent ORDER id — the backend's
+  // verify-pickup/start-transit/deliver endpoints all resolve the assignment
+  // through the order, so the mobile screen must pass order.orderId, not the
+  // short group id used in list keys.
   verifyPickupOTP: (orderId: string, otp: string) =>
     api.post<any>(`/orders/${orderId}/verify-pickup`, { otp }),
+
+  // Start transit — PICKED_UP -> OUT_FOR_DELIVERY. The state machine requires
+  // this leg before deliver; the mobile screen calls it right after a
+  // successful OTP verify.
+  startTransit: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/start-transit`, {}),
 
   // Delivery History
   getDeliveryHistory: (params?: any) =>
@@ -196,6 +224,22 @@ export const deliveryApi = {
   // Earnings
   getEarnings: (params?: any) =>
     api.get<any>('/delivery/earnings', params),
+
+  // Financial ledger: one transaction per completed delivery (rupees, from
+  // the backend's persisted DeliveryAssignment records — never fabricated).
+  getTransactions: (params?: any) =>
+    api.get<any>('/delivery/transactions', params),
+
+  getTransaction: (id: string) =>
+    api.get<any>(`/delivery/transactions/${id}`),
+
+  // Weekly payout history (read-only). Payouts are created by the backend's
+  // weekly cron; the partner only ever sees their own records.
+  getPayouts: (params?: any) =>
+    api.get<any>('/delivery/payouts', params),
+
+  getPayout: (id: string) =>
+    api.get<any>(`/delivery/payouts/${id}`),
 
   // Availability
   setAvailability: (isAvailable: boolean) =>
@@ -213,26 +257,30 @@ export const deliveryApi = {
   upload: async <T>(path: string, formData: FormData): Promise<T> =>
     api.upload<T>(path, formData),
 
-  // KYC document submission — POST /kyc/submit expects a single SubmitKycDto
-  // per call, so submit each document individually.
-  submitKycDocuments: async (
-    data: { documentType: string; documentNumber?: string; documentUrl?: string }[],
-  ) => {
-    const results: any[] = [];
-    for (const doc of data) {
-      const res = await api.post<any>('/kyc/submit', {
-        documentType: doc.documentType,
-        ...(doc.documentNumber ? { documentNumber: doc.documentNumber } : {}),
-        ...(doc.documentUrl ? { documentUrl: doc.documentUrl } : {}),
-      });
-      results.push(res);
-    }
-    return results;
-  },
+  // KYC document submission — POST /kyc/submit takes a single SubmitKycDto
+  // (the backend stores ONE document at a time per user), so the app uploads
+  // the document photo first and submits the returned URL here.
+  submitKycDocuments: (data: { documentType: string; documentNumber?: string; documentUrl?: string }) =>
+    api.post<any>('/kyc/submit', data),
 
   getKycStatus: () => api.get<any>('/kyc/status'),
 
   // Failed delivery — report a delivery that couldn't be completed
   reportDeliveryFailure: (data: { orderId: string; reason: string; details?: string }) =>
     api.post<any>('/delivery/failure', data),
+};
+
+// Support tickets — create, list own, view thread, reply
+export const supportApi = {
+  createTicket: (data: { subject: string; message: string; category?: string; orderId?: string; priority?: string }) =>
+    api.post<any>('/support/tickets', data),
+
+  getMyTickets: (params?: any) =>
+    api.get<any>('/support/tickets/mine', params),
+
+  getTicket: (id: string) =>
+    api.get<any>(`/support/tickets/${id}`),
+
+  replyToTicket: (id: string, message: string) =>
+    api.post<any>(`/support/tickets/${id}/reply`, { message }),
 };

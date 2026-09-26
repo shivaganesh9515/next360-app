@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserRole } from '@prisma/client';
+import { DELIVERY_FEE } from '../delivery/delivery.service';
 
 @Injectable()
 export class UsersService {
@@ -24,7 +25,9 @@ export class UsersService {
           orderBy: { isDefault: 'desc' },
         },
         vendor: true,
-        deliveryPartner: true,
+        deliveryPartner: {
+          include: { zone: { select: { id: true, name: true } } },
+        },
       },
     });
 
@@ -32,7 +35,47 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // For delivery partners, attach real profile stats from persisted delivery
+    // records — the same basis as GET /delivery/earnings (item totals + a flat
+    // per-delivery fee, in rupees). No fabricated numbers, no placeholder.
+    if (user.role === UserRole.DELIVERY_PARTNER && user.deliveryPartner) {
+      const stats = await this.buildDeliveryPartnerStats(user.deliveryPartner.id);
+      return { ...user, ...stats };
+    }
+
     return user;
+  }
+
+  /** completedDeliveries + all-time earnings for a partner, derived from
+   *  DeliveryAssignment records the same way GET /delivery/earnings derives
+   *  them, so the Profile screen and the Earnings screen can never disagree. */
+  private async buildDeliveryPartnerStats(partnerId: string) {
+    const assignments = await this.prisma.deliveryAssignment.findMany({
+      where: { deliveryPartnerId: partnerId, deliveredAt: { not: null } },
+      select: {
+        orderVendorGroup: {
+          select: {
+            items: {
+              select: { priceAtPurchase: true, quantity: true },
+            },
+          },
+        },
+      },
+    });
+
+    const itemTotal = assignments.reduce((sum, a) => {
+      const groupTotal =
+        a.orderVendorGroup?.items.reduce(
+          (s, item) => s + Number(item.priceAtPurchase) * item.quantity,
+          0,
+        ) ?? 0;
+      return sum + groupTotal;
+    }, 0);
+
+    return {
+      completedDeliveries: assignments.length,
+      totalEarnings: itemTotal + assignments.length * DELIVERY_FEE,
+    };
   }
 
   async findByIdAdmin(id: string) {

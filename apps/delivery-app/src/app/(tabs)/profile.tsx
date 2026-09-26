@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -6,22 +6,39 @@ import { useAuthStore } from '../../store/authStore';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { deliveryApi } from '../../lib/api';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../constants/theme';
-import { useStaggeredEntrance, useSpringEntrance } from '../../hooks/useDeliveryAnimation';
+import { useSpringEntrance } from '../../hooks/useDeliveryAnimation';
+
+const KYC_LOOKUP: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  APPROVED: { label: 'Approved', icon: 'shield-checkmark', color: Colors.primary, bg: Colors.primaryLight },
+  PENDING: { label: 'Pending', icon: 'shield-outline', color: Colors.warning, bg: Colors.warningLight },
+  REJECTED: { label: 'Rejected', icon: 'shield-half', color: Colors.danger, bg: Colors.dangerLight },
+  VERIFIED: { label: 'Verified', icon: 'shield-checkmark', color: Colors.primary, bg: Colors.primaryLight },
+  NOT_SUBMITTED: { label: 'Not Submitted', icon: 'shield-outline', color: Colors.textTertiary, bg: Colors.borderLight },
+};
 
 export default function ProfileScreen() {
   const { user, accountStatus, signOut } = useAuthStore();
   const { earnings, fetchEarnings } = useDeliveryStore();
+  const [kycStatus, setKycStatus] = useState('NOT_SUBMITTED');
   const headerAnim = useSpringEntrance(0);
   const statsAnim = useSpringEntrance(150);
   const menuAnim = useSpringEntrance(250);
 
   useEffect(() => {
     fetchEarnings('all');
+    deliveryApi.getKycStatus()
+      .then((res: any) => setKycStatus(res?.status || res?.data?.status || 'NOT_SUBMITTED'))
+      .catch((err) => {
+        console.error('Fetch KYC status error:', err);
+        setKycStatus('NOT_SUBMITTED');
+      });
   }, []);
+
+  const kyc = KYC_LOOKUP[kycStatus] ?? KYC_LOOKUP.NOT_SUBMITTED;
 
   const doSignOut = async () => {
     await signOut();
-    router.replace('/login');
+    router.replace('/(auth)/login');
   };
 
   const handleSignOut = () => {
@@ -44,7 +61,7 @@ export default function ProfileScreen() {
     try {
       await deliveryApi.deleteAccount();
       await signOut();
-      router.replace('/login');
+      router.replace('/(auth)/login');
     } catch {
       Alert.alert(
         'Something went wrong',
@@ -57,18 +74,20 @@ export default function ProfileScreen() {
     { icon: 'person-outline', label: 'Edit Profile', color: Colors.primary, route: '/edit-profile' as any },
     { icon: 'car-outline', label: 'Vehicle Details', color: Colors.warning, route: '/vehicle-setup' as any },
     { icon: 'document-text-outline', label: 'Documents (KYC)', color: Colors.purple, route: '/kyc-documents' as any },
+    { icon: 'notifications-outline', label: 'Notifications', color: Colors.primary, route: '/notifications' as any },
+    { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.blue, route: '/support' as any },
     { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.blue, route: '/privacy-policy' as any },
     { icon: 'document-text-outline', label: 'Terms of Service', color: Colors.textSecondary, route: '/terms-of-service' as any },
-    { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.blue, route: null, action: () => Linking.openURL('mailto:support@next360.com') },
+    { icon: 'mail-outline', label: 'Email Us', color: Colors.textSecondary, route: null, action: () => Linking.openURL('mailto:support@next360.com') },
     { icon: 'information-circle-outline', label: 'About', color: Colors.textSecondary, route: null, action: () => Alert.alert('Next360 Delivery', 'Version 1.0.0\n\nDelivery Partner App') },
   ];
 
-  // Real weekly earnings from the store; '—' until loaded — never a
-  // fabricated number, and never the lifetime delivery count relabeled.
+  // Real weekly earnings from the store (rupees — the backend returns rupees);
+  // '—' until loaded, never a fabricated number.
   const weekEarningsText =
     earnings == null
       ? '—'
-      : `₹${((earnings.thisWeek ?? 0) / 100).toLocaleString('en-IN')}`;
+      : `₹${(earnings.thisWeek ?? 0).toLocaleString('en-IN')}`;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -119,6 +138,24 @@ export default function ProfileScreen() {
           <Text style={styles.statValue}>{weekEarningsText}</Text>
           <Text style={styles.statLabel}>This Week</Text>
         </View>
+      </Animated.View>
+
+      {/* KYC Status */}
+      <Animated.View style={{ opacity: menuAnim, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}>
+        <TouchableOpacity
+          style={styles.statusCard}
+          onPress={() => router.push('/kyc-documents' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.menuIconWrap, { backgroundColor: kyc.bg }]}>
+            <Ionicons name={kyc.icon as any} size={20} color={kyc.color} />
+          </View>
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleLabel}>KYC Verification</Text>
+            <Text style={[styles.vehicleValue, { color: kyc.color }]}>{kyc.label}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+        </TouchableOpacity>
       </Animated.View>
 
       {/* Vehicle Info */}
@@ -249,6 +286,12 @@ const styles = StyleSheet.create({
   menuLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
   // Vehicle info
   vehicleCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: Colors.white, marginHorizontal: Spacing.lg, marginTop: Spacing.lg,
+    borderRadius: BorderRadius.lg, padding: Spacing.lg, ...Shadow.sm,
+  },
+  // KYC status
+  statusCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: Colors.white, marginHorizontal: Spacing.lg, marginTop: Spacing.lg,
     borderRadius: BorderRadius.lg, padding: Spacing.lg, ...Shadow.sm,

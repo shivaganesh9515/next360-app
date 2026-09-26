@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { deliveryApi, getBackendToken, setUnauthorizedHandler } from '../lib/api';
 import { useDeliveryStore } from './deliveryStore';
 
+// The screens pass the display form "+91XXXXXXXXXX"; the backend send-otp /
+// verify-otp-login DTOs expect the plain 10-digit Indian number. Strip the
+// leading +91 before calling the API.
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+}
+
 interface User {
   id: string;
   email: string;
@@ -55,9 +63,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email: string, password: string) => {
     try {
+      // Local backend login (POST /auth/login) — persists the NestJS JWT.
       const data = await deliveryApi.login(email, password);
 
-      // Validate role
+      // Validate role against the local User record (auth token just set).
       const profile = await deliveryApi.getProfile();
       if (profile.role !== 'DELIVERY_PARTNER') {
         await get().clearSession();
@@ -78,7 +87,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   sendPhoneOtp: async (phone: string) => {
-    await deliveryApi.sendOtp(phone);
+    // Local NestJS phone-OTP flow (POST /auth/send-otp). The 6-digit code is
+    // delivered via SMS — never returned to the client.
+    await deliveryApi.sendOtp(normalizePhone(phone));
   },
 
   verifyPhoneOtp: async (phone: string, otp: string) => {
@@ -86,8 +97,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Backend OTP verification — issues the same backend JWT as email/password
       // login and persists it via setBackendToken inside deliveryApi.verifyOtpLogin.
       // Supabase OTP is deliberately NOT used for delivery-partner phone auth.
-      const data = await deliveryApi.verifyOtpLogin(phone, otp);
+      const data = await deliveryApi.verifyOtpLogin(normalizePhone(phone), otp);
 
+      // Role gate — identical to signIn(): only DELIVERY_PARTNER accounts
+      // can operate this app.
       const profile = await deliveryApi.getProfile();
       if (profile.role !== 'DELIVERY_PARTNER') {
         await get().clearSession();

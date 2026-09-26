@@ -1,9 +1,11 @@
 import { IsOptional, IsIn } from 'class-validator';
 
+export type EarningsPeriod = 'today' | 'week' | 'month' | 'all';
+
 export class EarningsQueryDto {
   @IsOptional()
-  @IsIn(['today', 'week', 'month'], {
-    message: 'period must be one of: today, week, month',
+  @IsIn(['today', 'week', 'month', 'all'], {
+    message: 'period must be one of: today, week, month, all',
   })
-  period?: 'today' | 'week' | 'month';
+  period?: EarningsPeriod;
 }

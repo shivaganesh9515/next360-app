@@ -12,21 +12,64 @@ const PERIODS = [
   { key: 'all', label: 'All Time' },
 ] as const;
 
-const formatCurrency = (amount: number) => `₹${(amount / 100).toLocaleString('en-IN')}`;
+// Backend returns rupees (items total + flat DELIVERY_FEE = ₹40 per delivery)
+// — no /100 conversion. See lib/pricing.ts.
+const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN')}`;
+
+const formatShortDate = (date: string | null) => {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const formatTxDate = (date: string | null) => {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
+const payoutStatusColor = (status: string) => {
+  switch (status) {
+    case 'PAID': return Colors.primary;
+    case 'PROCESSED': return Colors.blue;
+    case 'SETTLING': return Colors.warning;
+    case 'FAILED': return Colors.danger;
+    default: return Colors.warning; // PENDING
+  }
+};
+
+const formatPayoutPeriod = (start: string | null, end: string | null) => {
+  if (start && end) {
+    const s = new Date(start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const e = new Date(end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    return `${s} – ${e}`;
+  }
+  return 'Weekly payout';
+};
 
 export default function EarningsScreen() {
-  const { earnings, fetchEarnings, isLoading } = useDeliveryStore();
+  const {
+    earnings, fetchEarnings,
+    transactions, payouts, fetchTransactions, fetchPayouts, financialError,
+  } = useDeliveryStore();
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'all'>('all');
   const summaryAnim = useSpringEntrance(0);
 
   useEffect(() => {
-    fetchEarnings();
-  }, [fetchEarnings]);
+    fetchEarnings(period);
+  }, [period]);
+
+  useEffect(() => {
+    fetchTransactions({ page: 1, limit: 5 });
+    fetchPayouts({ page: 1, limit: 5 });
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchEarnings();
+    await Promise.all([
+      fetchEarnings(period),
+      fetchTransactions({ page: 1, limit: 5 }),
+      fetchPayouts({ page: 1, limit: 5 }),
+    ]);
     setRefreshing(false);
   };
 
@@ -63,6 +106,14 @@ export default function EarningsScreen() {
           </Text>
         </View>
       </Animated.View>
+
+      {/* Controlled error — never a silent fake-zero screen */}
+      {financialError && (
+        <TouchableOpacity style={styles.errorCard} onPress={onRefresh} activeOpacity={0.85}>
+          <Ionicons name="alert-circle-outline" size={18} color={Colors.danger} />
+          <Text style={styles.errorText}>{financialError}. Tap to retry.</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Period Filter */}
       <View style={styles.periodRow}>
@@ -137,6 +188,55 @@ export default function EarningsScreen() {
         </View>
       </View>
 
+      {/* Recent Transactions */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Recent Transactions</Text>
+          <Text style={styles.cardHint}>Per delivery</Text>
+        </View>
+        {!financialError && transactions.length === 0 ? (
+          <Text style={styles.emptyText}>No transactions yet.</Text>
+        ) : (
+          transactions.slice(0, 5).map((t) => (
+            <View key={t.id} style={styles.listRow}>
+              <View style={styles.listLeft}>
+                <Text style={styles.listTitle}>{t.orderNumber ? `#${t.orderNumber}` : 'Delivery'}</Text>
+                <Text style={styles.listSub}>{formatTxDate(t.deliveredAt)} · {t.itemCount} item{t.itemCount === 1 ? '' : 's'}</Text>
+              </View>
+              <Text style={styles.listAmount}>+{formatCurrency(t.amount)}</Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      {/* Payout History */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Payout History</Text>
+          <Text style={styles.cardHint}>Weekly</Text>
+        </View>
+        {!financialError && payouts.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No payouts yet. Weekly payouts appear here once processed.
+          </Text>
+        ) : (
+          payouts.slice(0, 5).map((p) => (
+            <View key={p.id} style={styles.listRow}>
+              <View style={styles.listLeft}>
+                <Text style={styles.listTitle}>{formatPayoutPeriod(p.periodStart, p.periodEnd)}</Text>
+                <Text style={styles.listSub}>{formatShortDate(p.createdAt)}</Text>
+              </View>
+              <View style={styles.payoutRight}>
+                <Text style={styles.listAmount}>{formatCurrency(p.amount)}</Text>
+                <View style={[styles.statusPill, { backgroundColor: `${payoutStatusColor(p.status)}1A` }]}>
+                  <Text style={[styles.statusText, { color: payoutStatusColor(p.status) }]}>{p.status}</Text>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
       {/* Info */}
       <View style={styles.infoCard}>
         <View style={styles.infoIconWrap}>
@@ -164,6 +264,13 @@ const styles = StyleSheet.create({
   summarySubtext: { fontSize: 14, color: Colors.white, opacity: 0.7, marginTop: Spacing.xs },
   summaryTrend: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: BorderRadius.pill, gap: 6 },
   summaryTrendText: { fontSize: 13, color: Colors.white, fontWeight: '500' },
+  // Error
+  errorCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.dangerLight,
+    borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  errorText: { flex: 1, fontSize: 13, color: Colors.danger, fontWeight: '500' },
   // Periods
   periodRow: { flexDirection: 'row', marginBottom: Spacing.xl, backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: 4, ...Shadow.sm },
   periodTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },
@@ -187,6 +294,20 @@ const styles = StyleSheet.create({
   statIconWrap: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.md },
   statValue: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
   statLabel: { fontSize: 12, color: Colors.textTertiary, marginTop: 4 },
+  // Transactions / Payouts
+  card: { backgroundColor: Colors.white, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.lg, ...Shadow.sm },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  cardHint: { fontSize: 11, color: Colors.textTertiary, fontWeight: '600', letterSpacing: 0.4 },
+  listRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  listLeft: { flex: 1, marginRight: Spacing.md },
+  listTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  listSub: { fontSize: 12, color: Colors.textTertiary, marginTop: 2 },
+  listAmount: { fontSize: 15, fontWeight: '700', color: Colors.primary },
+  payoutRight: { alignItems: 'flex-end', gap: 4 },
+  statusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BorderRadius.pill },
+  statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
+  emptyText: { fontSize: 13, color: Colors.textTertiary, paddingVertical: Spacing.md },
   // Info
   infoCard: { flexDirection: 'row', backgroundColor: Colors.white, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: 12, ...Shadow.sm },
   infoIconWrap: { marginTop: 2 },

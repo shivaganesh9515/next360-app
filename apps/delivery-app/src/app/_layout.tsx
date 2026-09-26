@@ -83,6 +83,18 @@ function RootLayout() {
           <Stack.Screen name="delivery/complete" options={{ headerShown: false }} />
           <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile', headerTintColor: '#10B981' }} />
           <Stack.Screen
+            name="notifications"
+            options={{ title: 'Notifications', headerTintColor: '#10B981' }}
+          />
+          <Stack.Screen
+            name="support"
+            options={{ title: 'Help & Support', headerTintColor: '#10B981' }}
+          />
+          <Stack.Screen
+            name="support/[id]"
+            options={{ title: 'Ticket', headerTintColor: '#10B981' }}
+          />
+          <Stack.Screen
             name="vehicle-setup"
             options={{ title: 'Vehicle & Zone', headerTintColor: '#10B981' }}
           />

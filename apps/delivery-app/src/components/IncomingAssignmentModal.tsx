@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useDeliveryStore } from '../store/deliveryStore';
@@ -8,11 +8,21 @@ import { Colors, Spacing, BorderRadius, Shadow } from '../constants/theme';
 
 const COUNTDOWN_SECONDS = 30;
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+}
+
 export function IncomingAssignmentModal() {
   const { newOrders, isAvailable, acceptOrder, rejectOrder } = useDeliveryStore();
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
   const [isProcessing, setIsProcessing] = useState(false);
   const shownOrderId = useRef<string | null>(null);
+  // Guard against the auto-reject loop: when the countdown hits 0 for an order
+  // but the reject call fails, we must NOT retry in a tight 0-second loop that
+  // hammers the API. Only one auto-reject attempt per order; on failure we
+  // surface the error and leave the modal open for a manual choice.
+  const autoRejectAttempted = useRef<string | null>(null);
+  const interactionLocked = useRef(false);
 
   // Spring scale for countdown ring urgency pulse
   const ringScale = useRef(new Animated.Value(1)).current;
@@ -35,7 +45,13 @@ export function IncomingAssignmentModal() {
   // Countdown with urgency pulse
   useEffect(() => {
     if (!visible || isProcessing) return;
-    if (secondsLeft <= 0) { handleReject(true); return; }
+    if (secondsLeft <= 0) {
+      if (autoRejectAttempted.current !== currentOrder.id) {
+        autoRejectAttempted.current = currentOrder.id;
+        handleReject(true);
+      }
+      return;
+    }
     const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     // Scale pulse at 10 seconds
     if (secondsLeft <= 10) {
@@ -49,12 +65,16 @@ export function IncomingAssignmentModal() {
 
   const handleAccept = async () => {
     if (!currentOrder) return;
+    if (interactionLocked.current) return;
+    interactionLocked.current = true;
     setIsProcessing(true);
     try {
       await acceptOrder(currentOrder.id);
       router.push(`/delivery/${currentOrder.id}`);
-    } catch {
+    } catch (err) {
       // leave modal open for retry
+      Alert.alert('Could not accept', errorMessage(err));
+      interactionLocked.current = false;
     } finally {
       setIsProcessing(false);
     }
@@ -62,9 +82,23 @@ export function IncomingAssignmentModal() {
 
   const handleReject = async (auto = false) => {
     if (!currentOrder) return;
+    if (interactionLocked.current) return;
+    interactionLocked.current = true;
     setIsProcessing(true);
-    try { await rejectOrder(currentOrder.id); } catch { /* swallow */ }
-    finally { setIsProcessing(false); }
+    try {
+      await rejectOrder(currentOrder.id);
+      interactionLocked.current = false;
+    } catch (err) {
+      // Swallow on the manual path (store already surfaced) — but for the
+      // auto path, surface the failure so the partner knows the order was NOT
+      // declined and no silent auto-retry will fire (guarded above).
+      interactionLocked.current = false;
+      if (auto) {
+        Alert.alert('Decline failed', errorMessage(err));
+      }
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (!currentOrder) return null;

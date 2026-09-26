@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { SupportService } from './support.service';
+import { CreateTicketDto, AddMessageDto } from './dto/support.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -12,8 +13,23 @@ export class SupportController {
 
   @Post('tickets')
   @UseGuards(JwtAuthGuard)
-  async create(@CurrentUser('id') userId: string, @Body() dto: any) {
+  @HttpCode(HttpStatus.CREATED)
+  async create(@CurrentUser('id') userId: string, @Body() dto: CreateTicketDto) {
     return this.supportService.create(userId, dto);
+  }
+
+  @Get('tickets/mine')
+  @UseGuards(JwtAuthGuard)
+  async findMine(
+    @CurrentUser('id') userId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.supportService.findMine(
+      userId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   @Get('tickets')
@@ -44,9 +60,9 @@ export class SupportController {
   async addReply(
     @Param('id') id: string,
     @CurrentUser() user: { id: string; role: string },
-    @Body('message') message: string,
+    @Body() dto: AddMessageDto,
   ) {
-    return this.supportService.addReply(id, user.id, message, user.role);
+    return this.supportService.addReply(id, user.id, dto.message, user.role);
   }
 
   @Patch('tickets/:id/status')

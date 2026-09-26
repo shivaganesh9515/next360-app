@@ -12,13 +12,29 @@ import { deliveryApi } from '../../lib/api';
 
 type DeliveryStatus = 'ASSIGNED' | 'PICKING_UP' | 'IN_TRANSIT' | 'DELIVERED';
 
+// Map whatever status string the API returns onto the screen's status union.
+// The backend now emits exactly these four values, but an unknown value must
+// degrade to ASSIGNED instead of being force-cast and breaking the UI.
+function toDeliveryStatus(status?: string | null): DeliveryStatus {
+  switch (status) {
+    case 'PICKING_UP':
+      return 'PICKING_UP';
+    case 'IN_TRANSIT':
+      return 'IN_TRANSIT';
+    case 'DELIVERED':
+      return 'DELIVERED';
+    default:
+      return 'ASSIGNED';
+  }
+}
+
 const LOCATION_PUSH_INTERVAL_MS = 15000;
 const LOCATION_PUSH_DISTANCE_M = 50;
 
 export default function DeliveryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { activeDeliveries, fetchActiveDeliveries, updateDeliveryStatus, verifyPickupOTP, isLoading } = useDeliveryStore();
+  const { activeDeliveries, fetchActiveDeliveries, updateDeliveryStatus, verifyPickupOTP, startTransit, isLoading } = useDeliveryStore();
   const [order, setOrder] = useState<any>(null);
   const [currentStatus, setCurrentStatus] = useState<DeliveryStatus>('ASSIGNED');
   const [showOTPModal, setShowOTPModal] = useState(false);
@@ -71,7 +87,11 @@ export default function DeliveryDetailScreen() {
           const { latitude, longitude } = position.coords;
           setDeviceLocation({ lat: latitude, lng: longitude });
           if (id) {
-            deliveryApi.updateLocation(latitude, longitude).catch(() => {});
+            deliveryApi.updateLocation(latitude, longitude).catch((err) => {
+              // Never interrupt the delivery flow on a tracking push failure,
+              // but surface it in logs so a broken location pipe is detectable.
+              if (!cancelled) console.warn('Location push failed:', err?.message || err);
+            });
           }
         },
       );
@@ -89,7 +109,7 @@ export default function DeliveryDetailScreen() {
       const found = activeDeliveries.find(o => o.id === id);
       if (found) {
         setOrder(found);
-        setCurrentStatus(found.status as DeliveryStatus);
+        setCurrentStatus(toDeliveryStatus(found.status));
       }
     }
   }, [activeDeliveries, id]);
@@ -102,7 +122,7 @@ export default function DeliveryDetailScreen() {
 
     setIsProcessing(true);
     try {
-      await updateDeliveryStatus(id!, newStatus);
+      await updateDeliveryStatus(order?.orderId ?? id!, newStatus);
       setCurrentStatus(newStatus);
       if (newStatus === 'DELIVERED') {
         router.replace(
@@ -119,18 +139,32 @@ export default function DeliveryDetailScreen() {
   };
 
   const handleVerifyOTP = async () => {
-    if (otp.length !== 4) {
-      Alert.alert('Error', 'Please enter a valid 4-digit OTP');
+    if (otp.length !== 6) {
+      Alert.alert('Error', 'Please enter the valid 6-digit OTP');
       return;
     }
 
     setIsProcessing(true);
     try {
-      await verifyPickupOTP(id!, otp);
+      // The verify-pickup / start-transit endpoints resolve assignment through
+      // the parent ORDER id — the list key `id` is the group id, not the order
+      // id, so pass order.orderId here.
+      const orderId = order?.orderId ?? id!;
+      await verifyPickupOTP(orderId, otp);
       setShowOTPModal(false);
       setOtp('');
-      setCurrentStatus('IN_TRANSIT');
-      Alert.alert('OTP Verified', 'You can now proceed with the delivery');
+      setCurrentStatus('PICKING_UP');
+      // Chained state-machine leg: PICKED_UP -> OUT_FOR_DELIVERY. Do not set
+      // IN_TRANSIT locally before the backend confirms it.
+      try {
+        await startTransit(orderId);
+        setCurrentStatus('IN_TRANSIT');
+      } catch {
+        Alert.alert(
+          'OTP Verified',
+          'Pickup confirmed. Tap "Start Transit" once you are on the road.',
+        );
+      }
     } catch (error) {
       Alert.alert('Error', 'Invalid OTP. Please try again.');
     } finally {
@@ -168,6 +202,40 @@ export default function DeliveryDetailScreen() {
     }
   };
 
+  // Launch turn-by-turn navigation to the pickup or drop point. Uses whatever
+  // maps app is installed (Apple Maps on iOS, Google Maps otherwise) via its
+  // universal URL scheme. Degrades to a plain alert with the street address
+  // when the backend didn't attach coordinates.
+  const handleNavigate = (target: 'pickup' | 'drop') => {
+    const coords =
+      target === 'pickup'
+        ? order?.vendorGroups?.[0]?.vendor
+        : (order?.address ?? {});
+
+    const lat = coords?.lat;
+    const lng = coords?.lng;
+    const address = target === 'pickup'
+      ? order?.vendorGroups?.[0]?.vendor?.name || 'Pickup point'
+      : order?.address?.street || 'Customer location';
+
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      Alert.alert(
+        'Navigation unavailable',
+        `${address}\n\nNo coordinates were provided for this location. Use a maps app with the address above.`,
+      );
+      return;
+    }
+
+    const url = Platform.select({
+      ios: `http://maps.apple.com/?daddr=${lat},${lng}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+    });
+    Linking.canOpenURL(url).then((ok) => {
+      if (ok) Linking.openURL(url);
+      else Alert.alert('Navigation unavailable', 'No maps app found on this device.');
+    });
+  };
+
   // Number masking for privacy — show only last 4 digits on screen
   // but still place the real call when tapped (per CLAUDE.md spec)
   const maskedPhone = order?.user?.phone
@@ -190,6 +258,19 @@ export default function DeliveryDetailScreen() {
     }
   };
 
+  const handleStartTransit = async () => {
+    if (!order) return;
+    setIsProcessing(true);
+    try {
+      await startTransit(order.orderId ?? id!);
+      setCurrentStatus('IN_TRANSIT');
+    } catch {
+      Alert.alert('Error', 'Failed to start transit. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCompleteWithPhoto = async (opts?: { skipped?: boolean; reason?: string }) => {
     setUploadError(null);
     setIsProcessing(true);
@@ -209,7 +290,7 @@ export default function DeliveryDetailScreen() {
         }
       }
       await updateDeliveryStatus(
-        id!,
+        order?.orderId ?? id!,
         'DELIVERED',
         opts?.skipped ? { proofSkipped: true, skipReason: opts.reason } : undefined,
       );
@@ -253,16 +334,16 @@ export default function DeliveryDetailScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Enter Pickup OTP</Text>
             <Text style={styles.modalSubtitle}>
-              Ask the vendor for the 4-digit OTP to confirm pickup
+              Ask the vendor for the 6-digit OTP to confirm pickup
             </Text>
             <TextInput
               style={styles.otpInput}
               value={otp}
               onChangeText={setOtp}
-              placeholder="••••"
+              placeholder="••••••"
               placeholderTextColor="#D1D5DB"
               keyboardType="number-pad"
-              maxLength={4}
+              maxLength={6}
               secureTextEntry
             />
             <View style={styles.modalActions}>
@@ -430,7 +511,24 @@ export default function DeliveryDetailScreen() {
             )}
 
             {/* Proof of delivery photo — capture before marking delivered */}
-            {currentStatus === 'IN_TRANSIT' && (
+{currentStatus === 'PICKING_UP' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={handleStartTransit}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="car-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Start Transit</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {currentStatus === 'IN_TRANSIT' && (
               <View style={{ marginTop: 12 }}>
                 <TouchableOpacity style={styles.cameraButton} onPress={handleTakeProofPhoto}>
                   {proofPhoto ? (
@@ -508,7 +606,7 @@ export default function DeliveryDetailScreen() {
                   setIsProcessing(true);
                   try {
                     await deliveryApi.reportDeliveryFailure({
-                      orderId: id!,
+                      orderId: order?.orderId ?? id!,
                       reason: failureReason,
                       details: failureDetails || undefined,
                     });
@@ -580,20 +678,29 @@ export default function DeliveryDetailScreen() {
       {/* Action Buttons */}
       <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
         {currentStatus === 'ASSIGNED' && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton]}
-            onPress={() => handleStatusUpdate('PICKING_UP')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="navigate-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Start Pickup</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={() => handleNavigate('pickup')}
+            >
+              <Ionicons name="navigate" size={20} color="#059669" />
+              <Text style={styles.secondaryButtonText}>Navigate to Pickup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.primaryButton]}
+              onPress={() => handleStatusUpdate('PICKING_UP')}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>I&apos;m at Pickup</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
         )}
 
         {currentStatus === 'IN_TRANSIT' && (
@@ -622,6 +729,13 @@ export default function DeliveryDetailScreen() {
                 </View>
               </View>
             )}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={() => handleNavigate('drop')}
+            >
+              <Ionicons name="navigate" size={20} color="#059669" />
+              <Text style={styles.secondaryButtonText}>Navigate to Customer</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
               onPress={() => handleCompleteWithPhoto()}

@@ -17,9 +17,19 @@ import { Throttle } from '@nestjs/throttler';
 
 @Controller('upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.VENDOR, UserRole.ADMIN)
+@Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.DELIVERY_PARTNER)
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
+
+  @Post('document')
+  @Throttle({ upload: { ttl: 60000, limit: 10 } })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.uploadService.uploadImage(file, 'documents');
+  }
 
   @Post('image')
   @UseInterceptors(FileInterceptor('file'))
