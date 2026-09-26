@@ -4,6 +4,51 @@ interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+/**
+ * Paginated endpoints come back double-wrapped.
+ *
+ * The controller returns its own `{ data: [...], meta: {...} }` page object,
+ * and the global ResponseInterceptor then wraps *that* again as
+ * `{ success, data: { data, meta }, meta: { timestamp, requestId } }`.
+ * Unwrapping the envelope once therefore still leaves `{ data, meta }` — an
+ * object, not an array.
+ *
+ * That mismatch is what made list pages look permanently empty: any caller
+ * doing `Array.isArray(res) ? res : []` saw a non-array and rendered nothing,
+ * while callers using the `(res as any)?.data` fallback happened to work.
+ *
+ * So when the payload is a page object, return the inner array with `meta` /
+ * `totalPages` attached to it. `Array.isArray(res)` is then true *and*
+ * `res.meta.totalPages` / `res.totalPages` still resolve, which keeps both
+ * styles of caller working against real backend data.
+ *
+ * Only unwraps a *pure* page object — one whose own keys are nothing but
+ * pagination fields. That guard matters: a payload like
+ * `{ data: [...], recentCommissions, activeVendors }` carries real sibling
+ * data, and collapsing it to the array would silently discard those fields.
+ * Object payloads such as `{ data: { status: 'REFUNDED' } }` (a PATCH body) and
+ * `{ summary: {...} }` (reports) likewise pass through untouched.
+ */
+const PAGE_KEYS = new Set(['data', 'meta', 'total', 'totalPages', 'page', 'limit']);
+
+function normalizePayload(payload: any) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const inner = payload.data;
+  if (!Array.isArray(inner)) return payload;
+  // Preserve any payload that mixes the list with non-pagination fields.
+  if (Object.keys(payload).some((k) => !PAGE_KEYS.has(k))) return payload;
+
+  // Attach pagination info to the array itself so callers can use it both as
+  // a list (Array.isArray, .map, DataTable `data`) and as a page object
+  // (res.meta.totalPages). The cast is needed because TypeScript does not
+  // allow new properties to be added to an array type.
+  const list = inner as any[] & Record<string, any>;
+  if (payload.meta) list.meta = payload.meta;
+  if (payload.totalPages !== undefined) list.totalPages = payload.totalPages;
+  if (payload.total !== undefined) list.total = payload.total;
+  return list;
+}
+
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   let url = `${API_BASE}${path}`;
   if (options.params) {
@@ -50,7 +95,8 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     }
     // apps/api wraps every response in { success, data, meta } (ResponseInterceptor)
     // — unwrap it here so callers get the payload directly instead of the envelope.
-    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
+    const payload = (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
+    return normalizePayload(payload) as T;
   } catch (e) {
     if (e instanceof TypeError && e.message.includes('fetch')) {
       throw new Error('Unable to connect to server. Please check your connection.');
@@ -96,7 +142,7 @@ export const api = {
     } catch {
       throw new Error('Upload returned invalid response');
     }
-    return (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
+    return normalizePayload((body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body) as T;
   },
 };
 
@@ -225,9 +271,11 @@ export const adminApi = {
   updateCommissionRate: (vendorId: string, rate: number) =>
     api.patch<any>(`/commission/rate/${vendorId}`, { commissionPct: rate }),
 
-  // Payouts — no /payouts/* routes exist on the backend at all yet. Only
-  // GET /vendors/me/payouts exists, and that's a vendor's own payouts, not
-  // an admin cross-vendor oversight view. Real gap.
+  // Payouts — PayoutsController (payouts + payouts-admin) exposes
+  // GET /payouts, /payouts/vendors, /payouts/delivery, /payouts/summary and
+  // PATCH /payouts/:id/status, so the admin payout screens below are backed by
+  // real endpoints. (An earlier note here claimed these were missing — that is
+  // stale, they landed with the backend merge.)
   getVendorPayouts: (params?: any) => api.get<any>('/payouts/vendors', params),
   getDeliveryPayouts: (params?: any) => api.get<any>('/payouts/delivery', params),
 
@@ -246,7 +294,9 @@ export const adminApi = {
   getAIRecommendations: (params?: any) => api.get<any>('/ai/recommendations', params),
   getAIAnalytics: (params?: any) => api.get<any>('/ai/admin/analytics', params),
 
-  // Reports — no /reports/* routes exist on the backend at all. Real gap.
+  // Reports — ReportsController exposes GET /reports/sales, /reports/revenue
+  // plus /sales/csv and /revenue/csv exports. It returns { summary: {...} },
+  // NOT a paginated { data, meta } page, so callers read res.summary.
   getSalesReport: (params?: any) => api.get<any>('/reports/sales', params),
   getRevenueReport: (params?: any) => api.get<any>('/reports/revenue', params),
 
@@ -294,10 +344,9 @@ export const adminApi = {
   getUserLoyalty: (userId: string) => api.get<any>(`/loyalty/user/${userId}`),
   recalculateUserTier: (userId: string) => api.post<any>(`/loyalty/tier/recalculate`, { userId }),
 
-  // Analytics — no /admin/analytics route exists. The closest real endpoint
-  // is /ai/admin/analytics (AI-usage analytics specifically, not general
-  // sales/GMV analytics) — not a true substitute, so left pointing at the
-  // nonexistent route rather than silently serving the wrong data.
+  // Analytics — GET /admin/analytics exists on AdminController and is the
+  // general platform analytics feed (distinct from the AI-usage numbers on
+  // /ai/admin/analytics).
   getAnalytics: (params?: any) => api.get<any>('/admin/analytics', params),
 
   // Commissions — no bare GET /commission list route exists. Closest real
@@ -307,13 +356,15 @@ export const adminApi = {
   // page's page/limit params imply, but the only backend data that exists.
   getCommissions: (params?: any) => api.get<any>('/commission/summary', params),
 
-  // Payouts (generic) — same gap as getVendorPayouts/getDeliveryPayouts above.
+  // Payouts (generic) — GET /payouts lists payout records across both vendor
+  // and delivery payouts; PATCH /payouts/:id/status re-queues one.
   getPayouts: (params?: any) => api.get<any>('/payouts', params),
   // Re-queue / status updates use the existing PATCH /payouts/:id/status route.
   updatePayoutStatus: (id: string, status: string) =>
     api.patch<any>(`/payouts/${id}/status`, { status }),
 
-  // Reports (generic) — same gap as getSalesReport/getRevenueReport above.
+  // Reports (generic) — the two report feeds are split by kind
+  // (sales / revenue); there is no combined /reports listing.
   getReports: (params?: any) => api.get<any>('/reports', params),
 
   // CMS (alias)
@@ -335,8 +386,8 @@ export const adminApi = {
   // Refunds
   getRefunds: (params?: any) => api.get<any>('/returns/refunds', params),
 
-  // Ratings — no /reviews/ratings aggregate route exists (ReviewsController
-  // only has POST, my/product listings, and delete). Real gap.
+  // Ratings — ReviewsController exposes GET /reviews/ratings for the aggregate
+  // rating view, so this is a real endpoint.
   getRatings: (params?: any) => api.get<any>('/reviews/ratings', params),
 
   // Settings — endpoints now exist via AdminModule

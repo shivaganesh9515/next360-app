@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Truck } from 'lucide-react';
+import { Truck, AlertTriangle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
@@ -11,6 +11,7 @@ export default function DeliveryPartnersPage() {
   const router = useRouter();
   const [partners, setPartners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -21,10 +22,21 @@ export default function DeliveryPartnersPage() {
   const loadPartners = async () => {
     setLoading(true);
     try {
+      // GET /delivery-partners returns { items, total, totalPages }, so res.items
+      // is the correct read — this mapping is right. A failed request used to be
+      // swallowed into an empty list, which rendered the "No delivery partners
+      // found" empty state and made an API/permission problem look like an
+      // absence of data. Surface it instead so the real cause is visible.
       const res = await adminApi.getDeliveryPartners({ page, limit: 20, search });
       setPartners(res?.items || []);
       setTotalPages(res?.totalPages || 1);
-    } catch { setPartners([]); } finally { setLoading(false); }
+      setError(null);
+    } catch (err: any) {
+      setPartners([]);
+      setError(err?.message || 'Could not load delivery partners.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStatusChange = async (id: string, status: string) => {
@@ -58,7 +70,17 @@ export default function DeliveryPartnersPage() {
         <p className="text-sm text-gray-500">Manage delivery partner accounts</p>
       </div>
 
-      <DataTable columns={columns} data={partners} loading={loading} searchable searchPlaceholder="Search partners..." onSearch={(q) => { setSearch(q); setPage(1); }} page={page} totalPages={totalPages} onPageChange={setPage} onRowClick={(p) => router.push(`/delivery-partners/${p.id}`)} emptyMessage="No delivery partners found" emptyIcon={<Truck className="w-10 h-10" />} />
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+          <button onClick={loadPartners} className="ml-auto text-amber-600 hover:text-amber-800 text-xs font-medium">
+            Retry
+          </button>
+        </div>
+      )}
+
+      <DataTable columns={columns} data={partners} loading={loading} searchable searchPlaceholder="Search partners..." onSearch={(q) => { setSearch(q); setPage(1); }} page={page} totalPages={totalPages} onPageChange={setPage} onRowClick={(p) => router.push(`/delivery-partners/${p.id}`)} emptyMessage={error ? 'Could not load delivery partners' : 'No delivery partners found'} emptyIcon={<Truck className="w-10 h-10" />} />
 
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
