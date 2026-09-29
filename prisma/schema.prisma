@@ -28,14 +28,20 @@ enum UserRole {
   ADMIN
 }
 
+// Full order + delivery lifecycle. The delivery leg (ASSIGNED_TO_DELIVERY
+// onwards) is tracked per OrderVendorGroup using these same values — there is
+// deliberately no second, competing delivery-status enum.
 enum OrderStatus {
   PLACED
   CONFIRMED
   PACKED
   READY_FOR_PICKUP
   ASSIGNED_TO_DELIVERY
+  GOING_TO_PICKUP
+  ARRIVED_AT_PICKUP
   PICKED_UP
   OUT_FOR_DELIVERY
+  ARRIVED_AT_CUSTOMER
   DELIVERED
   CANCELLED
   REFUNDED

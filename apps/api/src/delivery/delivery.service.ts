@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Cron } from '@nestjs/schedule';
 import { OrderStatus, DeliveryPartnerStatus, Prisma } from '@prisma/client';
+import { canTransition } from '../common/order-status-transitions';
 import { EarningsPeriod } from './dto/earnings-query.dto';
 
 const PAYOUT_SUMMARY_SELECT = {
@@ -90,14 +91,24 @@ function haversineDistance(
  * DeliveryStatus union both exist — this is the explicit bridge between
  * them (no `as` casts hiding mismatched strings).
  *
- * DB:      ASSIGNED_TO_DELIVERY | PICKED_UP | OUT_FOR_DELIVERY | DELIVERED
- * Mobile:  ASSIGNED              PICKING_UP  IN_TRANSIT         DELIVERED
+ * The three courier-reported legs (GOING_TO_PICKUP, ARRIVED_AT_PICKUP,
+ * ARRIVED_AT_CUSTOMER) pass through under their own names so the app can
+ * show each step instead of collapsing them into the neighbouring state.
+ *
+ * DB:      ASSIGNED_TO_DELIVERY | GOING_TO_PICKUP | ARRIVED_AT_PICKUP |
+ *          PICKED_UP | OUT_FOR_DELIVERY | ARRIVED_AT_CUSTOMER | DELIVERED
+ * Mobile:  ASSIGNED              | GOING_TO_PICKUP| ARRIVED_AT_PICKUP |
+ *          PICKING_UP            | IN_TRANSIT      | ARRIVED_AT_CUSTOMER |
+ *          DELIVERED
  */
 function mapActiveStatus(assignment: any): string {
   const groupStatus = assignment.orderVendorGroup.status;
   if (groupStatus === OrderStatus.OUT_FOR_DELIVERY) return 'IN_TRANSIT';
   if (groupStatus === OrderStatus.PICKED_UP) return 'PICKING_UP';
   if (groupStatus === OrderStatus.DELIVERED) return 'DELIVERED';
+  if (groupStatus === OrderStatus.GOING_TO_PICKUP) return 'GOING_TO_PICKUP';
+  if (groupStatus === OrderStatus.ARRIVED_AT_PICKUP) return 'ARRIVED_AT_PICKUP';
+  if (groupStatus === OrderStatus.ARRIVED_AT_CUSTOMER) return 'ARRIVED_AT_CUSTOMER';
   return 'ASSIGNED';
 }
 
@@ -1054,6 +1065,157 @@ private formatOrderForDelivery(group: any, deliveryStatus: string) {
   }
 
   /**
+   * POST /orders/:id/going-to-pickup
+   * ASSIGNED_TO_DELIVERY -> GOING_TO_PICKUP. The partner has accepted the
+   * delivery and set off for the vendor. Purely informational: it touches no
+   * DeliveryAssignment timestamp, it only advances the vendor group.
+   */
+  async goToPickup(userId: string, orderId: string) {
+    return this.advanceDeliveryStatus(userId, orderId, OrderStatus.GOING_TO_PICKUP, {
+      requirePickedUp: false,
+      expectedFrom: [OrderStatus.ASSIGNED_TO_DELIVERY],
+      alreadyThereMessage: 'Courier is already on the way to pickup',
+    });
+  }
+
+  /**
+   * POST /orders/:id/arrived-at-pickup
+   * GOING_TO_PICKUP -> ARRIVED_AT_PICKUP. The partner is standing at the
+   * vendor waiting on the pickup OTP.
+   */
+  async arriveAtPickup(userId: string, orderId: string) {
+    return this.advanceDeliveryStatus(userId, orderId, OrderStatus.ARRIVED_AT_PICKUP, {
+      requirePickedUp: false,
+      expectedFrom: [OrderStatus.GOING_TO_PICKUP],
+      alreadyThereMessage: 'Partner has already arrived at pickup',
+    });
+  }
+
+  /**
+   * POST /orders/:id/arrived-at-customer
+   * OUT_FOR_DELIVERY -> ARRIVED_AT_CUSTOMER. The partner is at the drop
+   * point; DELIVERED is the next (still separate) leg.
+   */
+  async arriveAtCustomer(userId: string, orderId: string) {
+    return this.advanceDeliveryStatus(userId, orderId, OrderStatus.ARRIVED_AT_CUSTOMER, {
+      requirePickedUp: true,
+      expectedFrom: [OrderStatus.OUT_FOR_DELIVERY],
+      alreadyThereMessage: 'Partner has already arrived at the customer',
+    });
+  }
+
+  /**
+   * Shared body for the intermediate delivery legs (GOING_TO_PICKUP,
+   * ARRIVED_AT_PICKUP, ARRIVED_AT_CUSTOMER). One implementation so the three
+   * endpoints cannot drift apart in their authorization, ordering or
+   * idempotency behaviour.
+   *
+   * Ordering is enforced against the shared VALID_TRANSITIONS state machine
+   * (../common/order-status-transitions) — never an ad-hoc check here — and
+   * the write is a compare-and-set on the observed status so a double tap or
+   * a concurrent request updates 0 rows and is rejected rather than
+   * corrupting the lifecycle.
+   */
+  private async advanceDeliveryStatus(
+    userId: string,
+    orderId: string,
+    target: OrderStatus,
+    opts: {
+      /** Leg sits after pickup, so the assignment must already be picked up. */
+      requirePickedUp: boolean;
+      /** The only states that may move to `target` (state-machine guard). */
+      expectedFrom: OrderStatus[];
+      /** Idempotent retry path — wording for "already in this state". */
+      alreadyThereMessage: string;
+    },
+  ) {
+    const partner = await this.getPartnerByUserId(userId);
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { vendorGroups: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const vendorGroupIds = order.vendorGroups.map((g) => g.id);
+
+    // Scoped to this partner: another courier's delivery is a 404, never a
+    // 403 that would confirm the order exists.
+    const assignment = await this.prisma.deliveryAssignment.findFirst({
+      where: {
+        orderVendorGroupId: { in: vendorGroupIds },
+        deliveryPartnerId: partner.id,
+        deliveredAt: null,
+        ...(opts.requirePickedUp
+          ? { pickedUpAt: { not: null } }
+          : { pickedUpAt: null }),
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException(
+        opts.requirePickedUp
+          ? 'No picked-up delivery assignment found for this order'
+          : 'No active delivery assignment found for this order',
+      );
+    }
+
+    const groupId = assignment.orderVendorGroupId;
+    const group = await this.prisma.orderVendorGroup.findUnique({
+      where: { id: groupId },
+      select: { id: true, status: true },
+    });
+
+    const current = group?.status;
+    if (!current) {
+      throw new NotFoundException('Vendor group not found');
+    }
+
+    // Idempotent no-op: already in the target state (prior successful call, or
+    // a concurrent request that won the race). Repeat calls must never
+    // corrupt the lifecycle, and they must never throw.
+    if (current === target) {
+      return {
+        message: opts.alreadyThereMessage,
+        orderVendorGroupId: groupId,
+        status: current,
+      };
+    }
+
+    // Guard against a stale client: only the documented predecessor may
+    // advance, and the shared state machine is the authority on legality.
+    if (
+      !opts.expectedFrom.includes(current) ||
+      !canTransition(current, target)
+    ) {
+      throw new BadRequestException(
+        `Cannot set status to ${target}: vendor group is in ${current} status. Expected one of: ${opts.expectedFrom.join(', ')}.`,
+      );
+    }
+
+    const advanced = await this.prisma.orderVendorGroup.updateMany({
+      where: { id: groupId, status: current },
+      data: { status: target },
+    });
+
+    if (advanced.count !== 1) {
+      // Someone else moved the group between our read and our write.
+      throw new ConflictException(
+        'Delivery status changed concurrently. Refresh and try again.',
+      );
+    }
+
+    return {
+      message: `Status updated to ${target}`,
+      orderVendorGroupId: groupId,
+      status: target,
+    };
+  }
+
+  /**
    * POST /orders/:id/verify-pickup
    * Verify the pickup OTP for an assigned delivery. On success, marks the
    * assignment as picked up and updates the vendor group status.
@@ -1115,8 +1277,31 @@ private formatOrderForDelivery(group: any, deliveryStatus: string) {
       throw new BadRequestException('Invalid OTP');
     }
 
-    // Mark as picked up and update status
+    // Mark as picked up and update status. The vendor group must be in a state
+    // the state machine allows PICKED_UP from: ARRIVED_AT_PICKUP (the full
+    // lifecycle) or ASSIGNED_TO_DELIVERY (the pre-existing short-cut). The OTP
+    // above remains mandatory either way. Re-checked inside the transaction so
+    // a concurrent transition can't slip an out-of-order pickup through.
+    const PICKUP_ALLOWED_FROM: OrderStatus[] = [
+      OrderStatus.ARRIVED_AT_PICKUP,
+      OrderStatus.ASSIGNED_TO_DELIVERY,
+    ];
+
     const updated = await this.prisma.$transaction(async (tx) => {
+      const group = await tx.orderVendorGroup.findUnique({
+        where: { id: assignment.orderVendorGroupId },
+        select: { status: true },
+      });
+
+      if (
+        !PICKUP_ALLOWED_FROM.includes(group?.status as OrderStatus) ||
+        !canTransition(group?.status as string, OrderStatus.PICKED_UP)
+      ) {
+        throw new BadRequestException(
+          `Cannot verify pickup: vendor group is in ${group?.status} status, expected ${PICKUP_ALLOWED_FROM.join(' or ')}.`,
+        );
+      }
+
       const a = await tx.deliveryAssignment.update({
         where: { id: assignment.id },
         data: { pickedUpAt: new Date() },
@@ -1264,19 +1449,24 @@ private formatOrderForDelivery(group: any, deliveryStatus: string) {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      // Validate vendor group is OUT_FOR_DELIVERY before marking delivered.
-      // startTransit (PICKED_UP -> OUT_FOR_DELIVERY) must run first; the
-      // direct PICKED_UP -> DELIVERED jump bypasses the state machine.
+      // Validate the vendor group is on the road before marking delivered.
+      // OUT_FOR_DELIVERY is the pre-existing path; ARRIVED_AT_CUSTOMER is the
+      // full lifecycle's final step before delivery. The direct
+      // PICKED_UP -> DELIVERED jump bypasses the state machine and stays blocked.
+      const DELIVER_ALLOWED_FROM: OrderStatus[] = [
+        OrderStatus.ARRIVED_AT_CUSTOMER,
+        OrderStatus.OUT_FOR_DELIVERY,
+      ];
       const group = await tx.orderVendorGroup.findUnique({
         where: { id: assignment.orderVendorGroupId },
       });
-      if (group?.status !== OrderStatus.OUT_FOR_DELIVERY) {
+      if (!DELIVER_ALLOWED_FROM.includes(group?.status as OrderStatus)) {
         // Idempotent no-op: a concurrent completeDelivery already delivered it.
         if (group?.status === OrderStatus.DELIVERED) {
           return assignment;
         }
         throw new BadRequestException(
-          `Cannot deliver: vendor group is in ${group?.status} status, expected ${OrderStatus.OUT_FOR_DELIVERY}. Start transit first.`,
+          `Cannot deliver: vendor group is in ${group?.status} status, expected ${DELIVER_ALLOWED_FROM.join(' or ')}.`,
         );
       }
 

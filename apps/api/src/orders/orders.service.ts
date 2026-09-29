@@ -14,24 +14,17 @@ import { ReferralsService } from '../referrals/referrals.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order-query.dto';
 import { OrderStatus } from '@prisma/client';
+import {
+  VALID_TRANSITIONS,
+  STATUS_RANK,
+} from '../common/order-status-transitions';
 
-// Valid order status transitions (status machine) — 10-state model
-// Added READY_FOR_PICKUP between PACKED and ASSIGNED_TO_DELIVERY so
-// the vendor has a distinct "ready for pickup" handshake that triggers
-// the delivery partner assignment flow (instead of PACKED silently
-// advancing straight into ASSIGNED_TO_DELIVERY without vendor signalling).
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-  [OrderStatus.CONFIRMED]: [OrderStatus.PACKED, OrderStatus.CANCELLED],
-  [OrderStatus.PACKED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
-  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.ASSIGNED_TO_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.ASSIGNED_TO_DELIVERY]: [OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
-  [OrderStatus.PICKED_UP]: [OrderStatus.OUT_FOR_DELIVERY],
-  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
-  [OrderStatus.DELIVERED]: [],
-  [OrderStatus.CANCELLED]: [OrderStatus.REFUNDED],
-  [OrderStatus.REFUNDED]: [],
-};
+// Order/delivery status machine (13-state model) — VALID_TRANSITIONS and
+// STATUS_RANK live in ../common/order-status-transitions so the orders and
+// delivery modules enforce one shared state machine instead of two drifting
+// copies. READY_FOR_PICKUP sits between PACKED and ASSIGNED_TO_DELIVERY so the
+// vendor has a distinct "ready for pickup" handshake; GOING_TO_PICKUP,
+// ARRIVED_AT_PICKUP and ARRIVED_AT_CUSTOMER are the courier-reported legs.
 
 const COD_MAX_AMOUNT = 2000; // ₹2,000 cap for COD orders
 
@@ -739,18 +732,7 @@ export class OrdersService {
     });
     if (groups.length === 0) return;
 
-    const rank: Record<string, number> = {
-      [OrderStatus.PLACED]: 0,
-      [OrderStatus.CONFIRMED]: 1,
-      [OrderStatus.PACKED]: 2,
-      [OrderStatus.READY_FOR_PICKUP]: 3,
-      [OrderStatus.ASSIGNED_TO_DELIVERY]: 4,
-      [OrderStatus.PICKED_UP]: 5,
-      [OrderStatus.OUT_FOR_DELIVERY]: 6,
-      [OrderStatus.DELIVERED]: 7,
-      [OrderStatus.CANCELLED]: -1,
-      [OrderStatus.REFUNDED]: -2,
-    };
+    const rank = STATUS_RANK;
 
     const statuses = groups.map((g) => g.status as string);
     if (statuses.every((s) => s === OrderStatus.DELIVERED)) {

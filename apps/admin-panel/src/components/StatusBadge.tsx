@@ -40,10 +40,17 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function StatusBadge({ status, color }: StatusBadgeProps) {
-  const style = color || statusStyles[status] || 'bg-gray-100 text-gray-600';
+  // `status` comes straight off API records, and several endpoints omit it
+  // entirely (the products list, for example, returns no `storeType` field).
+  // Calling .replace() on undefined threw a TypeError that tripped the route
+  // error boundary and replaced the whole page with "Something went wrong",
+  // so normalise here — one shared component, every page protected.
+  const key = status === null || status === undefined ? '' : String(status);
+  const style = color || statusStyles[key] || 'bg-gray-100 text-gray-600';
+  const label = key ? key.replace(/_/g, ' ') : '—';
   return (
     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${style}`}>
-      {status.replace(/_/g, ' ')}
+      {label}
     </span>
   );
 }

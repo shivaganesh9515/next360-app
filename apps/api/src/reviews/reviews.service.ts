@@ -109,6 +109,43 @@ export class ReviewsService {
     };
   }
 
+  async findAll(page = 1, limit = 20) {
+  const skip = (page - 1) * limit;
+
+  const [reviews, total] = await Promise.all([
+    this.prisma.review.findMany({
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            images: true,
+          },
+        },
+      },
+    }),
+    this.prisma.review.count(),
+  ]);
+
+  return {
+    reviews,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
   async findByUser(userId: string) {
     const reviews = await this.prisma.review.findMany({
       where: { userId },

@@ -51,6 +51,19 @@ export class ReviewsController {
   findByUser(@CurrentUser() user: { id: string }) {
     return this.reviewsService.findByUser(user.id);
   }
+  
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+      return this.reviewsService.findAll(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+     );
+    }
 
   @Get('ratings')
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -39,6 +39,7 @@ import { DeliverySlotModule } from './delivery-slot/delivery-slot.module';
 import { SupportModule } from './support/support.module';
 import { ReportsModule } from './reports/reports.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
+import { PayoutsModule } from './payouts/payouts.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueModule } from './queue/queue.module';
 import { RazorpayModule } from './razorpay/razorpay.module';
@@ -107,6 +108,7 @@ import { ThrottlerGuard } from './common/guards/throttler.guard';
     SupportModule,
     ReportsModule,
     LoyaltyModule,
+    PayoutsModule,
     QueueModule,
     RazorpayModule,
     SmsModule,

@@ -7,6 +7,7 @@ import {
   Patch,
   UseGuards,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { ReturnsService } from './returns.service';
 import { CreateReturnDto, ProcessReturnDto } from './dto/return.dto';
@@ -25,9 +26,17 @@ export class ReturnsController {
     return this.returnsService.create(user.id, dto);
   }
 
+  //@Get()
+  //findAll(@CurrentUser() user: any) {
+   // return this.returnsService.findAll(user.id, user.role);
+  //}
+
   @Get()
-  findAll(@CurrentUser() user: any) {
-    return this.returnsService.findAll(user.id, user.role);
+  findAll(
+    @CurrentUser() user: any,
+    @Query('status') status?: string,
+  ) {
+    return this.returnsService.findAll(user.id, user.role, status);
   }
 
   // Vendor-specific returns

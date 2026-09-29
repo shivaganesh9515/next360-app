@@ -22,7 +22,7 @@ export class OffersController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('ADMIN','VENDOR')
   create(@CurrentUser() user: any, @Body() dto: CreateOfferDto) {
     return this.offersService.create(dto, user.vendorId);
   }

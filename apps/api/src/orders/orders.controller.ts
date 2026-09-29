@@ -138,6 +138,36 @@ export class OrdersController {
     return this.deliveryService.rejectOrder(userId, id);
   }
 
+  @Post(':id/going-to-pickup')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  goToPickup(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.goToPickup(userId, id);
+  }
+
+  @Post(':id/arrived-at-pickup')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  arriveAtPickup(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.arriveAtPickup(userId, id);
+  }
+
+  @Post(':id/arrived-at-customer')
+  @Roles(UserRole.DELIVERY_PARTNER)
+  @HttpCode(HttpStatus.OK)
+  arriveAtCustomer(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.deliveryService.arriveAtCustomer(userId, id);
+  }
+
   @Post(':id/verify-pickup')
   @Roles(UserRole.DELIVERY_PARTNER)
   @HttpCode(HttpStatus.OK)
