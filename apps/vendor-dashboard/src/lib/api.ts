@@ -39,9 +39,11 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
 
   // Handle 401 Unauthorized — session expired or invalid token
   if (response.status === 401) {
-    // Dev-skip: when vendor_dev_skip is in localStorage, return undefined
-    // instead of throwing so the dashboard can render without auth.
-    if (typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
+    // Dev-skip fallback applies only when there is genuinely no token. A real
+    // token that 401s is an expired session and must not be silently swallowed
+    // — returning undefined made mutations "succeed" while writing nothing.
+    const hasToken = !!localStorage.getItem('vendor_token');
+    if (!hasToken && typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
       return undefined as T;
     }
     localStorage.removeItem('vendor_token');
@@ -98,7 +100,9 @@ async function requestWithMeta<T>(path: string, options: ApiOptions = {}): Promi
   }
 
   if (response.status === 401) {
-    if (typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
+    // Same rule as request(): only swallow a 401 when no token was ever sent.
+    const hasToken = !!localStorage.getItem('vendor_token');
+    if (!hasToken && typeof window !== 'undefined' && localStorage.getItem('vendor_dev_skip')) {
       return { data: undefined as T };
     }
     localStorage.removeItem('vendor_token');

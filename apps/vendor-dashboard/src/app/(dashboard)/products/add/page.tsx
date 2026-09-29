@@ -77,7 +77,15 @@ export default function AddProductPage() {
         images: imageUrls.length > 0 ? imageUrls : undefined,
         variants: variants.filter(v => v.name).map(v => ({ name: v.name, price: parseFloat(v.price) || 0, stock: parseInt(v.stock) || 0, sku: v.sku || undefined })),
       };
-      await vendorApi.createProduct(payload);
+      const created = await vendorApi.createProduct(payload);
+      // In dev-skip mode a 401 is swallowed by request() and resolves to
+      // undefined — without this check we redirect to a list that never
+      // changed and the product looks silently "unsaved".
+      if (!created?.id) {
+        throw new Error(
+          'Save failed — the API rejected the request. This happens when the dashboard has no valid auth token.',
+        );
+      }
       router.push('/products');
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }

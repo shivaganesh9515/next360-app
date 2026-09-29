@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { DevTokenDto } from './dto/dev-token.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -27,6 +28,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  // DEV-ONLY auth bypass — see AuthService.devToken for why it exists and the
+  // double gate that keeps it unavailable outside local development. Returns
+  // 404 (not 403) when disabled so the route is indistinguishable from missing.
+  @Post('dev-token')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  async devToken(@Body() dto: DevTokenDto) {
+    return this.authService.devToken(dto);
   }
 
   @Get('me')

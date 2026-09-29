@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException, GoneException } from '@nestjs/common';
+import { Inject, Injectable, Logger, ConflictException, UnauthorizedException, BadRequestException, GoneException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Redis from 'ioredis';
@@ -12,6 +12,7 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpLoginDto } from './dto/verify-otp-login.dto';
+import { DevTokenDto } from './dto/dev-token.dto';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
@@ -125,6 +126,60 @@ export class AuthService {
       role: user.role,
       ...(supabaseUser ? { supabaseId: supabaseUser.id } : {}),
     });
+
+    return {
+      user: this.sanitizeUser(user),
+      access_token: token,
+    };
+  }
+
+  // DEV-ONLY. Real login goes through Supabase, which is unreachable in local
+  // dev (placeholder URL), so there is no way to obtain a JWT and therefore no
+  // way to exercise any guarded route — every write (products, orders, stock,
+  // KYC) fails 401 while unguarded reads keep working, which looks like data
+  // loss rather than an auth problem.
+  //
+  // This mints a token for an account that ALREADY EXISTS in the database, so
+  // it grants no privilege the caller wouldn't have with that account's real
+  // password. It is nonetheless an authentication bypass: anyone who can reach
+  // an API with the bypass enabled can impersonate any existing user without
+  // credentials.
+  //
+  // Gated as an ALLOW-LIST, not a deny-list. A `NODE_ENV !== 'production'`
+  // check would wrongly permit staging (NODE_ENV=staging) — a real, reachable
+  // environment. Only an unset NODE_ENV or an explicit 'development' qualifies,
+  // and DEV_AUTH_BYPASS must be set independently, so the endpoint is inert
+  // unless someone deliberately enables it on a local machine.
+  async devToken(dto: DevTokenDto) {
+    const nodeEnv = process.env.NODE_ENV;
+    const isLocalDev =
+      nodeEnv === undefined || nodeEnv === '' || nodeEnv === 'development';
+
+    if (!isLocalDev || process.env.DEV_AUTH_BYPASS !== 'true') {
+      throw new NotFoundException();
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    const token = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    this.logger.warn(
+      `[DEV_AUTH_BYPASS] Issued dev token for ${user.email} (${user.role})`,
+    );
 
     return {
       user: this.sanitizeUser(user),

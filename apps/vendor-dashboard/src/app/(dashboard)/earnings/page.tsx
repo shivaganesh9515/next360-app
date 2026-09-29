@@ -26,9 +26,15 @@ export default function EarningsPage() {
         vendorApi.getMyProfile(),
         vendorApi.getTransactionsWithMeta({ page: 1, limit: 1 }),
       ]);
-      const res: any = earningsRes.status === 'fulfilled' ? earningsRes.value : {};
-      const profile: any = profileRes.status === 'fulfilled' ? profileRes.value : {};
-      const tx: any = txRes.status === 'fulfilled' ? txRes.value : {};
+      // Only surface error when ALL three failed (partial data is still useful)
+      if (earningsRes.status === 'rejected' && profileRes.status === 'rejected' && txRes.status === 'rejected') {
+        throw earningsRes.reason;
+      }
+      // A fulfilled promise can still carry no value — request() resolves undefined on the
+      // dev-skip 401 path and on 204 responses — so coalesce, don't just check the branch.
+      const res: any = (earningsRes.status === 'fulfilled' && earningsRes.value) || {};
+      const profile: any = (profileRes.status === 'fulfilled' && profileRes.value) || {};
+      const tx: any = (txRes.status === 'fulfilled' && txRes.value) || {};
       // getTransactionsWithMeta returns { data, meta } — meta.total has order count
       const totalOrders = tx?.meta?.total ?? (Array.isArray(tx?.data) ? tx.data.length : Array.isArray(tx) ? tx.length : 0);
       setEarnings({
@@ -38,10 +44,6 @@ export default function EarningsPage() {
         commissionRate: res.commissionRate ?? profile?.commissionPct ?? SPEC_DEFAULT_COMMISSION_RATE,
         totalOrders,
       });
-      // Only surface error when ALL three failed (partial data is still useful)
-      if (earningsRes.status === 'rejected' && profileRes.status === 'rejected' && txRes.status === 'rejected') {
-        throw earningsRes.reason;
-      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {

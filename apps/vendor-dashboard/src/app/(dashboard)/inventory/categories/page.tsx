@@ -11,7 +11,9 @@ export default function InventoryCategoriesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!vendorProfile?.storeType) return;
+    // No storeType yet (still resolving, or auth skipped without a vendor)
+    // — stop the skeleton rather than spinning forever on a request we never make.
+    if (!vendorProfile?.storeType) { setLoading(false); return; }
     setLoading(true);
     // Scoped to this vendor's own store type — a vendor should only ever
     // see the categories that apply to the kind of store they run.

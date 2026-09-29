@@ -13,7 +13,9 @@ export default function LowStockPage() {
 
   const fetchProducts = async () => {
     const vendorId = vendorProfile?.id;
-    if (!vendorId) return;
+    // No vendor profile yet (still resolving, or auth skipped without a vendor)
+    // — stop the skeleton rather than spinning forever on a request we never make.
+    if (!vendorId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {

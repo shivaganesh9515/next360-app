@@ -66,12 +66,20 @@ export default function EditProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
-      await vendorApi.updateProduct(String(params.id), {
+      const updated = await vendorApi.updateProduct(String(params.id), {
         name: form.name, description: form.description || undefined, categoryId: form.categoryId || undefined,
         price: parseFloat(form.price), compareAtPrice: form.compareAtPrice ? parseFloat(form.compareAtPrice) : undefined,
         unit: form.unit, stock: parseInt(form.stock), isActive: form.isActive,
         images: imageUrls,
       });
+      // In dev-skip mode a 401 is swallowed by request() and resolves to
+      // undefined — without this check we redirect to a list that never
+      // changed and the edit looks silently "unsaved".
+      if (!updated) {
+        throw new Error(
+          'Save failed — the API rejected the request. This happens when the dashboard has no valid auth token.',
+        );
+      }
       router.push('/products');
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }

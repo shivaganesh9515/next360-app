@@ -50,6 +50,54 @@ const DEV_VENDOR_USER: User = {
   role: 'VENDOR',
 };
 
+// Seeded vendor account used by POST /auth/dev-token. Overridable so a reseeded
+// or differently-seeded DB doesn't need a code change.
+const DEV_VENDOR_EMAIL = process.env.NEXT_PUBLIC_DEV_VENDOR_EMAIL || 'organic@next360.com';
+
+// Real login is impossible locally — SUPABASE_URL is a placeholder, so
+// /auth/login always fails. Skip-auth previously left the dashboard with NO
+// token, which meant unguarded reads (products list, categories, storefront)
+// worked while every guarded write silently 401'd. Ask the dev-token endpoint
+// for a real JWT instead so writes work too. Returns null if the bypass is off.
+async function bootstrapDevSession(): Promise<User | null> {
+  try {
+    const res = await vendorApi.post<{ access_token: string; user: any }>(
+      '/auth/dev-token',
+      { email: DEV_VENDOR_EMAIL },
+    );
+    if (!res?.access_token) return null;
+    localStorage.setItem('vendor_token', res.access_token);
+    return res.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Read-only fallback for when the dev-token bypass is unavailable: resolve the
+// real vendor from the unguarded storefront endpoint rather than hardcoding an
+// id that a DB reseed would invalidate. Keeps vendor-scoped pages rendering.
+async function loadDevVendorProfile(): Promise<VendorProfile | null> {
+  try {
+    const res = await vendorApi.get<any[]>('/vendors/storefront/ORGANIC');
+    const vendor = (Array.isArray(res) ? res : (res as any)?.data)?.find(
+      (v: any) => v.status === 'APPROVED',
+    );
+    if (!vendor) return null;
+    return {
+      id: vendor.id,
+      storeName: vendor.storeName,
+      storeSlug: vendor.storeSlug,
+      description: vendor.description ?? undefined,
+      logoUrl: vendor.logoUrl ?? undefined,
+      storeType: vendor.storeType,
+      status: vendor.status,
+      rating: vendor.rating ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
@@ -75,7 +123,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       if (localStorage.getItem(DEV_SKIP_KEY) === 'true') {
+        const realUser = await bootstrapDevSession();
+        if (realUser) {
+          // Real token in hand — vendorProfile now comes from the guarded
+          // endpoint, so every vendor-scoped route works.
+          setUser(realUser);
+          vendorApi.getMyProfile().then(setVendorProfile).catch(() => {
+            // Non-critical: display-only
+          });
+          setLoading(false);
+          return;
+        }
+        // Bypass unavailable — fall back to tokenless read-only mode.
         setUser(DEV_VENDOR_USER);
+        const profile = await loadDevVendorProfile();
+        setVendorProfile(profile);
         setLoading(false);
         return;
       }
@@ -178,7 +240,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const skipAuth = () => {
     localStorage.setItem(DEV_SKIP_KEY, 'true');
-    setUser(DEV_VENDOR_USER);
+    bootstrapDevSession().then((realUser) => {
+      if (realUser) {
+        setUser(realUser);
+        vendorApi.getMyProfile().then(setVendorProfile).catch(() => {
+          // Non-critical: display-only
+        });
+      } else {
+        setUser(DEV_VENDOR_USER);
+        loadDevVendorProfile().then(setVendorProfile);
+      }
+    });
   };
 
   return (
