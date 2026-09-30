@@ -58,8 +58,12 @@ export class ReturnsService {
     }
   }
 
-  async findAll(userId: string, role: string) {
+  async findAll(userId: string, role: string, status?: string) {
     const where: any = {};
+
+    if (status) {
+      where.status = status;
+    }
 
     // Customers see only their returns; vendors see returns for orders that
     // include one of their vendor groups; admins see everything.

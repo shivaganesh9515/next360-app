@@ -28,8 +28,6 @@ export default function DeliveryPartnersPage() {
       // found" empty state and made an API/permission problem look like an
       // absence of data. Surface it instead so the real cause is visible.
       const res = await adminApi.getDeliveryPartners({ page, limit: 20, search });
-      setPartners(res?.items || []);
-      setTotalPages(res?.totalPages || 1);
       setError(null);
     } catch (err: any) {
       setPartners([]);

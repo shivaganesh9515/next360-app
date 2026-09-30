@@ -10,17 +10,30 @@ import { useDeliveryStore } from '../../store/deliveryStore';
 import { formatDeliveryFee } from '../../lib/pricing';
 import { deliveryApi } from '../../lib/api';
 
-type DeliveryStatus = 'ASSIGNED' | 'PICKING_UP' | 'IN_TRANSIT' | 'DELIVERED';
+type DeliveryStatus =
+  | 'ASSIGNED'
+  | 'GOING_TO_PICKUP'
+  | 'ARRIVED_AT_PICKUP'
+  | 'PICKING_UP'
+  | 'IN_TRANSIT'
+  | 'ARRIVED_AT_CUSTOMER'
+  | 'DELIVERED';
 
 // Map whatever status string the API returns onto the screen's status union.
-// The backend now emits exactly these four values, but an unknown value must
+// The backend emits exactly these seven values, but an unknown value must
 // degrade to ASSIGNED instead of being force-cast and breaking the UI.
 function toDeliveryStatus(status?: string | null): DeliveryStatus {
   switch (status) {
+    case 'GOING_TO_PICKUP':
+      return 'GOING_TO_PICKUP';
+    case 'ARRIVED_AT_PICKUP':
+      return 'ARRIVED_AT_PICKUP';
     case 'PICKING_UP':
       return 'PICKING_UP';
     case 'IN_TRANSIT':
       return 'IN_TRANSIT';
+    case 'ARRIVED_AT_CUSTOMER':
+      return 'ARRIVED_AT_CUSTOMER';
     case 'DELIVERED':
       return 'DELIVERED';
     default:
@@ -34,7 +47,7 @@ const LOCATION_PUSH_DISTANCE_M = 50;
 export default function DeliveryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { activeDeliveries, fetchActiveDeliveries, updateDeliveryStatus, verifyPickupOTP, startTransit, isLoading } = useDeliveryStore();
+  const { activeDeliveries, fetchActiveDeliveries, updateDeliveryStatus, verifyPickupOTP, startTransit, goToPickup, arriveAtPickup, arriveAtCustomer, isLoading } = useDeliveryStore();
   const [order, setOrder] = useState<any>(null);
   const [currentStatus, setCurrentStatus] = useState<DeliveryStatus>('ASSIGNED');
   const [showOTPModal, setShowOTPModal] = useState(false);
@@ -175,19 +188,25 @@ export default function DeliveryDetailScreen() {
   const getStatusSteps = () => {
     const steps = [
       { key: 'ASSIGNED', label: 'Assigned', icon: 'checkmark-circle' },
-      { key: 'PICKING_UP', label: 'Picking Up', icon: 'location' },
+      { key: 'GOING_TO_PICKUP', label: 'To Pickup', icon: 'walk' },
+      { key: 'ARRIVED_AT_PICKUP', label: 'At Pickup', icon: 'location' },
+      { key: 'PICKING_UP', label: 'Picked Up', icon: 'cube' },
       { key: 'IN_TRANSIT', label: 'In Transit', icon: 'car' },
+      { key: 'ARRIVED_AT_CUSTOMER', label: 'At Customer', icon: 'home' },
       { key: 'DELIVERED', label: 'Delivered', icon: 'flag' },
     ];
 
     const statusOrder: Record<DeliveryStatus, number> = {
       ASSIGNED: 0,
-      PICKING_UP: 1,
-      IN_TRANSIT: 2,
-      DELIVERED: 3,
+      GOING_TO_PICKUP: 1,
+      ARRIVED_AT_PICKUP: 2,
+      PICKING_UP: 3,
+      IN_TRANSIT: 4,
+      ARRIVED_AT_CUSTOMER: 5,
+      DELIVERED: 6,
     };
 
-    const currentIndex = statusOrder[currentStatus] || 0;
+    const currentIndex = statusOrder[currentStatus] ?? 0;
 
     return steps.map((step, index) => ({
       ...step,
@@ -270,6 +289,47 @@ export default function DeliveryDetailScreen() {
       setIsProcessing(false);
     }
   };
+
+  // Generic runner for the three discrete lifecycle legs. The server decides
+  // whether the transition is legal; we only move the UI once it has confirmed,
+  // and surface the backend's rejection rather than guessing locally.
+  const runLeg = async (
+    nextStatus: DeliveryStatus,
+    action: (orderId: string) => Promise<void>,
+    failureMessage: string,
+  ) => {
+    if (!order) return;
+    setIsProcessing(true);
+    try {
+      await action(order.orderId ?? id!);
+      setCurrentStatus(nextStatus);
+    } catch {
+      Alert.alert('Error', failureMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGoToPickup = () =>
+    runLeg(
+      'GOING_TO_PICKUP',
+      goToPickup,
+      'Could not start the trip to pickup. Please try again.',
+    );
+
+  const handleArriveAtPickup = () =>
+    runLeg(
+      'ARRIVED_AT_PICKUP',
+      arriveAtPickup,
+      'Could not mark arrival at pickup. Please try again.',
+    );
+
+  const handleArriveAtCustomer = () =>
+    runLeg(
+      'ARRIVED_AT_CUSTOMER',
+      arriveAtCustomer,
+      'Could not mark arrival at the customer. Please try again.',
+    );
 
   const handleCompleteWithPhoto = async (opts?: { skipped?: boolean; reason?: string }) => {
     setUploadError(null);
@@ -528,7 +588,7 @@ export default function DeliveryDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {currentStatus === 'IN_TRANSIT' && (
+        {(currentStatus === 'IN_TRANSIT' || currentStatus === 'ARRIVED_AT_CUSTOMER') && (
               <View style={{ marginTop: 12 }}>
                 <TouchableOpacity style={styles.cameraButton} onPress={handleTakeProofPhoto}>
                   {proofPhoto ? (
@@ -688,22 +748,78 @@ export default function DeliveryDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
-              onPress={() => handleStatusUpdate('PICKING_UP')}
+              onPress={handleGoToPickup}
               disabled={isProcessing}
             >
               {isProcessing ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>I&apos;m at Pickup</Text>
+                  <Ionicons name="walk-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Start Trip to Pickup</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {/* Legacy short-cut, still OTP-gated server-side: skips the
+                going-to-pickup / arrived-at-pickup legs entirely. */}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={() => handleStatusUpdate('PICKING_UP')}
+              disabled={isProcessing}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#059669" />
+              <Text style={styles.secondaryButtonText}>I&apos;m at Pickup (skip)</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {currentStatus === 'GOING_TO_PICKUP' && (
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={() => handleNavigate('pickup')}
+            >
+              <Ionicons name="navigate" size={20} color="#059669" />
+              <Text style={styles.secondaryButtonText}>Navigate to Pickup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.primaryButton]}
+              onPress={handleArriveAtPickup}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="location-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Arrived at Pickup</Text>
                 </>
               )}
             </TouchableOpacity>
           </>
         )}
 
-        {currentStatus === 'IN_TRANSIT' && (
+        {currentStatus === 'ARRIVED_AT_PICKUP' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={() => handleStatusUpdate('PICKING_UP')}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>I&apos;m at Pickup</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* At-the-customer controls. Shared by IN_TRANSIT (the pre-existing
+            "Mark Delivered" path, kept intact) and ARRIVED_AT_CUSTOMER (the
+            full lifecycle's final step before delivery). */}
+        {(currentStatus === 'IN_TRANSIT' || currentStatus === 'ARRIVED_AT_CUSTOMER') && (
           <>
             {/* Upload error banner — completion stays blocked until the
                 partner retries (primary action) or skips with a reason. */}
@@ -736,6 +852,24 @@ export default function DeliveryDetailScreen() {
               <Ionicons name="navigate" size={20} color="#059669" />
               <Text style={styles.secondaryButtonText}>Navigate to Customer</Text>
             </TouchableOpacity>
+            {/* Only offered while still on the road — once the partner has
+                marked arrival the next leg is delivery itself. */}
+            {currentStatus === 'IN_TRANSIT' && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.primaryButton]}
+                onPress={handleArriveAtCustomer}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="home-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>I&apos;m at Customer</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
               onPress={() => handleCompleteWithPhoto()}

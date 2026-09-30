@@ -217,6 +217,24 @@ export const deliveryApi = {
   startTransit: (orderId: string) =>
     api.post<any>(`/orders/${orderId}/start-transit`, {}),
 
+  // The three courier-reported legs of the delivery lifecycle. orderId is the
+  // parent ORDER id — same rule as verify-pickup/start-transit/deliver above.
+  //
+  //   goToPickup      ASSIGNED_TO_DELIVERY -> GOING_TO_PICKUP
+  //   arriveAtPickup  GOING_TO_PICKUP     -> ARRIVED_AT_PICKUP
+  //   arriveAtCustomer OUT_FOR_DELIVERY   -> ARRIVED_AT_CUSTOMER
+  //
+  // These are separate action endpoints (not the admin/vendor-only generic
+  // PATCH /orders/:id/status) because the backend gates each leg on the
+  // authenticated partner's own assignment. The backend rejects an
+  // out-of-order call, so the screen must only send the current leg.
+  goToPickup: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/going-to-pickup`, {}),
+  arriveAtPickup: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/arrived-at-pickup`, {}),
+  arriveAtCustomer: (orderId: string) =>
+    api.post<any>(`/orders/${orderId}/arrived-at-customer`, {}),
+
   // Delivery History
   getDeliveryHistory: (params?: any) =>
     api.get<any>('/delivery/history', params),

@@ -117,6 +117,9 @@ interface DeliveryState {
   updateDeliveryStatus: (orderId: string, status: string, data?: any) => Promise<void>;
   verifyPickupOTP: (orderId: string, otp: string) => Promise<void>;
   startTransit: (orderId: string) => Promise<void>;
+  goToPickup: (orderId: string) => Promise<void>;
+  arriveAtPickup: (orderId: string) => Promise<void>;
+  arriveAtCustomer: (orderId: string) => Promise<void>;
   setAvailability: (available: boolean) => Promise<void>;
   setupRealtime: () => void;
   cleanupRealtime: () => void;
@@ -317,6 +320,40 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       await get().fetchActiveDeliveries();
     } catch (error) {
       console.error('Start transit error:', error);
+      throw error;
+    }
+  },
+
+  // The three intermediate delivery legs. Each one is a discrete backend
+  // action endpoint; the store just forwards it and refetches the active
+  // list so the screen picks up the server's new status string (the backend
+  // is the source of truth for the lifecycle, never a local guess).
+  goToPickup: async (orderId: string) => {
+    try {
+      await deliveryApi.goToPickup(orderId);
+      await get().fetchActiveDeliveries();
+    } catch (error) {
+      console.error('Going to pickup error:', error);
+      throw error;
+    }
+  },
+
+  arriveAtPickup: async (orderId: string) => {
+    try {
+      await deliveryApi.arriveAtPickup(orderId);
+      await get().fetchActiveDeliveries();
+    } catch (error) {
+      console.error('Arrive at pickup error:', error);
+      throw error;
+    }
+  },
+
+  arriveAtCustomer: async (orderId: string) => {
+    try {
+      await deliveryApi.arriveAtCustomer(orderId);
+      await get().fetchActiveDeliveries();
+    } catch (error) {
+      console.error('Arrive at customer error:', error);
       throw error;
     }
   },
