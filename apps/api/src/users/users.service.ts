@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { QueryUsersDto } from './dto/query-users.dto';
 import { UserRole } from '@prisma/client';
 import { DELIVERY_FEE } from '../delivery/delivery.service';
+
+/**
+ * Role-filter values that mean "return every role". Kept alongside the enum
+ * check in UsersService.toUserRole so an "All Roles" request succeeds whether
+ * the caller omits `role` entirely or sends one of these spellings.
+ */
+const NO_ROLE_FILTER = new Set(['', 'ALL', 'ANY', '*', 'NONE']);
 
 @Injectable()
 export class UsersService {
@@ -167,11 +175,39 @@ export class UsersService {
     });
   }
 
-  async findAll(page = 1, limit = 20) {
+  /**
+   * Admin user list.
+   *
+   * `role` and `search` are applied in the query (not left to the client) for
+   * two reasons: filtering a single page client-side would only ever see the 20
+   * users in that page and silently report "no results" for roles that do
+   * exist, and `total`/`totalPages` would then describe the unfiltered set, so
+   * the pager would be wrong. Both `findMany` and `count` therefore share one
+   * `where` so the page metadata always describes the rows actually returned.
+   */
+  async findAll(query: QueryUsersDto = {}) {
+    const { page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (query.role !== undefined) {
+      const role = this.toUserRole(query.role);
+      if (role) where.role = role;
+    }
+
+    const search = query.search?.trim();
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -179,12 +215,13 @@ export class UsersService {
           id: true,
           email: true,
           name: true,
+          phone: true,
           role: true,
           isActive: true,
           createdAt: true,
         },
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
@@ -196,6 +233,37 @@ export class UsersService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Normalize a role filter to the `UserRole` enum. Accepts the display forms
+   * the admin UI uses ("DELIVERY PARTNER", "delivery-partner") as well as the
+   * wire value ("DELIVERY_PARTNER").
+   *
+   * Returns `null` for the "no filter" spellings ('', 'ALL', 'ANY', '*',
+   * 'NONE') instead of throwing. A UI tab whose value is the literal string
+   * 'ALL' is a perfectly reasonable thing to send, and rejecting it made the
+   * admin Users page render an empty table for "All Roles" — the request 400'd
+   * and the page reports any failed request as "no results".
+   *
+   * A genuinely unknown value still throws: silently dropping it would return
+   * the *unfiltered* list, which looks identical to the filter working when it
+   * is in fact the exact bug this guards against.
+   */
+  private toUserRole(value: string): UserRole | null {
+    const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, '_');
+
+    if (NO_ROLE_FILTER.has(normalized)) {
+      return null;
+    }
+
+    if ((Object.values(UserRole) as string[]).includes(normalized)) {
+      return normalized as UserRole;
+    }
+
+    throw new BadRequestException(
+      `Invalid role filter "${value}". Expected one of: ${Object.values(UserRole).join(', ')}`,
+    );
   }
 
   async updateRole(userId: string, role: UserRole) {

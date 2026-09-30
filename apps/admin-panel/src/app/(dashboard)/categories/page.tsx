@@ -1,10 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Tag, Plus, Trash2, Edit2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Tag, Plus, Trash2, Edit2, ChevronDown, Check } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
+
+/**
+ * Values mirror the backend `StoreType` enum exactly — Prisma
+ * (`prisma/schema.prisma`), `CreateCategoryDto` (`@IsEnum(StoreType)`) and
+ * `@next360/shared`. Do not add or rename entries; the API 400s on anything
+ * outside this set.
+ */
+type StoreTypeValue = 'ORGANIC' | 'NATURAL' | 'ECO_FRIENDLY';
+
+const STORE_TYPE_OPTIONS: { value: StoreTypeValue; label: string }[] = [
+  { value: 'ORGANIC', label: 'Organic' },
+  { value: 'NATURAL', label: 'Natural' },
+  { value: 'ECO_FRIENDLY', label: 'Eco Friendly' },
+];
+
+type CategoryForm = { name: string; slug: string; storeType: StoreTypeValue };
+
+const EMPTY_FORM: CategoryForm = { name: '', slug: '', storeType: 'ORGANIC' };
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -13,8 +31,51 @@ export default function CategoriesPage() {
   const [storeTypeFilter, setStoreTypeFilter] = useState('ALL');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', slug: '', storeType: 'ORGANIC' });
+  const [form, setForm] = useState<CategoryForm>(EMPTY_FORM);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [storeTypeOpen, setStoreTypeOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const storeTypeWrapRef = useRef<HTMLDivElement>(null);
+  const storeTypeButtonRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const selectedOption = STORE_TYPE_OPTIONS.find((o) => o.value === form.storeType)!;
+
+  const selectStoreType = useCallback((value: StoreTypeValue) => {
+    setForm((f) => ({ ...f, storeType: value }));
+    setStoreTypeOpen(false);
+    storeTypeButtonRef.current?.focus();
+  }, []);
+
+  // Close when clicking anywhere outside the dropdown, or on Escape.
+  useEffect(() => {
+    if (!storeTypeOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!storeTypeWrapRef.current?.contains(e.target as Node)) setStoreTypeOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setStoreTypeOpen(false); storeTypeButtonRef.current?.focus(); }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [storeTypeOpen]);
+
+  const onStoreTypeKeyDown = (e: React.KeyboardEvent) => {
+    const last = STORE_TYPE_OPTIONS.length - 1;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted((i) => Math.min(i + 1, last)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted((i) => Math.max(i - 1, 0)); }
+    else if (e.key === 'Home') { e.preventDefault(); setHighlighted(0); }
+    else if (e.key === 'End') { e.preventDefault(); setHighlighted(last); }
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (storeTypeOpen) selectStoreType(STORE_TYPE_OPTIONS[highlighted].value);
+      else { setStoreTypeOpen(true); setHighlighted(STORE_TYPE_OPTIONS.findIndex((o) => o.value === form.storeType)); }
+    }
+  };
 
   useEffect(() => {
     loadCategories();
@@ -54,7 +115,8 @@ export default function CategoriesPage() {
       }
       setShowForm(false);
       setEditingId(null);
-      setForm({ name: '', slug: '', storeType: 'ORGANIC' });
+      setForm(EMPTY_FORM);
+      setStoreTypeOpen(false);
       loadCategories();
     } catch (err: any) {
       alert(err.message || 'Failed to save category');
@@ -73,6 +135,7 @@ export default function CategoriesPage() {
 
   const startEdit = (cat: any) => {
     setForm({ name: cat.name, slug: cat.slug, storeType: cat.storeType });
+    setStoreTypeOpen(false);
     setEditingId(cat.id);
     setShowForm(true);
   };
@@ -103,7 +166,7 @@ export default function CategoriesPage() {
           <p className="text-sm text-gray-500">Manage product categories</p>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', slug: '', storeType: 'ORGANIC' }); }}
+          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(EMPTY_FORM); setStoreTypeOpen(false); }}
           className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -135,15 +198,53 @@ export default function CategoriesPage() {
             </div>
             <div>
               <label className="text-sm text-gray-500">Store Type</label>
-              <select
-                value={form.storeType}
-                onChange={(e) => setForm({ ...form, storeType: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="ORGANIC">Organic</option>
-                <option value="NATURAL">Natural</option>
-                <option value="ECO_FRIENDLY">Eco-Friendly</option>
-              </select>
+              <div className="relative mt-1" ref={storeTypeWrapRef}>
+                <button
+                  type="button"
+                  ref={storeTypeButtonRef}
+                  onClick={() => {
+                    setStoreTypeOpen((v) => !v);
+                    setHighlighted(STORE_TYPE_OPTIONS.findIndex((o) => o.value === form.storeType));
+                  }}
+                  onKeyDown={onStoreTypeKeyDown}
+                  aria-haspopup="listbox"
+                  aria-expanded={storeTypeOpen}
+                  aria-label="Store Type"
+                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-left hover:border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <span>{selectedOption.label}</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${storeTypeOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {storeTypeOpen && (
+                  <ul
+                    role="listbox"
+                    aria-label="Store Type options"
+                    className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-auto"
+                  >
+                    {STORE_TYPE_OPTIONS.map((opt, i) => {
+                      const isSelected = opt.value === form.storeType;
+                      return (
+                        <li key={opt.value} role="none">
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            ref={(el) => { optionRefs.current[i] = el; }}
+                            onClick={() => selectStoreType(opt.value)}
+                            onMouseEnter={() => setHighlighted(i)}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors ${
+                              i === highlighted ? 'bg-gray-50 text-gray-900' : 'text-gray-600'
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            {isSelected && <Check className="w-4 h-4 text-emerald-600" />}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-3">

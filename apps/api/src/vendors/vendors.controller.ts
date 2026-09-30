@@ -5,6 +5,7 @@ import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UploadVendorKycDocumentDto } from './dto/upload-vendor-kyc-document.dto';
 import { ReviewVendorKycDocumentDto } from './dto/review-vendor-kyc-document.dto';
+import { QueryVendorsDto } from './dto/query-vendors.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -31,14 +32,8 @@ export class VendorsController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async findAll(
-    @Query('storeType') storeType?: StoreType,
-    @Query('isApproved') isApproved?: string,
-  ) {
-    return this.vendorsService.findAll(
-      storeType,
-      isApproved !== undefined ? isApproved === 'true' : undefined,
-    );
+  async findAll(@Query() query: QueryVendorsDto) {
+    return this.vendorsService.findAll(query);
   }
 
   @Get('storefront/:storeType')

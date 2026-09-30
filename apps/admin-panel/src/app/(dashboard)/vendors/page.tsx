@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Store, Loader2, CheckCheck, ShieldCheck, X } from 'lucide-react';
 import DataTable from '@/components/DataTable';
@@ -24,6 +24,12 @@ export default function VendorsPage() {
   const [bulkDeliveryMin, setBulkDeliveryMin] = useState('10');
   const [bulkDeliveryMax, setBulkDeliveryMax] = useState('20');
   const [bulkDeliveryLabel, setBulkDeliveryLabel] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Tab labels, the stored enum value, and anything a caller passes are folded
+  // to the same shape before comparison, so casing/spacing differences between
+  // the tab key and the record can never silently fail the match.
+  const normalizeStatus = (s: string) => (s || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
 
   const statusLabels: Record<string, string> = {
     ALL: 'All',
@@ -33,23 +39,50 @@ export default function VendorsPage() {
     SUSPENDED: 'Suspended',
   };
 
+  // Guards against out-of-order responses: switching tabs or typing in the
+  // search box fires a request per keystroke, and without this a slower earlier
+  // response can land last and overwrite the table with rows for the previous
+  // filter — which is what made the status tabs look like they "didn't work".
+  const requestId = useRef(0);
+
+  // `search` is a dependency: it previously wasn't, so typing in the search box
+  // only ever took effect once the page or status filter happened to change.
   useEffect(() => {
     loadVendors();
-  }, [page, statusFilter]);
+  }, [page, statusFilter, search]);
 
   const loadVendors = async () => {
+    const id = ++requestId.current;
     setLoading(true);
     try {
+      // "All" is expressed by omitting `status` entirely — the backend also
+      // accepts status=ALL, but sending nothing is unambiguous.
       const params: any = { page, limit: 20 };
       if (statusFilter !== 'ALL') params.status = statusFilter;
       if (search) params.search = search;
       const res = await adminApi.getVendors(params);
-      setVendors((Array.isArray(res) ? res : (res as any)?.data) || []);
+      if (id !== requestId.current) return;
+      const list: any[] = (Array.isArray(res) ? res : (res as any)?.data) || [];
+      // The API filters by status server-side. This guard means a selected tab
+      // can never display another status's vendors. It is a no-op on a
+      // correctly filtered response, and `list` is passed through for ALL.
+      const rows = statusFilter === 'ALL'
+        ? list
+        : list.filter((v) => normalizeStatus(v.status) === normalizeStatus(statusFilter));
+      setVendors(rows);
       setTotalPages(res?.meta?.totalPages || 1);
-    } catch {
-      setVendors([]);
+      setError(null);
+    } catch (err: any) {
+      // Kept separate from "no vendors": a failed request used to be reported as
+      // an empty table, which made a 400 from the API indistinguishable from a
+      // genuinely empty result and hid the real cause.
+      if (id === requestId.current) {
+        setVendors([]);
+        setTotalPages(1);
+        setError(err?.message || 'Failed to load vendors');
+      }
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
@@ -306,10 +339,17 @@ export default function VendorsPage() {
         onPageChange={setPage}
         onRowClick={(v) => router.push(`/vendors/${v.id}`)}
         emptyMessage={
-          <>
-            <p>No vendors found</p>
-            <p className="text-xs text-gray-400 mt-1">Vendors will appear here once they register.</p>
-          </>
+          error ? (
+            <>
+              <p className="text-red-600">{error}</p>
+              <p className="text-xs text-gray-400 mt-1">Please try again.</p>
+            </>
+          ) : (
+            <>
+              <p>No vendors found</p>
+              <p className="text-xs text-gray-400 mt-1">Vendors will appear here once they register.</p>
+            </>
+          )
         }
         emptyIcon={<Store className="w-10 h-10" />}
       />

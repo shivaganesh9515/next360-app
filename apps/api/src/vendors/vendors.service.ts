@@ -5,7 +5,8 @@ import { AuditService } from '../audit/audit.service';
 import { UploadService } from '../upload/upload.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
-import { StoreType, SellerType, VendorKycDocumentType, VendorKycDocumentStatus } from '@prisma/client';
+import { StoreType, SellerType, VendorStatus, VendorKycDocumentType, VendorKycDocumentStatus } from '@prisma/client';
+import { QueryVendorsDto } from './dto/query-vendors.dto';
 
 // Documents every seller type must submit, plus store-type-specific
 // certifications. Individual sellers have one logical bank-proof requirement;
@@ -105,26 +106,91 @@ export class VendorsService {
     return vendor;
   }
 
-  async findAll(storeType?: StoreType, isApproved?: boolean) {
+  async findAll(query: QueryVendorsDto = {}) {
     const where: any = {};
-    if (storeType) where.storeType = storeType;
-    if (isApproved !== undefined) where.status = isApproved ? 'APPROVED' : 'PENDING';
 
-    const vendors = await this.prisma.vendor.findMany({
-      where,
-      include: {
-        user: { select: { id: true, email: true, name: true } },
-        zone: { select: { name: true, city: true } },
-        _count: { select: { products: true } },
-        kycDocuments: { select: { documentType: true, status: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    if (query.storeType) where.storeType = query.storeType;
 
-    return vendors.map(({ kycDocuments, ...vendor }) => ({
+    // `status` is the explicit filter and wins over the legacy `isApproved`
+    // shorthand (true -> APPROVED, false -> PENDING).
+    const status = this.parseVendorStatus(query.status);
+    if (status) {
+      where.status = status;
+    } else if (query.isApproved !== undefined) {
+      where.status = this.parseBooleanParam(query.isApproved) ? 'APPROVED' : 'PENDING';
+    }
+
+    const search = query.search?.trim();
+    if (search) {
+      where.OR = [
+        { storeName: { contains: search, mode: 'insensitive' } },
+        { ownerName: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // Pagination is opt-in: callers that need the full list (e.g. the admin
+    // product-form vendor dropdown) pass no page/limit and must keep receiving
+    // every vendor. A single `where` feeds both the rows and the count so the
+    // total always reflects the active filters.
+    const isPaginated = query.page !== undefined || query.limit !== undefined;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const [vendors, total] = await this.prisma.$transaction([
+      this.prisma.vendor.findMany({
+        where,
+        include: {
+          user: { select: { id: true, email: true, name: true } },
+          zone: { select: { name: true, city: true } },
+          _count: { select: { products: true } },
+          kycDocuments: { select: { documentType: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...(isPaginated ? { skip: (page - 1) * limit, take: limit } : {}),
+      }),
+      this.prisma.vendor.count({ where }),
+    ]);
+
+    const data = vendors.map(({ kycDocuments, ...vendor }) => ({
       ...vendor,
       kycStatus: this.deriveKycStatus(vendor.sellerType, getRequiredDocumentTypes(vendor.sellerType, vendor.storeType), kycDocuments),
     }));
+
+    return {
+      data,
+      meta: {
+        page: isPaginated ? page : 1,
+        limit: isPaginated ? limit : total,
+        total,
+        totalPages: isPaginated ? Math.max(1, Math.ceil(total / limit)) : 1,
+      },
+    };
+  }
+
+  /**
+   * Normalizes a status filter to a `VendorStatus`, or undefined when the
+   * caller explicitly asked for "no filter" (All tab). Throws on genuinely
+   * invalid values so typos surface instead of silently returning everything.
+   */
+  private parseVendorStatus(raw?: string): VendorStatus | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    const normalized = raw.trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (normalized === '' || ['ALL', 'ANY', 'NONE', 'NULL'].includes(normalized)) {
+      return undefined;
+    }
+    const match = (Object.values(VendorStatus) as string[]).find((s) => s === normalized);
+    if (!match) {
+      throw new BadRequestException(
+        `Invalid status "${raw}". Expected one of: ${Object.values(VendorStatus).join(', ')}`,
+      );
+    }
+    return match as VendorStatus;
+  }
+
+  private parseBooleanParam(raw?: string): boolean {
+    return String(raw).trim().toLowerCase() === 'true';
   }
 
   async findOne(id: string) {

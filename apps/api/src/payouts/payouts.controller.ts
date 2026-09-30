@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, Param, Query, Body, UseGuards, Res } from "@nestjs/common";
+import { Response } from "express";
 import { PayoutsService } from "./payouts.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -11,9 +12,47 @@ import { UserRole } from "@prisma/client";
 export class PayoutsController {
   constructor(private readonly payoutsService: PayoutsService) {}
 
+  /**
+   * Streams a CSV as a file attachment. The filename is set server-side so the
+   * browser download is named correctly even before the response body is read.
+   */
+  private sendCsv(res: Response, csv: string, filename: string) {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(csv);
+  }
+
   @Get()
-  async findAll(@Query("status") status?: string, @Query("page") page?: string, @Query("limit") limit?: string) {
-    return this.payoutsService.findAll(status, page ? parseInt(page) : 1, limit ? parseInt(limit) : 20);
+  async findAll(
+    @Query("status") status?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("type") type?: string,
+  ) {
+    return this.payoutsService.findAll(
+      status,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+      type,
+    );
+  }
+
+  @Get("vendors/export")
+  async exportVendorPayouts(@Query("status") status?: string, @Res() res?: Response) {
+    const { csv, count } = await this.payoutsService.getVendorPayoutsCsv(status);
+    if (res) {
+      this.sendCsv(res, csv, `vendor-payouts-${new Date().toISOString().split("T")[0]}.csv`);
+    }
+    return { count, csv };
+  }
+
+  @Get("delivery/export")
+  async exportDeliveryPayouts(@Query("status") status?: string, @Res() res?: Response) {
+    const { csv, count } = await this.payoutsService.getDeliveryPayoutsCsv(status);
+    if (res) {
+      this.sendCsv(res, csv, `delivery-payouts-${new Date().toISOString().split("T")[0]}.csv`);
+    }
+    return { count, csv };
   }
 
   @Get("vendors")

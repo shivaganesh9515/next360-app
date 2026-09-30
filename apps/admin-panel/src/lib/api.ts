@@ -49,6 +49,48 @@ function normalizePayload(payload: any) {
   return list;
 }
 
+/**
+ * One entry from GET /ai/recommendations.
+ *
+ * Mirrors `Recommendation` in `apps/api/src/ai/ai.service.ts` exactly. Note
+ * there is no `id`, `user`, `products[]` or `createdAt` — each record is a
+ * single recommended product, not a per-user bundle of them.
+ */
+export interface AiRecommendation {
+  productId: string;
+  productName: string;
+  reason: string;
+  score: number;
+}
+
+/**
+ * Coerces whatever GET /ai/recommendations hands back into a flat
+ * `AiRecommendation[]`, so a caller can always `.map()` the result.
+ *
+ * Tolerates, in order: a bare array, the `{ success, data: [...] }` envelope,
+ * a `{ recommendations: [...] }` wrapper, and null/undefined/garbage — the
+ * last of which yield `[]` rather than throwing. Individual entries missing
+ * `productId` are dropped, since that is the list's only stable key.
+ */
+function toAiRecommendationList(payload: any): AiRecommendation[] {
+  const candidates: any[] = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.recommendations)
+        ? payload.recommendations
+        : [];
+
+  return candidates
+    .filter((r): r is Record<string, any> => !!r && typeof r === 'object' && !!r.productId)
+    .map((r) => ({
+      productId: String(r.productId),
+      productName: typeof r.productName === 'string' ? r.productName : 'Unknown product',
+      reason: typeof r.reason === 'string' ? r.reason : '',
+      score: typeof r.score === 'number' && Number.isFinite(r.score) ? r.score : 0,
+    }));
+}
+
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   let url = `${API_BASE}${path}`;
   if (options.params) {
@@ -143,6 +185,62 @@ export const api = {
       throw new Error('Upload returned invalid response');
     }
     return normalizePayload((body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body) as T;
+  },
+
+  /**
+   * Downloads a file endpoint as a Blob and hands it to the browser.
+   *
+   * `api.get` cannot be used for this: it runs every response through
+   * `JSON.parse` and unwraps the `{ success, data }` envelope, which throws on
+   * a CSV body. This path skips both, and reads the filename from the server's
+   * Content-Disposition header so the download keeps the name the API chose.
+   */
+  download: async (path: string, fallbackFilename: string, params?: Record<string, any>): Promise<number> => {
+    const qs = params
+      ? '?' + new URLSearchParams(
+          Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+        ).toString()
+      : '';
+    const token = localStorage.getItem('admin_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE}${path}${qs}`, { method: 'GET', headers });
+
+    if (response.status === 401) {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Download failed' }));
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    }
+
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = /filename="?([^";]+)"?/i.exec(disposition);
+    const filename = match ? match[1] : fallbackFilename;
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    // The anchor must be in the document for the click to be dispatched as a
+    // navigation in some browsers, and the object URL is revoked on the next
+    // tick — revoking synchronously races the browser's read of the blob and
+    // produces a zero-byte or silently cancelled download.
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    // Surfaced so callers can distinguish "exported N rows" from "empty file".
+    const text = await blob.text();
+    const lineCount = text.split('\n').filter((l) => l.trim() !== '').length;
+    return Math.max(0, lineCount - 1);
   },
 };
 
@@ -278,6 +376,14 @@ export const adminApi = {
   // stale, they landed with the backend merge.)
   getVendorPayouts: (params?: any) => api.get<any>('/payouts/vendors', params),
   getDeliveryPayouts: (params?: any) => api.get<any>('/payouts/delivery', params),
+  // Server-side CSV exports. These return text/csv as a file attachment, so
+  // they go through api.download (Blob + Content-Disposition) rather than
+  // api.get, which would fail to parse the body as JSON. Resolves to the number
+  // of data rows written, so the caller can report a genuine empty export.
+  exportVendorPayoutsCsv: (params?: any) =>
+    api.download('/payouts/vendors/export', 'vendor-payouts.csv', params),
+  exportDeliveryPayoutsCsv: (params?: any) =>
+    api.download('/payouts/delivery/export', 'delivery-payouts.csv', params),
 
   // Inventory
   getInventory: (params?: any) => api.get<any>('/inventory', params),
@@ -291,7 +397,25 @@ export const adminApi = {
 
   // AI Logs — real routes are nested under /ai/admin/*, not bare /ai/*.
   getAILogs: (params?: any) => api.get<any>('/ai/admin/logs', params),
-  getAIRecommendations: (params?: any) => api.get<any>('/ai/recommendations', params),
+  /**
+   * GET /ai/recommendations returns a FLAT array of individual product
+   * recommendations — one entry per product, not one grouped record per user:
+   *
+   *   { success: true, data: [{ productId, productName, reason, score }] }
+   *
+   * `normalizePayload` deliberately refuses to collapse this envelope (it
+   * carries `success`/`meta` siblings, not a pure page object), so the raw
+   * `{ success, data, meta }` wrapper reaches callers. Normalize it here — at
+   * the boundary that owns the contract — so pages get a predictable array
+   * instead of each one guessing at `res.data` / `res.recommendations`.
+   *
+   * The backend is the source of truth; this only reshapes, it never invents
+   * fields. Anything unrecognised degrades to an empty array.
+   */
+  getAIRecommendations: async (params?: any): Promise<AiRecommendation[]> => {
+    const res = await api.get<any>('/ai/recommendations', params);
+    return toAiRecommendationList(res);
+  },
   getAIAnalytics: (params?: any) => api.get<any>('/ai/admin/analytics', params),
 
   // Reports — ReportsController exposes GET /reports/sales, /reports/revenue

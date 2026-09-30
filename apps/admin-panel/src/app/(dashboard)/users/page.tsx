@@ -1,37 +1,74 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Users as UsersIcon } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { adminApi } from '@/lib/api';
 
+/** Canonical `UserRole` values. The button label is derived for display only —
+ *  the value sent to the API (and matched against `user.role`) is the enum
+ *  form, so `DELIVERY PARTNER` on screen is `DELIVERY_PARTNER` on the wire. */
+const ROLE_FILTERS = ['ALL', 'CUSTOMER', 'VENDOR', 'DELIVERY_PARTNER', 'ADMIN'] as const;
+
+/** Tolerant comparison so `DELIVERY_PARTNER`, `DELIVERY PARTNER` and
+ *  `delivery-partner` all match the same users. */
+const normalizeRole = (value: unknown) =>
+  String(value ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: string; name: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // Identifies the newest in-flight request. Switching filters fires several
+  // requests in quick succession; without this a slower earlier response can
+  // land last and overwrite the table with rows for the previous filter.
+  const requestId = useRef(0);
+
+  // `search` is a dependency: it previously wasn't, so typing in the search box
+  // only ever took effect once the page or role filter happened to change.
   useEffect(() => {
     loadUsers();
-  }, [page, roleFilter]);
+  }, [page, roleFilter, search]);
 
   const loadUsers = async () => {
+    const id = ++requestId.current;
     setLoading(true);
     try {
+      // "All Roles" is expressed by omitting `role` entirely — the backend also
+      // accepts role=ALL, but sending nothing is unambiguous.
       const params: any = { page, limit: 20 };
-      if (roleFilter !== 'ALL') params.role = roleFilter;
+      if (roleFilter !== 'ALL') params.role = normalizeRole(roleFilter);
       if (search) params.search = search;
       const res = await adminApi.getUsers(params);
-      setUsers((Array.isArray(res) ? res : (res as any)?.data) || []);
+      if (id !== requestId.current) return;
+      const list: any[] = (Array.isArray(res) ? res : (res as any)?.data) || [];
+      // The API filters by role server-side; this guard means a selected tab can
+      // never display another role's users. It is a no-op on a correctly
+      // filtered response, and `list` is passed through untouched for ALL.
+      const rows = roleFilter === 'ALL'
+        ? list
+        : list.filter((u) => normalizeRole(u.role) === normalizeRole(roleFilter));
+      setUsers(rows);
       setTotalPages(res?.meta?.totalPages || 1);
-    } catch {
-      setUsers([]);
+      setError(null);
+    } catch (err: any) {
+      // Kept separate from "no users": a failed request used to be reported as
+      // an empty table, which made a 400 from the API indistinguishable from a
+      // genuinely empty result and hid the real cause.
+      if (id === requestId.current) {
+        setUsers([]);
+        setTotalPages(1);
+        setError(err?.message || 'Failed to load users');
+      }
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
@@ -93,7 +130,7 @@ export default function UsersPage() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {['ALL', 'CUSTOMER', 'VENDOR', 'DELIVERY_PARTNER', 'ADMIN'].map((r) => (
+        {ROLE_FILTERS.map((r) => (
           <button
             key={r}
             onClick={() => { setRoleFilter(r); setPage(1); }}
@@ -116,7 +153,7 @@ export default function UsersPage() {
         page={page}
         totalPages={totalPages}
         onPageChange={setPage}
-        emptyMessage="No users found"
+        emptyMessage={error ? `Couldn't load users — ${error}` : 'No users found'}
         emptyIcon={<UsersIcon className="w-10 h-10" />}
       />
 
