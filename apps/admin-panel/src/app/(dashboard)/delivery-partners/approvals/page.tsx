@@ -13,11 +13,24 @@ export default function DeliveryPartnerApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: string; name: string } | null>(null);
 
+  // BACKEND DEPENDENCY (not fixable here): the Prisma `DeliveryPartnerStatus`
+  // enum only has OFFLINE | AVAILABLE | ON_DELIVERY - there is no PENDING
+  // state - and the service maps the incoming `status=PENDING` filter onto
+  // OFFLINE. This query therefore matches offline partners, not applicants,
+  // and will legitimately return zero rows. No frontend workaround is applied
+  // on purpose: inventing an OFFLINE-as-pending stand-in would show the wrong
+  // records. Fixing this requires a real PENDING status in the backend.
   useEffect(() => { loadPending(); }, []);
 
   const loadPending = async () => {
     setLoading(true);
-    try { const res = await adminApi.getDeliveryPartners({ status: 'PENDING', limit: 50 }); setPartners(res?.items || []); }
+    try {
+      const res = await adminApi.getDeliveryPartners({ status: 'PENDING', limit: 50 });
+      // After the shared normalizer the payload is the row array itself - the
+      // backend's `items` key is unwrapped away, so `res.items` is always
+      // undefined and used to render a permanently empty table.
+      setPartners(Array.isArray(res) ? res : []);
+    }
     catch { setPartners([]); } finally { setLoading(false); }
   };
 

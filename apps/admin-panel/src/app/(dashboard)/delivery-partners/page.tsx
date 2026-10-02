@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Truck, AlertTriangle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
@@ -17,28 +17,50 @@ export default function DeliveryPartnersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: string; name: string } | null>(null);
 
-  useEffect(() => { loadPartners(); }, [page]);
+  // Guards against a slow earlier response overwriting a newer one (rapid page
+  // or search changes). Only the newest request may touch state.
+  const requestIdRef = useRef(0);
 
-  const loadPartners = async () => {
+  // `search` is a dependency so typing in the table's search box re-queries the
+  // API. GET /delivery-partners does accept `search` (it filters on the
+  // partner's name, email and phone), so this is a server-side search and no
+  // client-side filtering is needed.
+  const loadPartners = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
-      // GET /delivery-partners returns { items, total, totalPages }, so res.items
-      // is the correct read — this mapping is right. A failed request used to be
-      // swallowed into an empty list, which rendered the "No delivery partners
-      // found" empty state and made an API/permission problem look like an
-      // absence of data. Surface it instead so the real cause is visible.
       const res = await adminApi.getDeliveryPartners({ page, limit: 20, search });
+      if (requestId !== requestIdRef.current) return;
+
+      // After the shared normalizer the payload is the row array itself - the
+      // backend's `items` key is unwrapped away, so there is nothing to read
+      // off `res.items`. Assign the array directly.
+      const rows = Array.isArray(res) ? res : [];
+      setPartners(rows);
+
+      // The backend paginates and returns totalPages, but the global
+      // ResponseInterceptor hoists that metadata into the envelope's `meta`,
+      // which the shared normalizer drops when the payload is a bare array.
+      // Read it defensively: if the metadata ever survives normalization the
+      // pager lights up, otherwise we stay on page 1 rather than inventing a
+      // page count. normalizePayload itself is intentionally left untouched.
+      const meta = (rows as any)?.meta;
+      setTotalPages(meta?.totalPages ?? (rows as any)?.totalPages ?? 1);
       setError(null);
     } catch (err: any) {
+      if (requestId !== requestIdRef.current) return;
       setPartners([]);
+      setTotalPages(1);
       setError(err?.message || 'Could not load delivery partners.');
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
-  };
+  }, [page, search]);
+
+  useEffect(() => { loadPartners(); }, [loadPartners]);
 
   const handleStatusChange = async (id: string, status: string) => {
-    try { await adminApi.updateDeliveryPartnerStatus(id, status); loadPartners(); setConfirmAction(null); }
+    try { await adminApi.updateDeliveryPartnerStatus(id, status); await loadPartners(); setConfirmAction(null); }
     catch (err: any) { alert(err.message || 'Failed to update partner'); }
   };
 
