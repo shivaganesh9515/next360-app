@@ -244,6 +244,67 @@ export const api = {
   },
 };
 
+/**
+ * One row from `GET /support/tickets`, mirroring the `SupportTicket` model in
+ * `prisma/schema.prisma`.
+ *
+ * Note `user` is an *object* (`{ id, name, email }`), not a display string —
+ * rendering it directly as a React child throws, so pages must read
+ * `ticket.user.name`. `assignedToId` is a user id or `null`, and the list adds
+ * a `_count.replies` that the detail endpoint instead expands into `replies[]`.
+ */
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  subject: string;
+  message: string;
+  category: string;
+  orderId: string | null;
+  status: string;
+  priority: string;
+  assignedToId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: { id: string; name: string; email: string; phone?: string };
+  _count?: { replies: number };
+}
+
+/**
+ * One entry of `SupportTicket.replies` from `GET /support/tickets/:id`.
+ *
+ * `SupportService.findOne` selects `user: { id, name, role }` and orders by
+ * `createdAt` ascending, so `role === 'ADMIN'` is what marks a message as an
+ * agent reply rather than a customer one.
+ */
+export interface SupportTicketReply {
+  id: string;
+  ticketId: string;
+  userId: string;
+  message: string;
+  createdAt: string;
+  user?: { id: string; name: string; role: string } | null;
+}
+
+/** `SupportTicket` with the relations the single-ticket endpoint expands. */
+export interface SupportTicketDetail extends SupportTicket {
+  replies?: SupportTicketReply[];
+}
+
+/**
+ * Ticket status values, as stored by the backend.
+ *
+ * `SupportService.assign` forces `ASSIGNED` on assignment, and the service
+ * filters with an exact `where.status = status` match — so callers must send
+ * these uppercase values or they will silently match zero rows. `'ALL'` is the
+ * only value the service treats as "no filter".
+ */
+export const SUPPORT_TICKET_STATUS = {
+  OPEN: 'OPEN',
+  ASSIGNED: 'ASSIGNED',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED',
+} as const;
+
 // Admin-specific API methods
 export const adminApi = {
   // Auth
@@ -517,4 +578,33 @@ export const adminApi = {
   // Settings — endpoints now exist via AdminModule
   getSettings: () => api.get<any>('/admin/settings'),
   updateSettings: (settings: any) => api.patch<any>('/admin/settings', settings),
+
+  // Support tickets — SupportController, ADMIN-guarded on the list and on
+  // every mutation. `getSupportTickets` is the only one that filters: pass a
+  // status to scope the list, or omit it for every ticket.
+  //
+  // `status` must be uppercase (or exactly 'ALL'). SupportService.findAll does
+  // a raw `where.status = status`, so a lowercase 'open' matches nothing and
+  // 'all' — which the service only excludes when it equals 'ALL' — would also
+  // match nothing. Callers should pass SUPPORT_TICKET_STATUS values.
+  //
+  // The controller accepts only `status`; it never forwards page/limit, so the
+  // response is capped at the service default of 20. `normalizePayload` unwraps
+  // the double-wrapped page object into an array carrying `.meta.total`.
+  getSupportTickets: (status?: string) =>
+    api.get<SupportTicket[]>('/support/tickets', status ? { status } : undefined),
+  // Returns a plain object (not a page), so normalizePayload leaves it as-is.
+  getSupportTicket: (id: string) => api.get<SupportTicketDetail>(`/support/tickets/${id}`),
+  // Body must be `{ message }` — matches AddMessageDto.
+  replyTicket: (id: string, message: string) =>
+    api.post<SupportTicketReply>(`/support/tickets/${id}/reply`, { message }),
+  // Body must be `{ status }` — matches UpdateTicketStatusDto.
+  updateTicketStatus: (id: string, status: string) =>
+    api.patch<SupportTicket>(`/support/tickets/${id}/status`, { status }),
+  // Body key is `adminId`, NOT `assignedToId` — that is the name the
+  // controller reads with @Body('adminId'). AssignTicketDto.assignedToId is
+  // declared but never wired to this route, so sending that key writes undefined.
+  // Note this also forces status back to ASSIGNED server-side.
+  assignTicket: (id: string, adminId: string) =>
+    api.patch<SupportTicket>(`/support/tickets/${id}/assign`, { adminId }),
 };
