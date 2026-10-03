@@ -26,12 +26,12 @@ export class ReviewsController {
     return this.reviewsService.create(user.id, dto);
   }
 
-  @Get('ratings')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  getRatingSummary() {
-    return this.reviewsService.getRatingSummary();
-  }
+  //@Get('ratings')
+  //@UseGuards(JwtAuthGuard, RolesGuard)
+  //@Roles('ADMIN')
+  //getRatingSummary() {
+    //return this.reviewsService.getRatingSummary();
+  //}
 
   @Get('product/:productId')
   findByProduct(
@@ -58,10 +58,12 @@ export class ReviewsController {
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('rating') rating?: string,
   ) {
       return this.reviewsService.findAll(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
+      rating ? parseInt(rating, 10) : undefined,
      );
     }
 

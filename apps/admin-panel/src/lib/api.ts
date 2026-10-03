@@ -91,7 +91,147 @@ function toAiRecommendationList(payload: any): AiRecommendation[] {
     }));
 }
 
-async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
+/**
+ * The `Review` row exactly as `Review` in `prisma/schema.prisma` defines it,
+ * plus the two relations `ReviewsService.findAll` includes.
+ *
+ * Both `title` and `body` are nullable in the schema, and the model has NO
+ * moderation/flag column — there is no `flagged`/`isFlagged` field anywhere in
+ * the backend, so the admin panel must not pretend to offer flag counts.
+ */
+export interface AdminReview {
+  id: string;
+  userId: string;
+  productId: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  isVerifiedPurchase: boolean;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; name: string | null; avatarUrl: string | null } | null;
+  product: { id: string; name: string | null; images?: string[] | null } | null;
+}
+
+/** Pagination the global ResponseInterceptor lifts into the envelope `meta`. */
+interface PageMeta {
+  page?: number;
+  limit?: number;
+  total?: number;
+  totalPages?: number;
+}
+
+export interface ReviewsPage {
+  items: AdminReview[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface RatingDistributionEntry {
+  rating: number;
+  count: number;
+  percentage: number;
+}
+
+export interface RatingsPage {
+  items: AdminReview[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  summary: {
+    averageRating: number;
+    totalReviews: number;
+    minRating: number;
+    maxRating: number;
+  };
+  distribution: RatingDistributionEntry[];
+}
+
+function toNum(value: any, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function toReviewRows(value: any): AdminReview[] {
+  return (Array.isArray(value) ? value : Array.isArray(value?.items) ? value.items : []) as AdminReview[];
+}
+
+/** Reads a pagination block out of the envelope, tolerating its absence. */
+function toPageMeta(body: any, rowCount: number, limit: number): Required<Pick<ReviewsPage, 'total' | 'page' | 'limit' | 'totalPages'>> {
+  const meta: PageMeta = body?.meta && typeof body.meta === 'object' ? body.meta : {};
+  const resolvedLimit = toNum(meta.limit, limit || 20) || 20;
+  const total = toNum(meta.total, rowCount);
+  return {
+    total,
+    page: toNum(meta.page, 1) || 1,
+    limit: resolvedLimit,
+    totalPages: toNum(meta.totalPages, Math.ceil(total / resolvedLimit)),
+  };
+}
+
+/**
+ * GET /reviews
+ *
+ * The service returns `{ items, total, page, limit, totalPages }`, which the
+ * global ResponseInterceptor rewrites to `{ success, data: items[], meta }` —
+ * i.e. the rows arrive as a *bare array* and pagination moves into `meta`.
+ * `api.get` discards that `meta`, so this method reads the envelope directly
+ * and hands back both. `rating` is a real server-side filter here.
+ */
+async function fetchReviews(params?: Record<string, any>): Promise<ReviewsPage> {
+  const sent = await send('/reviews', { method: 'GET', params });
+  const body = sent?.body;
+  const rows = toReviewRows(unwrapEnvelope(body));
+  return { items: rows, ...toPageMeta(body, rows.length, toNum(body?.meta?.limit, 20)) };
+}
+
+/**
+ * GET /reviews/ratings
+ *
+ * The service builds its own `{ success, data: { items, summary, distribution }, meta }`,
+ * which the interceptor passes through untouched. Only `rating`/`page`/`limit`
+ * are accepted server-side — there is no `rating` filter on this endpoint, and
+ * `summary`/`distribution` are always global totals across every review.
+ */
+async function fetchRatings(params?: Record<string, any>): Promise<RatingsPage> {
+  const sent = await send('/reviews/ratings', { method: 'GET', params });
+  const body = sent?.body;
+  const data = unwrapEnvelope(body) ?? {};
+  const rows = toReviewRows(data);
+  const summary = data?.summary ?? {};
+  const distribution = Array.isArray(data?.distribution) ? data.distribution : [];
+
+  return {
+    items: rows,
+    ...toPageMeta(body, rows.length, toNum(body?.meta?.limit, 20)),
+    summary: {
+      averageRating: toNum(summary.averageRating),
+      totalReviews: toNum(summary.totalReviews),
+      minRating: toNum(summary.minRating),
+      maxRating: toNum(summary.maxRating),
+    },
+    distribution: distribution.map((d: any) => ({
+      rating: toNum(d?.rating),
+      count: toNum(d?.count),
+      percentage: toNum(d?.percentage),
+    })),
+  };
+}
+
+/**
+ * Performs the transport for a request and returns the parsed response body
+ * *before* any envelope unwrapping.
+ *
+ * Split out of `request` so a caller that genuinely needs the envelope — the
+ * `meta` block the global ResponseInterceptor attaches to list responses — can
+ * read it. `request` keeps its original behaviour exactly; this is a pure
+ * extraction, not a change of contract.
+ *
+ * Returns `undefined` for `204 No Content`.
+ */
+async function send(path: string, options: ApiOptions = {}): Promise<{ body: any } | undefined> {
   let url = `${API_BASE}${path}`;
   if (options.params) {
     const searchParams = new URLSearchParams();
@@ -126,7 +266,7 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
       throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
 
-    if (response.status === 204) return undefined as T;
+    if (response.status === 204) return undefined;
 
     const text = await response.text();
     let body: any;
@@ -135,16 +275,24 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     } catch {
       throw new Error('API returned invalid response. Is the server running?');
     }
-    // apps/api wraps every response in { success, data, meta } (ResponseInterceptor)
-    // — unwrap it here so callers get the payload directly instead of the envelope.
-    const payload = (body && typeof body === 'object' && 'success' in body && 'data' in body) ? body.data : body;
-    return normalizePayload(payload) as T;
+    return { body };
   } catch (e) {
     if (e instanceof TypeError && e.message.includes('fetch')) {
       throw new Error('Unable to connect to server. Please check your connection.');
     }
     throw e;
   }
+}
+
+/** Unwraps `{ success, data }` exactly as the shared transport always has. */
+function unwrapEnvelope(body: any) {
+  return body && typeof body === 'object' && 'success' in body && 'data' in body ? body.data : body;
+}
+
+async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const sent = await send(path, options);
+  if (!sent) return undefined as T;
+  return normalizePayload(unwrapEnvelope(sent.body)) as T;
 }
 
 export const api = {
@@ -453,7 +601,7 @@ export const adminApi = {
   getLowStock: (params?: any) => api.get<any>('/inventory/low-stock', params),
 
   // Reviews
-  getReviews: (params?: any) => api.get<any>('/reviews', params),
+  getReviews: (params?: any) => fetchReviews(params),
   deleteReview: (id: string) => api.delete<any>(`/reviews/${id}`),
 
   // AI Logs — real routes are nested under /ai/admin/*, not bare /ai/*.
@@ -572,8 +720,10 @@ export const adminApi = {
   getRefunds: (params?: any) => api.get<any>('/returns/refunds', params),
 
   // Ratings — ReviewsController exposes GET /reviews/ratings for the aggregate
-  // rating view, so this is a real endpoint.
-  getRatings: (params?: any) => api.get<any>('/reviews/ratings', params),
+  // rating view, so this is a real endpoint. Returns that aggregate's own
+  // contract: items, summary { averageRating, totalReviews, minRating,
+  // maxRating } and a 1-5 `distribution` of { rating, count, percentage }.
+  getRatings: (params?: any) => fetchRatings(params),
 
   // Settings — endpoints now exist via AdminModule
   getSettings: () => api.get<any>('/admin/settings'),

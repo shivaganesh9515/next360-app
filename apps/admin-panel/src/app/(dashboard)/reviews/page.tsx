@@ -4,61 +4,99 @@ import { useState, useEffect } from 'react';
 import { Star, MessageSquare, Trash2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatsCard from '@/components/StatsCard';
-import { adminApi } from '@/lib/api';
+import { adminApi, type AdminReview } from '@/lib/api';
+
+const LIMIT = 20;
+
+/**
+ * GET /reviews returns `{ success, data: AdminReview[], meta: { ...pagination } }`
+ * and supports a real server-side `rating` filter. It carries **no** summary
+ * block and the `Review` model has no flag/moderation column, so these are the
+ * only review statistics the backend can actually answer.
+ */
+const EMPTY_STATS = { total: 0, avgRating: 0 };
 
 export default function ReviewsPage() {
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [stats, setStats] = useState({ totalReviews: 0, avgRating: 0, flaggedCount: 0 });
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState(EMPTY_STATS);
   const [ratingFilter, setRatingFilter] = useState<number | ''>('');
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; productName: string } | null>(null);
   const [actionError, setActionError] = useState('');
-
-  useEffect(() => { loadReviews(); }, [page, ratingFilter]);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const loadReviews = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const params: any = { page, limit: 20 };
+      const params: Record<string, any> = { page, limit: LIMIT };
       if (ratingFilter !== '') params.rating = ratingFilter;
+
       const res = await adminApi.getReviews(params);
-      setReviews((Array.isArray(res) ? res : (res as any)?.data) || []);
-      setTotalPages(res?.meta?.totalPages || 1);
-      if (res?.summary) setStats(res.summary);
-    } catch { setReviews([]); } finally { setLoading(false); }
+
+      setReviews(res.items);
+      setTotalPages(res.totalPages);
+      setTotal(res.total);
+
+      // Merged against defaults rather than assigned, so a partial or empty
+      // payload can never leave `avgRating` undefined for `.toFixed()` below.
+      setStats((prev) => ({ ...EMPTY_STATS, total: res.total ?? prev.total }));
+    } catch (err: any) {
+      setReviews([]);
+      setTotalPages(1);
+      setTotal(0);
+      setStats((prev) => ({ ...EMPTY_STATS }));
+      setError(err?.message || 'Could not load reviews.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => { loadReviews(); }, [page, ratingFilter]);
 
   const handleDelete = async (id: string) => {
     setActionError('');
+    setActionBusy(true);
     try {
       await adminApi.deleteReview(id);
       setConfirmDelete(null);
-      loadReviews();
+      await loadReviews();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to delete review');
+      setActionError(err?.message || 'Failed to delete review');
+    } finally {
+      setActionBusy(false);
     }
   };
 
   const columns = [
-    { key: 'user', label: 'User', render: (r: any) => <span className="font-medium text-gray-800">{r.user?.name || '-'}</span> },
-    { key: 'product', label: 'Product', render: (r: any) => r.product?.name || '-' },
-    { key: 'rating', label: 'Rating', render: (r: any) => (
+    { key: 'user', label: 'User', render: (r: AdminReview) => <span className="font-medium text-gray-800">{r.user?.name || '-'}</span> },
+    { key: 'product', label: 'Product', render: (r: AdminReview) => r.product?.name || '-' },
+    { key: 'rating', label: 'Rating', render: (r: AdminReview) => (
       <div className="flex items-center gap-1">{[1, 2, 3, 4, 5].map(s => <Star key={s} className={`w-3.5 h-3.5 ${s <= r.rating ? 'text-amber-500 fill-amber-500' : 'text-gray-300'}`} />)}</div>
     )},
-    { key: 'comment', label: 'Review', render: (r: any) => <p className="text-sm text-gray-600 line-clamp-2">{r.comment || 'No comment'}</p> },
-    { key: 'createdAt', label: 'Date', render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
-    { key: 'actions', label: 'Actions', render: (r: any) => (
+    { key: 'review', label: 'Review', render: (r: AdminReview) => (
+      <div className="min-w-0">
+        {r.title && <p className="text-sm font-medium text-gray-800 truncate">{r.title}</p>}
+        {/* `body` is the review text field — the schema has no `comment`. Both
+            title and body are nullable. */}
+        <p className="text-sm text-gray-600 line-clamp-2">{r.body || 'No comment'}</p>
+      </div>
+    )},
+    { key: 'createdAt', label: 'Date', render: (r: AdminReview) => (r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-') },
+    { key: 'actions', label: 'Actions', render: (r: AdminReview) => (
       <div className="flex gap-1">
-        <button onClick={(e) => { e.stopPropagation(); setConfirmDelete({ id: r.id, productName: r.product?.name || 'Unknown' }); }} title="Delete review" className="p-1.5 hover:bg-red-100 rounded"><Trash2 className="w-3.5 h-3.5 text-red-600" /></button>
+        <button onClick={(e) => { e.stopPropagation(); setActionError(''); setConfirmDelete({ id: r.id, productName: r.product?.name || 'Unknown' }); }} title="Delete review" className="p-1.5 hover:bg-red-100 rounded"><Trash2 className="w-3.5 h-3.5 text-red-600" /></button>
       </div>
     )},
   ];
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-gray-800">Reviews</h2><p className="text-sm text-gray-500">Moderate product reviews</p></div>
+      <div><h2 className="text-xl font-bold text-gray-800">Reviews</h2><p className="text-sm text-gray-500">Browse and moderate product reviews</p></div>
 
       {actionError && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600" role="alert">
@@ -67,9 +105,9 @@ export default function ReviewsPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatsCard title="Total Reviews" value={stats.totalReviews.toString()} icon={<MessageSquare className="w-5 h-5" />} color="blue" />
-        <StatsCard title="Avg Rating" value={stats.avgRating ? stats.avgRating.toFixed(1) : '0'} icon={<Star className="w-5 h-5" />} color="amber" />
-        <StatsCard title="Flagged" value={stats.flaggedCount.toString()} icon={<MessageSquare className="w-5 h-5" />} color="red" />
+        <StatsCard title="Total Reviews" value={stats.total.toString()} icon={<MessageSquare className="w-5 h-5" />} color="blue" />
+        <StatsCard title="Showing" value={`${reviews.length}`} icon={<Star className="w-5 h-5" />} color="amber" />
+        <StatsCard title="Pages" value={`${totalPages}`} icon={<MessageSquare className="w-5 h-5" />} color="emerald" />
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -80,9 +118,21 @@ export default function ReviewsPage() {
             {r ? `${r} ★` : 'All'}
           </button>
         ))}
+        {ratingFilter !== '' && (
+          <span className="text-xs text-gray-400 self-center">{total} {total === 1 ? 'review' : 'reviews'} with {ratingFilter} ★</span>
+        )}
       </div>
 
-      <DataTable columns={columns} data={reviews} loading={loading} page={page} totalPages={totalPages} onPageChange={setPage} emptyMessage="No reviews yet" emptyIcon={<Star className="w-10 h-10" />} />
+      <DataTable
+        columns={columns}
+        data={reviews}
+        loading={loading}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        emptyMessage={error ? `Could not load reviews — ${error}` : ratingFilter !== '' ? `No reviews with ${ratingFilter} ★ rating` : 'No reviews yet'}
+        emptyIcon={<Star className="w-10 h-10" />}
+      />
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -95,8 +145,10 @@ export default function ReviewsPage() {
               </div>
             )}
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={() => handleDelete(confirmDelete.id)} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+              <button onClick={() => setConfirmDelete(null)} disabled={actionBusy} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50">Cancel</button>
+              <button onClick={() => handleDelete(confirmDelete.id)} disabled={actionBusy} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {actionBusy ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
